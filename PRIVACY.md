@@ -169,7 +169,7 @@ We **DO NOT**:
 ## Open Source
 
 - Extension code is open source
-- Mail me for Code
+- You can review all data handling
 - GitHub: [https://github.com/imAaryash/blockit-extension](https://github.com/imAaryash/blockit-extension)
 
 ## Contact
@@ -177,7 +177,7 @@ We **DO NOT**:
 ### Questions or Concerns?
 
 - **GitHub Issues**: [Open an issue](https://github.com/imAaryash/blockit-extension/issues)
-- **Email**: aaryash@edxtra.tech
+- **Email**: [Your contact email]
 - **Developer**: @imAaryash
 
 ### Data Requests

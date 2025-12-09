@@ -1,0 +1,356 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Focus Mode Dashboard</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: #0a0a0a;
+      color: #fff;
+      min-height: 100vh;
+    }
+
+    .dashboard-container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 40px 32px;
+    }
+
+    .dashboard-header {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+
+    .dashboard-header h1 {
+      font-size: 28px;
+      margin-bottom: 8px;
+    }
+
+    .nav-buttons {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      margin-bottom: 24px;
+    }
+
+    .nav-btn {
+      padding: 10px 20px;
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      border-radius: 6px;
+      color: #4a9eff;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .nav-btn:hover {
+      background: #2a2a2a;
+      border-color: #4a9eff;
+      transform: translateY(-1px);
+    }
+
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+
+    .stat-card {
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      border-radius: 8px;
+      padding: 20px;
+    }
+
+    .stat-card-title {
+      font-size: 12px;
+      text-transform: uppercase;
+      color: #666;
+      margin-bottom: 8px;
+      letter-spacing: 0.5px;
+    }
+
+    .stat-card-value {
+      font-size: 32px;
+      font-weight: 600;
+      color: #4a9eff;
+      margin-bottom: 4px;
+    }
+
+    .stat-card-subtitle {
+      font-size: 12px;
+      color: #888;
+    }
+
+    .badges-section {
+      margin-bottom: 32px;
+    }
+
+    .badges-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 12px;
+    }
+
+    .badge-card {
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      border-radius: 6px;
+      padding: 16px;
+      text-align: center;
+      opacity: 0.4;
+      transition: all 0.3s;
+    }
+
+    .badge-card.earned {
+      opacity: 1;
+      border-color: #4a9eff;
+    }
+
+    .badge-icon {
+      font-size: 32px;
+      margin-bottom: 8px;
+    }
+
+    .badge-name {
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .badge-desc {
+      font-size: 11px;
+      color: #666;
+    }
+
+    .section-title {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      border-bottom: 1px solid #2a2a2a;
+      padding-bottom: 8px;
+    }
+
+    .blocked-sites {
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      border-radius: 6px;
+      padding: 16px;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+
+    .site-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 0;
+      border-bottom: 1px solid #222;
+    }
+
+    .site-item:last-child {
+      border-bottom: none;
+    }
+
+    .btn-remove {
+      background: transparent;
+      border: 1px solid #ff6b6b;
+      color: #ff6b6b;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      cursor: pointer;
+    }
+
+    .btn-remove:hover {
+      background: rgba(255, 107, 107, 0.1);
+    }
+
+    .add-site {
+      display: flex;
+      gap: 8px;
+      margin-top: 16px;
+    }
+
+    .add-site input {
+      flex: 1;
+    }
+
+    .settings-grid {
+      display: grid;
+      gap: 16px;
+    }
+
+    .setting-item {
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      border-radius: 6px;
+      padding: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .setting-label {
+      flex: 1;
+    }
+
+    .setting-label h4 {
+      font-size: 14px;
+      margin-bottom: 4px;
+    }
+
+    .setting-label p {
+      font-size: 12px;
+      color: #666;
+    }
+
+    .setting-input input[type="number"] {
+      width: 80px;
+      padding: 6px;
+      background: #0a0a0a;
+      border: 1px solid #2a2a2a;
+      border-radius: 4px;
+      color: #fff;
+      text-align: center;
+    }
+    
+    /* Button Styles */
+    .btn-primary {
+      background: #4a9eff;
+      color: #000;
+      border: none;
+      border-radius: 6px;
+      padding: 12px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .btn-primary:hover {
+      background: #5da8ff;
+    }
+
+    /* Input Styles */
+    input {
+      font-family: inherit;
+    }
+
+    input:focus {
+      outline: none;
+    }
+
+    textarea {
+      font-family: 'Courier New', monospace;
+    }
+  </style>
+</head>
+<body>
+  <div class="dashboard-container">
+    <div class="dashboard-header">
+      <h1>📊 Focus Dashboard</h1>
+      <p style="color: #666; font-size: 14px;">Track your productivity and manage settings</p>
+    </div>
+
+    <div class="nav-buttons">
+      <a href="popup.html" class="nav-btn">
+        <span>🏠</span>
+        <span>Home</span>
+      </a>
+      <a href="social.html" class="nav-btn">
+        <span>👥</span>
+        <span>Friends & Chat</span>
+      </a>
+    </div>
+
+    <!-- Stats Grid -->
+    <div class="dashboard-grid">
+      <div class="stat-card">
+        <div class="stat-card-title">Level</div>
+        <div class="stat-card-value" id="levelStat">1</div>
+        <div class="stat-card-subtitle"><span id="pointsStat">0</span> points</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-card-title">Current Streak</div>
+        <div class="stat-card-value" id="currentStreak">0🔥</div>
+        <div class="stat-card-subtitle">Longest: <span id="longestStreak">0</span> days</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-card-title">Total Focus Time</div>
+        <div class="stat-card-value" id="totalTime">0h</div>
+        <div class="stat-card-subtitle"><span id="totalSessions">0</span> sessions</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-card-title">Sites Blocked</div>
+        <div class="stat-card-value" id="blockedStat">0</div>
+        <div class="stat-card-subtitle">All time</div>
+      </div>
+    </div>
+
+    <!-- Badges Section -->
+    <div class="badges-section">
+      <div class="section-title">🏆 Achievements</div>
+      <div class="badges-grid" id="badgesGrid">
+        <!-- Populated by JS -->
+      </div>
+    </div>
+
+    <!-- Blocked Sites Manager -->
+    <div style="margin-bottom: 32px;">
+      <div class="section-title">🚫 Custom Blocked Sites</div>
+      <div class="blocked-sites" id="blockedSitesList">
+        <!-- Populated by JS -->
+      </div>
+      <div class="add-site">
+        <input type="text" id="newSite" placeholder="e.g., example.com" />
+        <button class="btn-primary" id="addSiteBtn">Add Site</button>
+      </div>
+    </div>
+
+    <!-- Settings -->
+    <div>
+      <div class="section-title">⚙️ Settings</div>
+      <div class="settings-grid">
+        <div class="setting-item">
+          <div class="setting-label">
+            <h4>Daily Goal</h4>
+            <p>Set your daily focus time target (minutes)</p>
+          </div>
+          <div class="setting-input">
+            <input type="number" id="dailyGoalInput" min="15" step="15" value="120" />
+          </div>
+        </div>
+        <div class="setting-item">
+          <div class="setting-label">
+            <h4>Pomodoro Break Duration</h4>
+            <p>Break length in minutes</p>
+          </div>
+          <div class="setting-input">
+            <input type="number" id="pomodoroBreakInput" min="1" max="15" value="5" />
+          </div>
+        </div>
+      </div>
+      <button class="btn-primary" id="saveSettings" style="margin-top: 16px; width: 100%;">Save Settings</button>
+    </div>
+  </div>
+
+  <script src="dashboard.js"></script>
+</body>
+</html>

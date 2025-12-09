@@ -1,0 +1,110 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Focus Mode</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <h2>FOCUS MODE</h2>
+    
+    <!-- Stats Overview -->
+    <div id="statsOverview" class="stats-overview">
+      <div class="stat-item">
+        <div class="stat-label">Level</div>
+        <div class="stat-value" id="levelDisplay">1</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-label">Streak</div>
+        <div class="stat-value" id="streakDisplay">0🔥</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-label">Today</div>
+        <div class="stat-value" id="todayDisplay">0m</div>
+      </div>
+    </div>
+
+    <!-- Daily Goal Progress -->
+    <div id="goalProgress" class="goal-progress">
+      <div class="goal-bar">
+        <div class="goal-fill" id="goalFill" style="width: 0%"></div>
+      </div>
+      <div class="goal-text" id="goalText">0/120 min daily goal</div>
+    </div>
+
+    <!-- Friends Activity Widget -->
+    <div id="friendsWidget" class="friends-widget">
+      <div class="friends-header">
+        <span>👥 Friends Online</span>
+        <span id="onlineCount" class="online-count">0</span>
+      </div>
+      <div id="friendsList" class="friends-list">
+        <div class="friends-loading">Loading...</div>
+      </div>
+    </div>
+    
+    <div id="timerDisplay" class="timer-display">
+      <svg class="timer-circle" viewBox="0 0 200 200">
+        <circle class="timer-bg" cx="100" cy="100" r="90"></circle>
+        <circle class="timer-progress" cx="100" cy="100" r="90"></circle>
+      </svg>
+      <div class="timer-text">
+        <div class="timer-time">00:00</div>
+        <div class="timer-label">remaining</div>
+      </div>
+    </div>
+    
+    <div id="setupControls" class="setup-controls">
+      <!-- Quick Buttons -->
+      <div class="quick-buttons">
+        <button class="btn-quick" data-duration="15">15 min</button>
+        <button class="btn-quick" data-duration="25">25 min</button>
+        <button class="btn-quick" data-duration="45">45 min</button>
+        <button class="btn-quick" data-duration="90">90 min</button>
+      </div>
+
+      <!-- Presets -->
+      <div class="presets">
+        <label>Quick Presets</label>
+        <select id="preset">
+          <option value="">Custom</option>
+          <option value="deepWork">Deep Work (90 min)</option>
+          <option value="study">Study (45 min)</option>
+          <option value="quickFocus">Quick Focus (15 min)</option>
+        </select>
+      </div>
+      
+      <div class="input-group">
+        <label>Custom Duration (minutes)</label>
+        <input id="duration" type="number" min="1" value="25" />
+      </div>
+      
+      <div class="input-group">
+        <label>Passcode (optional)</label>
+        <input id="passcode" type="password" placeholder="Enter passcode" />
+      </div>
+
+      <div class="checkbox-group">
+        <label>
+          <input type="checkbox" id="pomodoroToggle" />
+          Pomodoro Mode (auto break)
+        </label>
+      </div>
+      
+      <button id="start" class="btn-primary">Start Session</button>
+      <button id="viewStats" class="btn-secondary">View Dashboard</button>
+      <button id="viewFriends" class="btn-secondary">Friends & Leaderboard</button>
+    </div>
+    
+    <div id="activeControls" class="active-controls">
+      <button id="emergency" class="btn-break">Emergency Break (2 min)</button>
+    </div>
+    
+    <div id="status" class="status"></div>
+  </div>
+
+  <script src="api.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>
