@@ -3,33 +3,6 @@
 // API Configuration
 const API_BASE_URL = 'https://focus-backend-g1zg.onrender.com';
 
-// ========== INSTAGRAM PERMANENT BLOCKER ==========
-// This runs independently of focus mode
-function isInstagramURL(url) {
-  if (!url) return false;
-  const lower = url.toLowerCase();
-  return lower.includes('instagram.com') || 
-         lower.includes('instagram') ||
-         lower.includes('www.instagram') ||
-         lower.includes('m.instagram') ||
-         lower.includes('ig.com');
-}
-
-async function blockInstagram(tab) {
-  if (!tab || !tab.url) return;
-  if (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://') || tab.url.startsWith('about:')) return;
-  
-  if (isInstagramURL(tab.url)) {
-    try {
-      await chrome.tabs.update(tab.id, {url: chrome.runtime.getURL('blocked.html')});
-      console.log('Instagram blocked:', tab.url);
-    } catch (e) {
-      console.error('Failed to block Instagram:', e);
-    }
-  }
-}
-// ========== END INSTAGRAM BLOCKER ==========
-
 const DEFAULTS = {
   allowed: ["https://www.youtube.com/","https://youtube.com/","https://www.google.com/"],
   blockedKeywords: [
@@ -79,15 +52,7 @@ async function enforceTab(tab) {
   const url = tab.url.toLowerCase();
   const hostname = (new URL(tab.url)).hostname.toLowerCase();
 
-  // ALWAYS block Instagram - regardless of focus mode status
-  if (url.includes('instagram.com') || hostname.includes('instagram.com') || 
-      url.includes('instagram') || hostname.includes('instagram')) {
-    await chrome.tabs.update(tab.id, {url: chrome.runtime.getURL('blocked.html')});
-    await incrementStat('blockedCount');
-    return;
-  }
-
-  // Only enforce other restrictions when focus mode is active AND not on break
+  // Only enforce restrictions when focus mode is active AND not on break
   if (!focusActive || !sessionEnd || tNow > sessionEnd || onBreak) return;
 
   // Allowed check (simple substring match for now)
@@ -158,33 +123,12 @@ async function incrementStat(key) {
   }
 }
 
-// ========== AGGRESSIVE INSTAGRAM BLOCKING ==========
-// Block Instagram BEFORE page loads using webNavigation
-chrome.webNavigation.onBeforeNavigate.addListener((details) => {
-  if (details.frameId !== 0) return; // Only main frame
-  const url = details.url.toLowerCase();
-  if (url.includes('instagram.com') || url.includes('instagram')) {
-    chrome.tabs.update(details.tabId, {url: chrome.runtime.getURL('blocked.html')});
-    console.log('Instagram blocked via webNavigation:', url);
-  }
-});
-
-// Also block on URL changes
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-  if (changeInfo.url) {
-    const url = changeInfo.url.toLowerCase();
-    if (url.includes('instagram.com') || url.includes('instagram')) {
-      chrome.tabs.update(tabId, {url: chrome.runtime.getURL('blocked.html')});
-      console.log('Instagram blocked via onUpdated:', url);
-      return;
-    }
-  }
-  // Continue with focus mode enforcement
+  // Enforce focus mode restrictions
   if (changeInfo.status === 'complete' || changeInfo.url) {
     enforceTab(tab).catch(console.error);
   }
 });
-// ========== END AGGRESSIVE INSTAGRAM BLOCKING ==========
 
 chrome.tabs.onCreated.addListener((tab) => {
   enforceTab(tab).catch(console.error);
