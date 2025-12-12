@@ -21,7 +21,6 @@
 - **🎨 Custom Themes** - Personalize your blocked page with colors and avatars
 
 ### 🎯 Smart Features
-- **Instagram Permanent Blocker** - Option to permanently block Instagram
 - **YouTube Watch Tracking** - See what your friends are watching
 - **Real-time Activity** - Live updates of friends' online status
 - **Friend Requests** - Privacy-focused friend system with accept/reject
@@ -37,33 +36,41 @@
 
 ## 📥 Installation
 
-### Method 1: Download Release (Recommended)
+1. **Download the Source Code**
+   ```bash
+   # Option A: Clone with Git
+   git clone https://github.com/imAaryash/blockit-extension.git
+   cd blockit-extension/focus-extension
+   
+   # Option B: Download ZIP
+   # Go to https://github.com/imAaryash/blockit-extension
+   # Click "Code" → "Download ZIP"
+   # Extract the ZIP file
+   ```
 
-1. **Download the Extension**
-   - Go to [Releases](https://github.com/imAaryash/blockit-extension/releases)
-   - Download the latest `blockit-extension-v1.0.0.zip`
-   - Extract the ZIP file to a folder
+2. **Load Extension in Chrome**
+   - Open Google Chrome browser
+   - Type `chrome://extensions/` in the address bar and press Enter
+   - Enable **"Developer mode"** using the toggle switch in the top-right corner
+   - Click the **"Load unpacked"** button that appears
+   - Navigate to and select the `focus-extension` folder (the one containing `manifest.json`)
+   - The extension will now appear in your extensions list ✅
 
-2. **Install in Chrome**
-   - Open Chrome and go to `chrome://extensions/`
-   - Enable **Developer mode** (toggle in top-right corner)
-   - Click **Load unpacked**
-   - Select the extracted folder
-   - Extension is now installed! 🎉
+3. **Pin the Extension to Toolbar**
+   - Click the Extensions icon (puzzle piece 🧩) in Chrome's toolbar
+   - Find **"Focus Mode"** in the dropdown
+   - Click the pin icon (📌) next to it to keep it visible
 
-3. **Pin the Extension**
-   - Click the puzzle icon in Chrome toolbar
-   - Find "BlockIt Focus Extension"
-   - Click the pin icon to keep it visible
+4. **Verify Installation**
+   - You should see the Focus Mode icon in your Chrome toolbar
+   - Click it to open the popup
+   - If you see the interface, installation was successful! 🎉
 
-### Method 2: Clone from GitHub
-
-```bash
-git clone https://github.com/imAaryash/blockit-extension.git
-cd blockit-extension
-```
-
-Then follow steps 2-3 from Method 1.
+**Important Notes:**
+- The extension must remain in the folder you selected - don't delete or move it
+- You'll see a "Developer mode" badge - this is normal for unpacked extensions
+- The extension will remain installed until you remove it from `chrome://extensions/`
+- Chrome may show warnings for developer mode extensions - this is normal and safe
 
 ## 🔧 Setup & Usage
 
@@ -148,7 +155,7 @@ Then follow steps 2-3 from Method 1.
 ### Customize Your Experience
 
 - **Avatar** - Change your emoji avatar
-- **Instagram Blocker** - Enable permanent Instagram blocking
+- **Blocked Sites** - Customize which sites to block during focus
 - **Theme** - Choose blocked page colors
 - **Timer Presets** - Quick access to 5, 15, 30, 60 min sessions
 
@@ -351,7 +358,7 @@ Created by **Aaryash**
 Having issues? 
 - Open an [Issue](https://github.com/imAaryash/blockit-extension/issues)
 - Check [Troubleshooting](#-troubleshooting) section
-- Contact: [Your Email/Discord]
+- Contact: aaryash@edxtra.tech
 
 ## 🎯 Roadmap
 
@@ -374,6 +381,6 @@ If you find BlockIt helpful, please:
 
 ---
 
-**Made with ❤️ for productive people**
+**Made by edXtra Tech with ❤️ for productive people**
 
 Stay focused, stay productive! 🚀
