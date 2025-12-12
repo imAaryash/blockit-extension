@@ -391,9 +391,33 @@ async function loadFriendsWidget() {
   }
 }
 
+// Check for updates and show banner
+async function checkUpdateBanner() {
+  const data = await chrome.storage.local.get(['updateAvailable', 'latestVersion', 'releaseUrl']);
+  
+  if (data.updateAvailable) {
+    const banner = document.getElementById('updateBanner');
+    const versionSpan = document.getElementById('updateVersion');
+    
+    if (banner && versionSpan) {
+      versionSpan.textContent = `v${data.latestVersion}`;
+      banner.style.display = 'flex';
+    }
+  }
+}
+
+const viewUpdateBtn = document.getElementById('viewUpdateBtn');
+if (viewUpdateBtn) {
+  viewUpdateBtn.addEventListener('click', async () => {
+    // Trigger download via background script
+    chrome.runtime.sendMessage({action: 'downloadUpdate'});
+  });
+}
+
 // Initial state check
 updateTimer();
 startTimerUpdate(); // Start interval immediately to keep timer running
+checkUpdateBanner(); // Check for available updates
 
 // Check if user is registered
 send({action: 'getState'}).then(state => {

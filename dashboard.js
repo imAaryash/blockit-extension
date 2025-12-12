@@ -4,12 +4,14 @@ async function send(msg) {
 }
 
 const allBadges = [
-  {id: 'first', name: 'First Step', desc: 'Complete first session', icon: '🎯'},
-  {id: 'hour', name: 'Focused Hour', desc: 'Complete 1 hour session', icon: '⏰'},
-  {id: 'week', name: 'Week Warrior', desc: '7 day streak', icon: '🔥'},
-  {id: 'hundred', name: 'Century', desc: '100 hours focused', icon: '💯'},
-  {id: 'level5', name: 'Rising Star', desc: 'Reach level 5', icon: '⭐'},
-  {id: 'sessions50', name: 'Dedicated', desc: '50 sessions completed', icon: '💪'}
+  {id: 'first-session', name: 'First Step', desc: 'Complete first session', icon: '🎯'},
+  {id: 'focus-champion', name: 'Focus Champion', desc: '100+ hours focused', icon: '💯'},
+  {id: 'streak-master', name: 'Streak Master', desc: '7 day streak', icon: '🔥'},
+  {id: 'focus-warrior', name: 'Focus Warrior', desc: '50 sessions completed', icon: '💪'},
+  {id: 'productivity-king', name: 'Productivity King', desc: 'Reached level 10', icon: '👑'},
+  {id: 'early-bird', name: 'Early Bird', desc: 'Focused before 8 AM', icon: '🌅'},
+  {id: 'night-owl', name: 'Night Owl', desc: 'Focused after 10 PM', icon: '🦉'},
+  {id: 'social-butterfly', name: 'Social Butterfly', desc: '10+ friends', icon: '🦋'}
 ];
 
 async function loadDashboard() {

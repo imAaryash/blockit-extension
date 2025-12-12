@@ -3,6 +3,9 @@
 // API Configuration
 const API_BASE_URL = 'https://focus-backend-g1zg.onrender.com';
 
+// Import update checker
+importScripts('update-checker.js');
+
 const DEFAULTS = {
   allowed: ["https://www.youtube.com/","https://youtube.com/","https://www.google.com/"],
   blockedKeywords: [
@@ -403,12 +406,25 @@ async function updateSessionStats(durationMs) {
   let currentStreak = state.streak?.current || 0;
   let longestStreak = state.streak?.longest || 0;
   
-  if (!lastDate || lastDate === yesterdayStr || lastDate === today) {
-    if (lastDate !== today) currentStreak++;
+  // Update streak logic
+  if (!lastDate) {
+    // First session ever
+    currentStreak = 1;
+  } else if (lastDate === today) {
+    // Already counted today, don't increment
+    // Keep current streak as is
+  } else if (lastDate === yesterdayStr) {
+    // Continued streak from yesterday
+    currentStreak++;
   } else {
+    // Streak broken, start over
     currentStreak = 1;
   }
+  
+  // Always update longest if current is higher
   longestStreak = Math.max(longestStreak, currentStreak);
+  
+  console.log('[Streak] Current:', currentStreak, 'Longest:', longestStreak, 'Last date:', lastDate);
   
   // Calculate points (1 point per minute + bonuses)
   let pointsEarned = durationMin;
@@ -508,6 +524,7 @@ async function checkBadges(badges, totalTime, sessions, streak, level) {
   
   for (const badge of newBadges) {
     if (badge.condition && !validBadges.find(b => b.id === badge.id)) {
+      console.log('[Badge] Unlocked:', badge.name);
       validBadges.push({id: badge.id, name: badge.name, desc: badge.desc, earnedAt: Date.now()});
       chrome.notifications.create({
         type: 'basic',
@@ -518,6 +535,7 @@ async function checkBadges(badges, totalTime, sessions, streak, level) {
     }
   }
   
+  console.log('[Badges] Total earned:', validBadges.length, 'Badge IDs:', validBadges.map(b => b.id));
   return validBadges;
 }
 
@@ -774,6 +792,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     } else if (msg.action === 'getState') {
       const s = await chrome.storage.local.get();
       sendResponse(s);
+    } else if (msg.action === 'downloadUpdate') {
+      // Handle update download request from popup
+      downloadUpdate();
+      sendResponse({ok: true});
     } else if (msg.action === 'syncFromMongoDB') {
       await syncFromMongoDB();
       sendResponse({ok: true});

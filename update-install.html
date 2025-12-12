@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Update Installation Guide</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #1e1e1e 0%, #2d2d2d 100%);
+      color: #fff;
+      margin: 0;
+      padding: 40px 20px;
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 50px;
+    }
+
+    .success-icon {
+      font-size: 80px;
+      margin-bottom: 20px;
+      animation: bounce 1s ease-in-out;
+    }
+
+    @keyframes bounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-20px); }
+    }
+
+    h1 {
+      font-size: 36px;
+      margin-bottom: 10px;
+      color: #4a9eff;
+    }
+
+    .subtitle {
+      font-size: 18px;
+      color: #a0a0a0;
+    }
+
+    .version-badge {
+      display: inline-block;
+      background: linear-gradient(135deg, #4a9eff 0%, #357abd 100%);
+      padding: 8px 20px;
+      border-radius: 20px;
+      font-size: 14px;
+      font-weight: 600;
+      margin-top: 10px;
+    }
+
+    .steps {
+      margin-top: 40px;
+    }
+
+    .step {
+      background: rgba(255, 255, 255, 0.05);
+      border-left: 4px solid #4a9eff;
+      padding: 25px;
+      margin-bottom: 20px;
+      border-radius: 8px;
+      transition: all 0.3s ease;
+    }
+
+    .step:hover {
+      background: rgba(255, 255, 255, 0.08);
+      transform: translateX(5px);
+    }
+
+    .step-number {
+      display: inline-block;
+      width: 32px;
+      height: 32px;
+      background: #4a9eff;
+      color: #fff;
+      border-radius: 50%;
+      text-align: center;
+      line-height: 32px;
+      font-weight: 700;
+      margin-right: 15px;
+      font-size: 16px;
+    }
+
+    .step-title {
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+    }
+
+    .step-content {
+      margin-left: 47px;
+      color: #c0c0c0;
+      line-height: 1.6;
+    }
+
+    .step-content code {
+      background: rgba(255, 255, 255, 0.1);
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-family: 'Courier New', monospace;
+      color: #4a9eff;
+    }
+
+    .note {
+      background: rgba(251, 113, 133, 0.1);
+      border-left: 4px solid #fb7185;
+      padding: 15px;
+      border-radius: 8px;
+      margin: 20px 0;
+    }
+
+    .note-title {
+      font-weight: 600;
+      color: #fb7185;
+      margin-bottom: 8px;
+    }
+
+    .tip {
+      background: rgba(34, 197, 94, 0.1);
+      border-left: 4px solid #22c55e;
+      padding: 15px;
+      border-radius: 8px;
+      margin: 20px 0;
+    }
+
+    .tip-title {
+      font-weight: 600;
+      color: #22c55e;
+      margin-bottom: 8px;
+    }
+
+    .button-group {
+      display: flex;
+      gap: 15px;
+      margin-top: 30px;
+      justify-content: center;
+    }
+
+    .btn {
+      padding: 15px 30px;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      border: none;
+      text-decoration: none;
+      display: inline-block;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #4a9eff 0%, #357abd 100%);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 20px rgba(74, 158, 255, 0.4);
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.1);
+      color: white;
+      border: 2px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    .download-location {
+      background: rgba(255, 255, 255, 0.05);
+      padding: 15px;
+      border-radius: 8px;
+      margin: 20px 0;
+      font-family: 'Courier New', monospace;
+      color: #4a9eff;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="success-icon">📦</div>
+      <h1>Update Downloaded Successfully!</h1>
+      <p class="subtitle">Your extension update is ready to install</p>
+      <div class="version-badge" id="versionBadge">Version 1.2.0</div>
+    </div>
+
+    <div class="download-location">
+      <strong>📁 Download Location:</strong> Your Downloads folder
+      <div style="margin-top: 5px; font-size: 14px;" id="filename">focus-extension-v1.2.0.zip</div>
+    </div>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-title">
+          <span class="step-number">1</span>
+          Extract the ZIP File
+        </div>
+        <div class="step-content">
+          Open your <strong>Downloads</strong> folder and extract the ZIP file you just downloaded. 
+          You can right-click and select "Extract All" or use your preferred extraction tool.
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-title">
+          <span class="step-number">2</span>
+          Open Chrome Extensions
+        </div>
+        <div class="step-content">
+          Type <code>chrome://extensions/</code> in your address bar and press Enter.
+          Or click the button below:
+          <div style="margin-top: 10px;">
+            <button class="btn btn-primary" id="openExtensionsBtn">Open chrome://extensions/</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-title">
+          <span class="step-number">3</span>
+          Remove Old Version
+        </div>
+        <div class="step-content">
+          Find the current "Focus Mode" extension and click the <strong>Remove</strong> button.
+          Don't worry - your data is saved and will be restored!
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-title">
+          <span class="step-number">4</span>
+          Load New Version
+        </div>
+        <div class="step-content">
+          Make sure <strong>Developer mode</strong> is enabled (toggle in top-right).
+          Click <strong>Load unpacked</strong> and select the extracted folder from Step 1.
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-title">
+          <span class="step-number">5</span>
+          Verify Installation
+        </div>
+        <div class="step-content">
+          Check that the version number matches the update. Click the extension icon to open it 
+          and verify everything works correctly. All your data should be preserved!
+        </div>
+      </div>
+    </div>
+
+    <div class="tip">
+      <div class="tip-title">💡 Pro Tip</div>
+      <div>You can keep the same folder by replacing files in your current extension directory. 
+      Just delete the old files, copy new ones, and click the refresh icon on chrome://extensions/</div>
+    </div>
+
+    <div class="note">
+      <div class="note-title">⚠️ Important</div>
+      <div>Your settings, stats, and login information are stored separately and will be preserved 
+      after the update. No data will be lost!</div>
+    </div>
+
+    <div class="button-group">
+      <button class="btn btn-primary" id="openDownloadsBtn">Open Downloads Folder</button>
+      <button class="btn btn-secondary" id="closeBtn">Close This Tab</button>
+    </div>
+  </div>
+
+  <script>
+    // Load version info
+    (async () => {
+      const data = await chrome.storage.local.get(['latestVersion']);
+      if (data.latestVersion) {
+        document.getElementById('versionBadge').textContent = `Version ${data.latestVersion}`;
+        document.getElementById('filename').textContent = `focus-extension-v${data.latestVersion}.zip`;
+      }
+    })();
+
+    // Open Downloads folder
+    document.getElementById('openDownloadsBtn').addEventListener('click', () => {
+      chrome.downloads.showDefaultFolder();
+    });
+
+    // Open Extensions page
+    document.getElementById('openExtensionsBtn').addEventListener('click', () => {
+      chrome.tabs.create({ url: 'chrome://extensions/' });
+    });
+
+    // Close tab
+    document.getElementById('closeBtn').addEventListener('click', () => {
+      window.close();
+    });
+  </script>
+</body>
+</html>

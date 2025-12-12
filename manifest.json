@@ -13,7 +13,8 @@
     "notifications",
     "webNavigation",
     "declarativeNetRequest",
-    "declarativeNetRequestWithHostAccess"
+    "declarativeNetRequestWithHostAccess",
+    "downloads"
   ],
   "host_permissions": [
     "<all_urls>"
