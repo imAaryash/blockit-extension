@@ -29,6 +29,9 @@ document.getElementById('viewFriends').addEventListener('click', () => {
   chrome.tabs.create({url: chrome.runtime.getURL('social.html')});
 });
 
+let countdownInterval = null;
+let countdownStartTime = null;
+
 document.getElementById('start').addEventListener('click', async () => {
   const duration = Number(document.getElementById('duration').value) || 25;
   const passcode = document.getElementById('passcode').value || null;
@@ -38,12 +41,89 @@ document.getElementById('start').addEventListener('click', async () => {
   // Update pomodoro setting
   await send({action: 'updateSettings', settings: {pomodoroEnabled}});
   
+  // Show countdown screen
+  showCountdownScreen(duration, passcode, preset);
+});
+
+function showCountdownScreen(duration, passcode, preset) {
+  // Hide setup controls
+  document.getElementById('setupControls').style.display = 'none';
+  document.getElementById('statsOverview').style.display = 'none';
+  document.getElementById('goalProgress').style.display = 'none';
+  document.getElementById('friendsWidget').style.display = 'none';
+  
+  // Show countdown screen
+  const countdownScreen = document.getElementById('countdownScreen');
+  countdownScreen.style.display = 'flex';
+  
+  let secondsLeft = 10;
+  const countdownNumber = document.getElementById('countdownNumber');
+  const countdownBar = document.getElementById('countdownBar');
+  
+  // Set initial bar width
+  countdownBar.style.width = '100%';
+  
+  // Start countdown
+  countdownStartTime = Date.now();
+  countdownInterval = setInterval(() => {
+    secondsLeft--;
+    countdownNumber.textContent = secondsLeft;
+    
+    // Update progress bar (counting down)
+    const progress = (secondsLeft / 10) * 100;
+    countdownBar.style.width = progress + '%';
+    
+    if (secondsLeft <= 0) {
+      clearInterval(countdownInterval);
+      countdownInterval = null;
+      
+      // Start the actual focus session
+      startFocusSession(duration, passcode, preset);
+    }
+  }, 1000);
+}
+
+async function startFocusSession(duration, passcode, preset) {
+  // Hide countdown screen
+  document.getElementById('countdownScreen').style.display = 'none';
+  
+  // Start the session
   const resp = await send({action:'startSession', durationMin: duration, passcode, preset});
   if (resp && resp.end) {
+    // Show timer immediately
+    showTimer();
     updateTimer();
     startTimerUpdate();
+  } else {
+    // If session failed to start, show setup controls
+    document.getElementById('setupControls').style.display = 'block';
+    document.getElementById('statsOverview').style.display = 'flex';
+    document.getElementById('goalProgress').style.display = 'block';
+    document.getElementById('friendsWidget').style.display = 'block';
   }
-});
+}
+
+function cancelCountdown() {
+  if (countdownInterval) {
+    clearInterval(countdownInterval);
+    countdownInterval = null;
+  }
+  
+  // Hide countdown screen
+  document.getElementById('countdownScreen').style.display = 'none';
+  
+  // Show setup controls again
+  document.getElementById('setupControls').style.display = 'block';
+  document.getElementById('statsOverview').style.display = 'flex';
+  document.getElementById('goalProgress').style.display = 'block';
+  document.getElementById('friendsWidget').style.display = 'block';
+  
+  // Reset countdown
+  document.getElementById('countdownNumber').textContent = '10';
+  document.getElementById('countdownBar').style.width = '100%';
+}
+
+document.getElementById('cancelCountdown').addEventListener('click', cancelCountdown);
 
 document.getElementById('emergency').addEventListener('click', async () => {
   const resp = await send({action:'emergencyBreak'});
@@ -63,14 +143,20 @@ function setStatus(t){
 
 function showTimer() {
   document.getElementById('timerDisplay').classList.add('active');
-  document.getElementById('setupControls').classList.add('hidden');
-  document.getElementById('activeControls').classList.add('visible');
+  document.getElementById('setupControls').style.display = 'none';
+  document.getElementById('activeControls').style.display = 'block';
+  document.getElementById('statsOverview').style.display = 'flex';
+  document.getElementById('goalProgress').style.display = 'block';
+  document.getElementById('friendsWidget').style.display = 'block';
 }
 
 function hideTimer() {
   document.getElementById('timerDisplay').classList.remove('active');
-  document.getElementById('setupControls').classList.remove('hidden');
-  document.getElementById('activeControls').classList.remove('visible');
+  document.getElementById('setupControls').style.display = 'block';
+  document.getElementById('activeControls').style.display = 'none';
+  document.getElementById('statsOverview').style.display = 'flex';
+  document.getElementById('goalProgress').style.display = 'block';
+  document.getElementById('friendsWidget').style.display = 'block';
 }
 
 async function updateTimer() {
@@ -78,13 +164,51 @@ async function updateTimer() {
   // Update stats display
   updateStatsDisplay(s);
   
-  if (s && s.focusActive && s.sessionEnd) {
+  const timerDisplay = document.getElementById('timerDisplay');
+  const timerProgress = document.querySelector('.timer-progress');
+  
+  // Check if on break
+  if (s && s.onBreak && s.breakEnd) {
+    const now = Date.now();
+    const remaining = Math.max(0, s.breakEnd - now);
+    const totalDuration = s.breakDuration || (5 * 60 * 1000);
+    
+    if (remaining > 0) {
+      showTimer();
+      
+      // Change to green for break
+      timerDisplay.classList.add('break-mode');
+      timerProgress.style.stroke = '#4ade80'; // Green color
+      
+      const minutes = Math.floor(remaining / 60000);
+      const seconds = Math.floor((remaining % 60000) / 1000);
+      document.querySelector('.timer-time').textContent = 
+        `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+      
+      // Update circle progress
+      const progress = remaining / totalDuration;
+      const circumference = 2 * Math.PI * 90;
+      const offset = circumference * (1 - progress);
+      timerProgress.style.strokeDashoffset = offset;
+      
+      setStatus('On Break 🎉');
+    } else {
+      hideTimer();
+      timerDisplay.classList.remove('break-mode');
+      timerProgress.style.stroke = '#4a9eff';
+      setStatus('Idle');
+    }
+  } else if (s && s.focusActive && s.sessionEnd) {
     const now = Date.now();
     const remaining = Math.max(0, s.sessionEnd - now);
     const totalDuration = s.sessionDuration || (25 * 60 * 1000);
     
     if (remaining > 0) {
       showTimer();
+      
+      // Reset to blue for focus
+      timerDisplay.classList.remove('break-mode');
+      timerProgress.style.stroke = '#4a9eff';
       
       const minutes = Math.floor(remaining / 60000);
       const seconds = Math.floor((remaining % 60000) / 1000);
@@ -95,15 +219,19 @@ async function updateTimer() {
       const progress = remaining / totalDuration;
       const circumference = 2 * Math.PI * 90;
       const offset = circumference * (1 - progress);
-      document.querySelector('.timer-progress').style.strokeDashoffset = offset;
+      timerProgress.style.strokeDashoffset = offset;
       
       setStatus('Focus active');
     } else {
       hideTimer();
+      timerDisplay.classList.remove('break-mode');
+      timerProgress.style.stroke = '#4a9eff';
       setStatus('Idle');
     }
   } else {
     hideTimer();
+    timerDisplay.classList.remove('break-mode');
+    timerProgress.style.stroke = '#4a9eff';
     setStatus('Idle');
   }
 }
@@ -126,8 +254,58 @@ function updateStatsDisplay(state) {
   // Update daily goal progress
   const goal = state.dailyGoal || 120;
   const progress = Math.min(100, (todayMin / goal) * 100);
-  document.getElementById('goalFill').style.width = `${progress}%`;
+  const goalFill = document.getElementById('goalFill');
+  goalFill.style.width = `${progress}%`;
   document.getElementById('goalText').textContent = `${todayMin}/${goal} min daily goal`;
+  
+  // Check if goal just completed
+  if (progress >= 100 && !state.goalCompletedToday) {
+    showGoalCelebration();
+    chrome.storage.local.set({ goalCompletedToday: true });
+  } else if (progress < 100 && state.goalCompletedToday) {
+    // Reset for new day
+    chrome.storage.local.set({ goalCompletedToday: false });
+  }
+}
+
+function showGoalCelebration() {
+  // Create celebration overlay
+  const overlay = document.createElement('div');
+  overlay.className = 'goal-celebration-overlay';
+  overlay.innerHTML = `
+    <div class="goal-celebration-content">
+      <div class="goal-tada">🎉</div>
+      <h2 class="goal-message">Daily Goal Achieved!</h2>
+      <p class="goal-submessage">Amazing work! You're crushing it! 🔥</p>
+    </div>
+  `;
+  
+  // Create confetti
+  for (let i = 0; i < 50; i++) {
+    const confetti = document.createElement('div');
+    confetti.className = 'confetti';
+    confetti.style.left = Math.random() * 100 + '%';
+    confetti.style.animationDelay = Math.random() * 3 + 's';
+    confetti.style.backgroundColor = ['#4a9eff', '#22c55e', '#fb7185', '#fbbf24', '#a78bfa'][Math.floor(Math.random() * 5)];
+    overlay.appendChild(confetti);
+  }
+  
+  document.body.appendChild(overlay);
+  
+  // Play notification
+  chrome.notifications.create({
+    type: 'basic',
+    iconUrl: 'icons/icon48.png',
+    title: '🎉 Daily Goal Achieved!',
+    message: 'Congratulations! You\'ve completed your daily focus goal!',
+    requireInteraction: true
+  });
+  
+  // Remove overlay after animation
+  setTimeout(() => {
+    overlay.classList.add('fade-out');
+    setTimeout(() => overlay.remove(), 500);
+  }, 4000);
 }
 
 function startTimerUpdate() {

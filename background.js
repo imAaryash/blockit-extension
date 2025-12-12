@@ -195,6 +195,9 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
     const tab = await chrome.tabs.get(activeInfo.tabId);
     enforceTab(tab).catch(console.error);
     
+    // Track browsing activity during focus session
+    await trackBrowsingActivity(tab);
+    
     // Update activity immediately
     await updateUserActivity(tab);
     
@@ -202,6 +205,52 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
     await sendActivityHeartbeat();
   } catch (e) { /* ignore */ }
 });
+
+// Track browsing activity during focus session
+async function trackBrowsingActivity(tab) {
+  if (!tab || !tab.url) return;
+  
+  const state = await getState();
+  if (!state.focusActive) return; // Only track during focus session
+  
+  // Get current session activities
+  const result = await chrome.storage.local.get(['sessionActivities']);
+  const activities = result.sessionActivities || [];
+  
+  // Extract domain and title
+  let domain = 'Unknown';
+  let icon = '🌐';
+  
+  try {
+    const url = new URL(tab.url);
+    domain = url.hostname.replace('www.', '');
+    
+    // Set icon based on domain
+    if (domain.includes('youtube')) icon = '📺';
+    else if (domain.includes('github')) icon = '💻';
+    else if (domain.includes('stackoverflow')) icon = '📚';
+    else if (domain.includes('google')) icon = '🔍';
+    else if (tab.url.endsWith('.pdf')) icon = '📄';
+    else if (domain.includes('docs.google') || domain.includes('notion')) icon = '📝';
+  } catch (e) {
+    // Invalid URL, skip
+    return;
+  }
+  
+  // Add activity
+  activities.push({
+    domain: domain,
+    title: tab.title || domain,
+    icon: icon,
+    timestamp: Date.now()
+  });
+  
+  // Keep only last 50 activities to avoid memory issues
+  const recentActivities = activities.slice(-50);
+  
+  console.log('[Activity] Tracked activity:', domain, '- Total activities:', recentActivities.length);
+  await chrome.storage.local.set({ sessionActivities: recentActivities });
+}
 
 // Track user activity
 async function updateUserActivity(tab) {
@@ -316,27 +365,71 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
     const state = await getState();
     const sessionDuration = state.sessionDuration || 0;
     
+    // Get session activities
+    const result = await chrome.storage.local.get(['sessionActivities']);
+    const activities = result.sessionActivities || [];
+    
+    // Save session summary for popup
+    const durationSeconds = Math.floor(sessionDuration / 1000);
+    await chrome.storage.local.set({
+      sessionSummary: {
+        duration: durationSeconds,
+        activities: activities,
+        completedAt: Date.now()
+      }
+    });
+    
+    // Clear session activities
+    await chrome.storage.local.remove('sessionActivities');
+    
     // Update stats
     await updateSessionStats(sessionDuration);
     
-    await chrome.storage.local.set({focusActive:false, sessionEnd: 0, emergencyUsed: false, onBreak: false});
+    await chrome.storage.local.set({focusActive:false, sessionEnd: 0, emergencyUsed: false});
     
-    // Check for Pomodoro break
-    if (state.pomodoroEnabled) {
-      chrome.notifications.create({
-        type: 'basic',
-        iconUrl: 'icons/icon48.png',
-        title: 'Break Time! 🎉',
-        message: `Great work! Take a ${state.pomodoroBreakDuration || 5} minute break.`
-      });
-    } else {
-      chrome.notifications.create({
-        type: 'basic',
-        iconUrl: 'icons/icon48.png',
-        title: 'Focus session ended',
-        message: 'Your Focus Mode session has finished — good job! 🎯'
-      });
-    }
+    // Open session summary popup
+    console.log('[SessionEnd] Opening session summary popup with', activities.length, 'activities');
+    chrome.windows.create({
+      url: chrome.runtime.getURL('session-summary.html'),
+      type: 'popup',
+      width: 650,
+      height: 700
+    }, (window) => {
+      console.log('[SessionEnd] Session summary window created:', window.id);
+    });
+    
+    // Start break time
+    const breakDuration = 5; // 5 minutes break
+    const breakEnd = Date.now() + (breakDuration * 60 * 1000);
+    
+    await chrome.storage.local.set({
+      onBreak: true,
+      breakEnd: breakEnd,
+      breakDuration: breakDuration * 60 * 1000
+    });
+    
+    // Set alarm to end break
+    chrome.alarms.create('auto-break-end', { when: breakEnd });
+    
+    // Show break notification
+    chrome.notifications.create({
+      type: 'basic',
+      iconUrl: 'icons/icon48.png',
+      title: '🎉 Focus Session Complete!',
+      message: `You focused for ${Math.floor(durationSeconds / 60)} minutes! Take a ${breakDuration} minute break.`,
+      requireInteraction: true
+    });
+  } else if (alarm.name === 'auto-break-end') {
+    // End the auto break
+    await chrome.storage.local.set({onBreak: false, breakEnd: 0});
+    console.log('[AutoBreak] Break ended');
+    
+    chrome.notifications.create({
+      type: 'basic',
+      iconUrl: 'icons/icon48.png',
+      title: '⏰ Break Over!',
+      message: 'Break time ended. Ready for another focus session?'
+    });
   }
 });
 
@@ -629,6 +722,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       } catch (error) {
         console.error('[StartSession] ❌ Error updating status:', error);
       }
+      
+      // Clear any previous session activities
+      await chrome.storage.local.set({ sessionActivities: [] });
       
       chrome.alarms.create('focus-end', {when: end});
       sendResponse({ok:true, end});

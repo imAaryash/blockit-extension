@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Session Summary - Focus Extension</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      width: 550px;
+      min-height: 450px;
+      padding: 40px;
+      background: #0a0a0a;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      color: #fff;
+    }
+
+    .summary-container {
+      max-width: 100%;
+    }
+
+    .summary-header {
+      text-align: center;
+      margin-bottom: 40px;
+      border-bottom: 1px solid #222;
+      padding-bottom: 30px;
+    }
+
+    .success-icon {
+      font-size: 42px;
+      margin-bottom: 16px;
+      opacity: 0.9;
+    }
+
+    .summary-title {
+      font-size: 20px;
+      font-weight: 500;
+      color: #fff;
+      margin-bottom: 12px;
+      letter-spacing: -0.3px;
+    }
+
+    .summary-duration {
+      font-size: 56px;
+      font-weight: 300;
+      color: #4a9eff;
+      margin: 16px 0;
+      letter-spacing: -2px;
+    }
+
+    .summary-subtitle {
+      font-size: 13px;
+      color: #666;
+      font-weight: 400;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 32px;
+    }
+
+    .stat-card {
+      background: #111;
+      border: 1px solid #222;
+      border-radius: 6px;
+      padding: 16px;
+      text-align: center;
+    }
+
+    .stat-value {
+      font-size: 24px;
+      font-weight: 500;
+      color: #fff;
+      margin-bottom: 6px;
+    }
+
+    .stat-label {
+      font-size: 11px;
+      color: #666;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-weight: 500;
+    }
+
+    .summary-section {
+      margin-bottom: 24px;
+    }
+
+    .section-title {
+      font-size: 12px;
+      font-weight: 500;
+      color: #666;
+      margin-bottom: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+    }
+
+    .website-list {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      background: #222;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .website-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 16px;
+      background: #111;
+    }
+
+    .website-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .website-icon {
+      font-size: 16px;
+      opacity: 0.7;
+    }
+
+    .website-details {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .website-title {
+      font-size: 13px;
+      font-weight: 400;
+      color: #fff;
+      margin-bottom: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .website-url {
+      font-size: 11px;
+      color: #555;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .website-time {
+      font-size: 12px;
+      font-weight: 500;
+      color: #666;
+      white-space: nowrap;
+    }
+
+    .close-button {
+      width: 100%;
+      padding: 14px;
+      background: #fff;
+      color: #000;
+      border: none;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: opacity 0.2s;
+      margin-top: 8px;
+    }
+
+    .close-button:hover {
+      opacity: 0.9;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 32px;
+      color: #555;
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <div class="summary-container">
+    <div class="summary-header">
+      <div class="success-icon">🎯</div>
+      <h1 class="summary-title">Focus Session Complete!</h1>
+      <div class="summary-duration" id="sessionDuration">--</div>
+      <p class="summary-subtitle">Great work! Here's what you accomplished</p>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-value" id="totalSites">0</div>
+        <div class="stat-label">Sites Visited</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="totalTabs">0</div>
+        <div class="stat-label">Tab Switches</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="productivityScore">--</div>
+        <div class="stat-label">Focus Score</div>
+      </div>
+    </div>
+
+    <div class="summary-section">
+      <div class="section-title">
+        <span>📊</span>
+        <span>Activity Timeline</span>
+      </div>
+      <div class="website-list" id="websiteList">
+        <div class="empty-state">No browsing data recorded</div>
+      </div>
+    </div>
+
+    <button class="close-button" onclick="window.close()">Continue</button>
+  </div>
+
+  <script src="session-summary.js"></script>
+</body>
+</html>

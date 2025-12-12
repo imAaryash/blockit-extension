@@ -102,6 +102,22 @@
     </div>
     
     <div id="status" class="status"></div>
+    
+    <!-- Countdown Loading Screen -->
+    <div id="countdownScreen" class="countdown-screen" style="display: none;">
+      <div class="countdown-content">
+        <div class="countdown-icon">⏳</div>
+        <h2 class="countdown-title">Get Ready to Focus</h2>
+        <div class="countdown-number" id="countdownNumber">10</div>
+        <div class="countdown-label">seconds until focus mode starts</div>
+        
+        <div class="countdown-bar-container">
+          <div class="countdown-bar" id="countdownBar"></div>
+        </div>
+        
+        <button id="cancelCountdown" class="btn-cancel-countdown">Cancel</button>
+      </div>
+    </div>
   </div>
 
   <script src="api.js"></script>
