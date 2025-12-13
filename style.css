@@ -529,6 +529,7 @@ body {
   cursor: pointer;
   transition: all 0.2s ease;
   white-space: nowrap;
+  width: fit-content;
 }
 
 .btn-update:hover {
