@@ -410,14 +410,21 @@ async function updateSessionStats(durationMs) {
   }
   todayTime += durationMin;
   
-  // Update streak
+  // Update streak with proper date comparison
   const lastDate = state.streak?.lastSessionDate;
-  const yesterday = new Date();
+  const todayDate = new Date();
+  todayDate.setHours(0, 0, 0, 0); // Reset to midnight
+  
+  const yesterday = new Date(todayDate);
   yesterday.setDate(yesterday.getDate() - 1);
-  const yesterdayStr = yesterday.toDateString();
   
   let currentStreak = state.streak?.current || 0;
   let longestStreak = state.streak?.longest || 0;
+  
+  console.log('[Streak Debug] Last session date:', lastDate);
+  console.log('[Streak Debug] Today:', today);
+  console.log('[Streak Debug] Yesterday:', yesterday.toDateString());
+  console.log('[Streak Debug] Current streak before update:', currentStreak);
   
   // Update streak logic
   if (!lastDate) {
@@ -427,20 +434,33 @@ async function updateSessionStats(durationMs) {
   } else if (lastDate === today) {
     // Already counted today, keep current streak
     console.log('[Streak] Already counted today, keeping streak at', currentStreak);
-  } else if (lastDate === yesterdayStr) {
+  } else if (lastDate === yesterday.toDateString()) {
     // Continued streak from yesterday
     currentStreak++;
-    console.log('[Streak] Continued from yesterday, new streak:', currentStreak);
+    console.log('[Streak] Continued from yesterday! New streak:', currentStreak);
   } else {
-    // Streak broken, start over
-    console.log('[Streak] Broken! Last:', lastDate, 'Yesterday:', yesterdayStr, 'Resetting to 1');
-    currentStreak = 1;
+    // Calculate days difference to check if streak is broken
+    const lastDateObj = new Date(lastDate);
+    lastDateObj.setHours(0, 0, 0, 0);
+    const daysDiff = Math.floor((todayDate - lastDateObj) / (1000 * 60 * 60 * 24));
+    
+    console.log('[Streak] Days since last session:', daysDiff);
+    
+    if (daysDiff === 1) {
+      // Edge case: Should continue streak
+      currentStreak++;
+      console.log('[Streak] Edge case - continued from yesterday, new streak:', currentStreak);
+    } else {
+      // Streak broken, start over
+      console.log('[Streak] Broken! Last:', lastDate, 'Today:', today, 'Days gap:', daysDiff, '- Resetting to 1');
+      currentStreak = 1;
+    }
   }
   
   // Always update longest if current is higher
   longestStreak = Math.max(longestStreak, currentStreak);
   
-  console.log('[Streak] Current:', currentStreak, 'Longest:', longestStreak, 'Date:', today);
+  console.log('[Streak] ✅ Updated - Current:', currentStreak, 'Longest:', longestStreak, 'Last date:', today);
   
   // Calculate points (1 point per minute + bonuses)
   let pointsEarned = durationMin;

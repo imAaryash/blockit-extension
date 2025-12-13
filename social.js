@@ -738,8 +738,11 @@ async function viewProfile(username) {
           <div style="font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 500;">Points</div>
         </div>
         <div style="background: #141414; border: 1px solid #2a2a2a; padding: 18px 12px; border-radius: 10px; text-align: center; transition: all 0.3s ease; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);">
-          <div style="font-size: 28px; font-weight: 600; color: #ffffff; margin-bottom: 4px;">${profile.streak?.current || 0} <span style="color: #f97316; font-size: 20px;">🔥</span></div>
-          <div style="font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 500;">Streak</div>
+          <div style="font-size: 28px; font-weight: 600; color: #ffffff; margin-bottom: 4px; display: flex; align-items: center; justify-content: center; gap: 6px;">
+            <span>${profile.streak?.current || 0}</span>
+            ${(profile.streak?.current || 0) > 0 ? '<i class="fas fa-fire" style="color: #f97316; font-size: 20px;"></i>' : ''}
+          </div>
+          <div style="font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 500;">Current Streak</div>
         </div>
       </div>
 
@@ -765,12 +768,43 @@ async function viewProfile(username) {
 
       ${profile.badges && profile.badges.length > 0 ? `
         <div style="background: #141414; border: 1px solid #2a2a2a; padding: 24px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);">
-          <h3 style="font-size: 13px; margin: 0 0 20px 0; color: #ffffff; font-weight: 600; display: flex; align-items: center; gap: 8px;"><i class="fas fa-trophy" style="color: #fbbf24; font-size: 14px;"></i> Achievements (${profile.badges.length})</h3>
-          <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px;">
-            ${profile.badges.map(badge => {
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
+            <h3 style="font-size: 13px; margin: 0; color: #ffffff; font-weight: 600; display: flex; align-items: center; gap: 8px;">
+              <i class="fas fa-trophy" style="color: #fbbf24; font-size: 14px;"></i> 
+              Achievements (${profile.badges.length})
+            </h3>
+            ${profile.badges.length > 6 ? `
+              <button id="showAllBadges" style="background: #0a0a0a; border: 1px solid #2a2a2a; padding: 6px 12px; border-radius: 6px; color: #9ca3af; font-size: 11px; font-weight: 500; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 6px;">
+                <span id="badgeButtonText">Show All</span>
+                <i id="badgeButtonIcon" class="fas fa-chevron-down" style="font-size: 10px;"></i>
+              </button>
+            ` : ''}
+          </div>
+          <div id="badgesContainer" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; max-height: ${profile.badges.length > 6 ? '280px' : 'none'}; overflow: hidden; transition: max-height 0.3s ease;">
+            ${profile.badges.slice(0, 6).map(badge => {
               const badgeInfo = getBadgeInfo(badge);
-              return `<div class="profile-badge" style="background: #0a0a0a; border: 1px solid #2a2a2a; padding: 14px 10px; border-radius: 10px; text-align: center; transition: all 0.3s; cursor: pointer; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);" title="${badgeInfo.description}"><div style="font-size: 28px; margin-bottom: 6px;">${badgeInfo.icon}</div><div style="font-size: 11px; font-weight: 500; color: #9ca3af;">${badgeInfo.name}</div></div>`;
+              return `<div class="profile-badge" style="background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 12px; padding: 20px 12px; text-align: center; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer; position: relative;" title="${badgeInfo.description}" onmouseenter="this.style.borderColor='#3b82f6'; this.style.boxShadow='0 4px 16px rgba(59, 130, 246, 0.2)'; this.querySelector('.badge-icon-inner').style.transform='scale(1.15) rotate(5deg)';" onmouseleave="this.style.borderColor='#2a2a2a'; this.style.boxShadow='none'; this.querySelector('.badge-icon-inner').style.transform='scale(1)';">
+                <div class="badge-icon-inner" style="font-size: 32px; margin-bottom: 12px; color: #3b82f6; transition: all 0.3s ease;">${badgeInfo.icon}</div>
+                <div style="font-size: 13px; font-weight: 600; margin-bottom: 4px; color: #e5e5e5;">${badgeInfo.name}</div>
+                <div style="font-size: 11px; color: #6b7280;">${badgeInfo.description}</div>
+                <div style="position: absolute; top: 8px; right: 8px; font-size: 14px; color: #22c55e;"><i class="fas fa-check-circle"></i></div>
+              </div>`;
             }).join('')}
+            ${profile.badges.length > 6 ? `
+              <div id="hiddenBadges" style="display: none; grid-column: 1 / -1;">
+                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; margin-top: 10px;">
+                  ${profile.badges.slice(6).map(badge => {
+                    const badgeInfo = getBadgeInfo(badge);
+                    return `<div class="profile-badge" style="background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 12px; padding: 20px 12px; text-align: center; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer; position: relative;" title="${badgeInfo.description}" onmouseenter="this.style.borderColor='#3b82f6'; this.style.boxShadow='0 4px 16px rgba(59, 130, 246, 0.2)'; this.querySelector('.badge-icon-inner').style.transform='scale(1.15) rotate(5deg)';" onmouseleave="this.style.borderColor='#2a2a2a'; this.style.boxShadow='none'; this.querySelector('.badge-icon-inner').style.transform='scale(1)';">
+                      <div class="badge-icon-inner" style="font-size: 32px; margin-bottom: 12px; color: #3b82f6; transition: all 0.3s ease;">${badgeInfo.icon}</div>
+                      <div style="font-size: 13px; font-weight: 600; margin-bottom: 4px; color: #e5e5e5;">${badgeInfo.name}</div>
+                      <div style="font-size: 11px; color: #6b7280;">${badgeInfo.description}</div>
+                      <div style="position: absolute; top: 8px; right: 8px; font-size: 14px; color: #22c55e;"><i class="fas fa-check-circle"></i></div>
+                    </div>`;
+                  }).join('')}
+                </div>
+              </div>
+            ` : ''}
           </div>
         </div>
       ` : '<div style="background: #141414; border: 1px solid #2a2a2a; padding: 24px; border-radius: 12px; margin-bottom: 20px; text-align: center; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);"><div style="font-size: 32px; margin-bottom: 8px; opacity: 0.3;"><i class="fas fa-trophy" style="color: #6b7280;"></i></div><div style="color: #6b7280; font-size: 13px;">No badges earned yet</div></div>'}
@@ -928,6 +962,46 @@ async function viewProfile(username) {
           actionBtn.style.boxShadow = 'none';
         });
       }
+      
+      // Add event listener for "Show All Badges" button
+      const showAllBtn = content.querySelector('#showAllBadges');
+      if (showAllBtn) {
+        let isExpanded = false;
+        showAllBtn.addEventListener('click', () => {
+          const hiddenBadges = content.querySelector('#hiddenBadges');
+          const badgesContainer = content.querySelector('#badgesContainer');
+          const buttonText = content.querySelector('#badgeButtonText');
+          const buttonIcon = content.querySelector('#badgeButtonIcon');
+          
+          isExpanded = !isExpanded;
+          
+          if (isExpanded) {
+            hiddenBadges.style.display = 'block';
+            badgesContainer.style.maxHeight = 'none';
+            buttonText.textContent = 'Show Less';
+            buttonIcon.classList.remove('fa-chevron-down');
+            buttonIcon.classList.add('fa-chevron-up');
+          } else {
+            hiddenBadges.style.display = 'none';
+            badgesContainer.style.maxHeight = '280px';
+            buttonText.textContent = 'Show All';
+            buttonIcon.classList.remove('fa-chevron-up');
+            buttonIcon.classList.add('fa-chevron-down');
+          }
+        });
+        
+        // Add hover effect
+        showAllBtn.addEventListener('mouseenter', () => {
+          showAllBtn.style.background = '#141414';
+          showAllBtn.style.borderColor = '#3b82f6';
+          showAllBtn.style.color = '#3b82f6';
+        });
+        showAllBtn.addEventListener('mouseleave', () => {
+          showAllBtn.style.background = '#0a0a0a';
+          showAllBtn.style.borderColor = '#2a2a2a';
+          showAllBtn.style.color = '#9ca3af';
+        });
+      }
     }, 0);
     
   } catch (error) {
@@ -943,16 +1017,25 @@ async function viewProfile(username) {
 
 function getBadgeInfo(badgeId) {
   const badges = {
-    'first-session': { icon: '🎯', name: 'First Steps', description: 'Completed first focus session', color: '#4a9eff' },
-    'streak-master': { icon: '🔥', name: 'Streak Master', description: '7-day streak achieved', color: '#fb7185' },
-    'focus-champion': { icon: '⭐', name: 'Focus Champion', description: '100+ hours focused', color: '#fbbf24' },
-    'early-bird': { icon: '🌅', name: 'Early Bird', description: 'Focused before 8 AM', color: '#22d3ee' },
-    'night-owl': { icon: '🦉', name: 'Night Owl', description: 'Focused after 10 PM', color: '#a78bfa' },
-    'social-butterfly': { icon: '👥', name: 'Social Butterfly', description: '10+ friends added', color: '#22c55e' },
-    'focus-warrior': { icon: '⚔️', name: 'Focus Warrior', description: '50 sessions completed', color: '#ef4444' },
-    'productivity-king': { icon: '👑', name: 'Productivity King', description: 'Reached level 10', color: '#fbbf24' }
+    'first-session': { icon: '<i class="fas fa-flag-checkered"></i>', name: 'First Step', description: 'Complete first session' },
+    'getting-started': { icon: '<i class="fas fa-play-circle"></i>', name: 'Getting Started', description: 'Complete 5 sessions' },
+    'dedicated': { icon: '<i class="fas fa-star"></i>', name: 'Dedicated', description: 'Complete 10 sessions' },
+    'focus-warrior': { icon: '<i class="fas fa-fist-raised"></i>', name: 'Focus Warrior', description: '25 sessions completed' },
+    'session-master': { icon: '<i class="fas fa-medal"></i>', name: 'Session Master', description: '50 sessions completed' },
+    'hour-achiever': { icon: '<i class="fas fa-clock"></i>', name: 'Hour Achiever', description: '5+ hours focused' },
+    'time-warrior': { icon: '<i class="fas fa-hourglass-half"></i>', name: 'Time Warrior', description: '25+ hours focused' },
+    'focus-champion': { icon: '<i class="fas fa-trophy"></i>', name: 'Focus Champion', description: '100+ hours focused' },
+    'streak-starter': { icon: '<i class="fas fa-fire-alt"></i>', name: 'Streak Starter', description: '3 day streak' },
+    'streak-master': { icon: '<i class="fas fa-fire"></i>', name: 'Streak Master', description: '7 day streak' },
+    'streak-legend': { icon: '<i class="fas fa-award"></i>', name: 'Streak Legend', description: '30 day streak' },
+    'level-up': { icon: '<i class="fas fa-level-up-alt"></i>', name: 'Level Up', description: 'Reached level 3' },
+    'rising-star': { icon: '<i class="fas fa-star-half-alt"></i>', name: 'Rising Star', description: 'Reached level 5' },
+    'productivity-king': { icon: '<i class="fas fa-crown"></i>', name: 'Productivity King', description: 'Reached level 10' },
+    'early-bird': { icon: '<i class="fas fa-sun"></i>', name: 'Early Bird', description: 'Focused before 8 AM' },
+    'night-owl': { icon: '<i class="fas fa-moon"></i>', name: 'Night Owl', description: 'Focused after 10 PM' },
+    'social-butterfly': { icon: '<i class="fas fa-user-friends"></i>', name: 'Social Butterfly', description: '5+ friends' }
   };
-  return badges[badgeId] || { icon: '🏅', name: badgeId, description: 'Achievement unlocked', color: '#4a9eff' };
+  return badges[badgeId] || { icon: '<i class="fas fa-trophy"></i>', name: badgeId, description: 'Achievement unlocked' };
 }
 
 document.getElementById('closeModal').addEventListener('click', () => {
