@@ -358,7 +358,7 @@ Created by **Aaryash**
 Having issues? 
 - Open an [Issue](https://github.com/imAaryash/blockit-extension/issues)
 - Check [Troubleshooting](#-troubleshooting) section
-- Contact: [Your Email/Discord]
+- Contact: aaryash@edxtra.tech
 
 ## 🎯 Roadmap
 
