@@ -12,20 +12,11 @@
     "alarms",
     "notifications",
     "webNavigation",
-    "declarativeNetRequest",
-    "declarativeNetRequestWithHostAccess",
     "downloads"
   ],
   "host_permissions": [
     "<all_urls>"
   ],
-  "declarative_net_request": {
-    "rule_resources": [{
-      "id": "instagram_blocker",
-      "enabled": true,
-      "path": "rules.json"
-    }]
-  },
   "background": {
     "service_worker": "background.js"
   },
