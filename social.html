@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <title>Friends & Leaderboard</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <style>
     * {
       margin: 0;
@@ -10,91 +11,193 @@
       box-sizing: border-box;
     }
 
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateX(-10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+
+    @keyframes pulse {
+      0%, 100% {
+        transform: scale(1);
+      }
+      50% {
+        transform: scale(1.05);
+      }
+    }
+
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       background: #0a0a0a;
-      color: #fff;
+      color: #e5e5e5;
       min-height: 100vh;
+      line-height: 1.6;
     }
 
     .social-container {
-      max-width: 1000px;
+      max-width: 1200px;
       margin: 0 auto;
-      padding: 40px 32px;
+      padding: 48px 24px;
+      animation: fadeInUp 0.6s ease-out;
     }
 
     .social-header {
-      text-align: center;
-      margin-bottom: 32px;
+      margin-bottom: 48px;
+      animation: fadeInUp 0.6s ease-out 0.1s both;
     }
 
     .social-header h1 {
-      font-size: 28px;
+      font-size: 32px;
+      font-weight: 600;
       margin-bottom: 8px;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .social-header h1 i {
+      font-size: 28px;
+      color: #6b7280;
+      transition: all 0.3s ease;
+    }
+
+    .social-header:hover h1 i {
+      color: #3b82f6;
+      transform: rotate(5deg) scale(1.1);
+    }
+
+    .social-header p {
+      color: #6b7280;
+      font-size: 15px;
+      font-weight: 400;
     }
 
     .nav-buttons {
       display: flex;
       gap: 12px;
-      justify-content: center;
-      margin-bottom: 24px;
+      margin-bottom: 48px;
+      animation: fadeInUp 0.6s ease-out 0.2s both;
     }
 
     .nav-btn {
-      padding: 10px 20px;
-      background: #1a1a1a;
-      border: 1px solid #2a2a2a;
-      border-radius: 6px;
-      color: #4a9eff;
-      font-size: 13px;
+      padding: 10px 18px;
+      background: #141414;
+      border: 1px solid #1f1f1f;
+      border-radius: 8px;
+      color: #e5e5e5;
+      font-size: 14px;
       font-weight: 500;
       cursor: pointer;
-      transition: all 0.2s;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       text-decoration: none;
       display: flex;
       align-items: center;
       gap: 8px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .nav-btn::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.1), transparent);
+      transition: left 0.5s ease;
+    }
+
+    .nav-btn:hover::before {
+      left: 100%;
     }
 
     .nav-btn:hover {
-      background: #2a2a2a;
-      border-color: #4a9eff;
-      transform: translateY(-1px);
+      background: #1a1a1a;
+      border-color: #3b82f6;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+    }
+
+    .nav-btn i {
+      font-size: 14px;
+      color: #6b7280;
+      transition: all 0.3s ease;
+    }
+
+    .nav-btn:hover i {
+      color: #3b82f6;
+      transform: scale(1.1);
     }
 
     .tabs {
       display: flex;
       gap: 8px;
-      margin-bottom: 24px;
-      border-bottom: 1px solid #2a2a2a;
+      margin-bottom: 32px;
+      border-bottom: 1px solid #1f1f1f;
+      animation: fadeInUp 0.6s ease-out 0.3s both;
     }
 
     .tab {
-      padding: 12px 24px;
+      padding: 12px 20px;
       background: transparent;
       border: none;
-      color: #666;
+      color: #6b7280;
       cursor: pointer;
       font-size: 14px;
       font-weight: 500;
       border-bottom: 2px solid transparent;
-      transition: all 0.2s;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .tab i {
+      font-size: 14px;
+      transition: transform 0.3s ease;
     }
 
     .tab:hover {
-      color: #888;
+      color: #9ca3af;
+      background: rgba(59, 130, 246, 0.05);
+    }
+
+    .tab:hover i {
+      transform: scale(1.1);
     }
 
     .tab.active {
-      color: #4a9eff;
-      border-bottom-color: #4a9eff;
+      color: #3b82f6;
+      border-bottom-color: #3b82f6;
+    }
+
+    .tab.active i {
+      color: #3b82f6;
     }
 
     .requests-badge {
-      background: #ff4444;
+      background: #ef4444;
       color: white;
-      padding: 2px 6px;
-      border-radius: 10px;
+      padding: 2px 8px;
+      border-radius: 6px;
       font-size: 11px;
       font-weight: 600;
       margin-left: 6px;
@@ -109,38 +212,61 @@
     }
 
     .requests-section {
-      background: #1a1a1a;
-      border: 1px solid #2a2a2a;
-      border-radius: 8px;
-      padding: 24px;
-      margin-bottom: 24px;
+      background: #141414;
+      border: 1px solid #1f1f1f;
+      border-radius: 12px;
+      padding: 32px;
+      margin-bottom: 48px;
+      animation: fadeInUp 0.6s ease-out 0.4s both;
+      transition: all 0.3s ease;
+    }
+
+    .requests-section:hover {
+      border-color: #2a2a2a;
     }
 
     .requests-section h3 {
-      color: #4a9eff;
-      font-size: 16px;
+      font-size: 20px;
       font-weight: 600;
-      margin-bottom: 16px;
+      margin-bottom: 20px;
+      color: #ffffff;
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 12px;
+      transition: all 0.3s ease;
+    }
+
+    .requests-section:hover h3 {
+      color: #3b82f6;
+    }
+
+    .requests-section h3 i {
+      font-size: 18px;
+      color: #6b7280;
+      transition: all 0.3s ease;
+    }
+
+    .requests-section:hover h3 i {
+      color: #3b82f6;
+      transform: rotate(5deg) scale(1.1);
     }
 
     .friend-item {
-      background: #0a0a0a;
-      border: 1px solid #2a2a2a;
-      border-radius: 6px;
-      padding: 16px;
+      background: #1a1a1a;
+      border: 1px solid #1f1f1f;
+      border-radius: 10px;
+      padding: 14px 16px;
       display: flex;
       align-items: center;
       gap: 16px;
       margin-bottom: 12px;
-      transition: all 0.2s;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      animation: slideIn 0.3s ease-out;
     }
 
     .friend-item:hover {
-      border-color: #4a9eff;
-      background: #151515;
+      border-color: #3b82f6;
+      background: #1f1f1f;
       transform: translateX(4px);
     }
 
@@ -157,58 +283,98 @@
     .accept-request-btn, .reject-request-btn {
       padding: 8px 16px;
       border: none;
-      border-radius: 6px;
+      border-radius: 8px;
       cursor: pointer;
       font-size: 13px;
-      font-weight: 500;
-      transition: all 0.2s;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
+      font-weight: 600;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .accept-request-btn::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 0;
+      height: 0;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.2);
+      transform: translate(-50%, -50%);
+      transition: width 0.6s, height 0.6s;
+    }
+
+    .accept-request-btn:hover::before {
+      width: 300px;
+      height: 300px;
     }
 
     .accept-request-btn {
-      background: linear-gradient(135deg, #4ade80 0%, #22c55e 100%);
-      color: #000;
+      background: #10b981;
+      color: #ffffff;
     }
 
     .accept-request-btn:hover {
-      background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+      background: #059669;
       transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(74, 222, 128, 0.3);
+      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
     }
 
     .reject-request-btn {
       background: transparent;
-      border: 1px solid #ef4444;
+      border: 1px solid #1f1f1f;
       color: #ef4444;
     }
 
     .reject-request-btn:hover {
-      background: #ef4444;
-      color: #fff;
+      background: rgba(239, 68, 68, 0.1);
+      border-color: #ef4444;
       transform: translateY(-2px);
     }
 
     .add-friend-section {
-      background: #1a1a1a;
-      border: 1px solid #2a2a2a;
-      border-radius: 8px;
-      padding: 20px;
-      margin-bottom: 24px;
+      background: #141414;
+      border: 1px solid #1f1f1f;
+      border-radius: 12px;
+      padding: 32px;
+      margin-bottom: 48px;
+      animation: fadeInUp 0.6s ease-out 0.4s both;
+      transition: all 0.3s ease;
+    }
+
+    .add-friend-section:hover {
+      border-color: #2a2a2a;
     }
 
     .add-friend-form {
       display: flex;
-      gap: 8px;
+      gap: 12px;
     }
 
     .add-friend-form input {
       flex: 1;
-      padding: 10px;
+      padding: 12px 16px;
       background: #0a0a0a;
-      border: 1px solid #2a2a2a;
-      border-radius: 6px;
-      color: #fff;
+      border: 1px solid #1f1f1f;
+      border-radius: 8px;
+      color: #e5e5e5;
+      font-size: 14px;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .add-friend-form input::placeholder {
+      color: #4b5563;
+    }
+
+    .add-friend-form input:focus {
+      outline: none;
+      border-color: #3b82f6;
+      background: #141414;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
     }
 
     .friends-list {
@@ -217,32 +383,59 @@
     }
 
     .friend-card {
-      background: #1a1a1a;
+      background: #141414;
       border: 1px solid #2a2a2a;
-      border-radius: 8px;
-      padding: 16px;
+      border-radius: 12px;
+      padding: 20px;
       display: flex;
       align-items: center;
       gap: 16px;
-      transition: all 0.2s;
+      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    }
+
+    .friend-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, transparent 50%);
+      opacity: 0;
+      transition: opacity 0.4s ease;
+    }
+
+    .friend-card:hover::before {
+      opacity: 1;
     }
 
     .friend-card:hover {
-      border-color: #4a9eff;
-      background: #1f1f1f;
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(74, 158, 255, 0.1);
+      border-color: #3b82f6;
+      transform: translateY(-4px);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(59, 130, 246, 0.1);
     }
 
     .friend-avatar {
       font-size: 32px;
-      width: 50px;
-      height: 50px;
+      width: 56px;
+      height: 56px;
       display: flex;
       align-items: center;
       justify-content: center;
       background: #0a0a0a;
+      border: 2px solid #2a2a2a;
       border-radius: 50%;
+      transition: all 0.3s ease;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    }
+
+    .friend-card:hover .friend-avatar {
+      border-color: #3b82f6;
+      transform: scale(1.05);
     }
 
     .friend-info {
@@ -253,20 +446,27 @@
       font-size: 15px;
       font-weight: 600;
       margin-bottom: 4px;
+      color: #ffffff;
+      transition: color 0.3s ease;
+    }
+
+    .friend-card:hover .friend-name {
+      color: #3b82f6;
     }
 
     .friend-username {
-      font-size: 12px;
-      color: #666;
+      font-size: 13px;
+      color: #6b7280;
       margin-bottom: 8px;
     }
 
     .friend-activity {
       font-size: 12px;
-      color: #888;
+      color: #6b7280;
       display: flex;
       align-items: center;
       gap: 6px;
+      font-weight: 500;
     }
 
     .activity-indicator {
@@ -277,12 +477,13 @@
     }
 
     .activity-indicator.online {
-      background: #4ade80;
+      background: #10b981;
+      box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
     }
 
     .activity-indicator.focusing {
-      background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
-      box-shadow: 0 0 12px rgba(220, 38, 38, 0.6), 0 0 24px rgba(220, 38, 38, 0.3);
+      background: #ef4444;
+      box-shadow: 0 0 8px rgba(239, 68, 68, 0.5);
       animation: pulse 2s infinite;
     }
     
@@ -291,7 +492,7 @@
     }
 
     .activity-indicator.offline {
-      background: #666;
+      background: #4b5563;
     }
 
     @keyframes pulse {
@@ -330,33 +531,80 @@
     }
 
     .leaderboard-item {
-      background: #1a1a1a;
+      background: #141414;
       border: 1px solid #2a2a2a;
-      border-radius: 6px;
-      padding: 16px;
+      border-radius: 12px;
+      padding: 18px;
       display: flex;
       align-items: center;
       gap: 16px;
-      transition: all 0.2s;
+      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    }
+
+    .leaderboard-item::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, transparent 50%);
+      opacity: 0;
+      transition: opacity 0.4s ease;
+    }
+
+    .leaderboard-item:hover::before {
+      opacity: 1;
     }
 
     .leaderboard-item:hover {
-      background: #1f1f1f;
-      border-color: #3a3a3a;
-      transform: translateX(4px);
+      border-color: #3b82f6;
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(59, 130, 246, 0.1);
     }
 
     .leaderboard-rank {
-      font-size: 20px;
+      font-size: 22px;
       font-weight: 700;
-      width: 40px;
+      width: 48px;
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       text-align: center;
-      color: #4a9eff;
+      color: #3b82f6;
+      background: #0a0a0a;
+      border: 2px solid #2a2a2a;
+      border-radius: 10px;
+      transition: all 0.3s ease;
+      flex-shrink: 0;
     }
 
-    .leaderboard-rank.top1 { color: #ffd700; }
-    .leaderboard-rank.top2 { color: #c0c0c0; }
-    .leaderboard-rank.top3 { color: #cd7f32; }
+    .leaderboard-rank.top1 { 
+      color: #fbbf24;
+      background: rgba(251, 191, 36, 0.1);
+      border-color: #fbbf24;
+      box-shadow: 0 0 20px rgba(251, 191, 36, 0.3);
+    }
+    .leaderboard-rank.top2 { 
+      color: #9ca3af;
+      background: rgba(156, 163, 175, 0.1);
+      border-color: #9ca3af;
+      box-shadow: 0 0 20px rgba(156, 163, 175, 0.2);
+    }
+    .leaderboard-rank.top3 { 
+      color: #ea580c;
+      background: rgba(234, 88, 12, 0.1);
+      border-color: #ea580c;
+      box-shadow: 0 0 20px rgba(234, 88, 12, 0.3);
+    }
+
+    .leaderboard-item:hover .leaderboard-rank {
+      transform: scale(1.1);
+    }
 
     .empty-state {
       text-align: center;
@@ -372,20 +620,49 @@
 
     /* Button Styles */
     .btn-primary {
-      background: #4a9eff;
-      color: #000;
+      background: #3b82f6;
+      color: #ffffff;
       border: none;
-      border-radius: 6px;
+      border-radius: 8px;
+      padding: 10px 20px;
       font-size: 13px;
       font-weight: 600;
       cursor: pointer;
-      transition: all 0.2s;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      white-space: nowrap;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn-primary::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 0;
+      height: 0;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.2);
+      transform: translate(-50%, -50%);
+      transition: width 0.6s, height 0.6s;
+    }
+
+    .btn-primary:hover::before {
+      width: 300px;
+      height: 300px;
     }
 
     .btn-primary:hover {
-      background: #5da8ff;
+      background: #2563eb;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+    }
+
+    .btn-primary:active {
+      transform: scale(0.97);
     }
 
     /* Input Styles */
@@ -645,27 +922,30 @@
 <body>
   <div class="social-container">
     <div class="social-header">
-      <h1>👥 Friends & Competition</h1>
-      <p style="color: #666; font-size: 14px;">Connect with friends and compete on the leaderboard</p>
+      <h1>
+        <i class="fas fa-users header-icon"></i>
+        Friends & Competition
+      </h1>
+      <p>Connect with friends and compete on the leaderboard</p>
     </div>
 
     <div class="nav-buttons">
       <a href="dashboard.html" class="nav-btn">
-        <span>📊</span>
+        <i class="fas fa-chart-line"></i>
         <span>Dashboard</span>
       </a>
       <a href="popup.html" class="nav-btn">
-        <span>🏠</span>
+        <i class="fas fa-home"></i>
         <span>Home</span>
       </a>
     </div>
 
     <div class="tabs">
-      <button class="tab active" data-tab="friends">Friends</button>
-      <button class="tab" data-tab="requests">Requests <span id="requestsBadge" class="requests-badge" style="display:none;">0</span></button>
-      <button class="tab" data-tab="leaderboard">Leaderboard</button>
-      <button class="tab" data-tab="activity">Live Activity</button>
-      <button class="tab" data-tab="chat">Community Chat</button>
+      <button class="tab active" data-tab="friends"><i class="fas fa-user-friends"></i> Friends</button>
+      <button class="tab" data-tab="requests"><i class="fas fa-user-plus"></i> Requests <span id="requestsBadge" class="requests-badge" style="display:none;">0</span></button>
+      <button class="tab" data-tab="leaderboard"><i class="fas fa-trophy"></i> Leaderboard</button>
+      <button class="tab" data-tab="activity"><i class="fas fa-rss"></i> Live Activity</button>
+      <button class="tab" data-tab="chat"><i class="fas fa-comments"></i> Community Chat</button>
     </div>
 
     <!-- Friends Tab -->
@@ -755,11 +1035,13 @@
   </div>
 
   <!-- Profile Modal -->
-  <div id="profileModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
-    <div id="profileModalContent" style="background: linear-gradient(180deg, #1a1a1a 0%, #0f0f0f 100%); border-radius: 16px; padding: 0; max-width: 520px; width: 90%; max-height: 85vh; overflow: hidden; position: relative; border: 1px solid #2a2a2a; box-shadow: 0 20px 60px rgba(0,0,0,0.5);">
-      <button id="closeModal" style="position: absolute; top: 20px; right: 20px; background: rgba(0,0,0,0.6); border: none; color: #fff; font-size: 20px; cursor: pointer; padding: 0; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 50%; z-index: 10; transition: all 0.2s;">&times;</button>
+  <div id="profileModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(8px);">
+    <div id="profileModalContent" style="background: #141414; border-radius: 16px; padding: 0; max-width: 600px; width: 90%; max-height: 90vh; overflow: hidden; position: relative; border: 1px solid #1f1f1f; box-shadow: 0 24px 80px rgba(0,0,0,0.8), 0 0 0 1px rgba(59, 130, 246, 0.1);">
+      <button id="closeModal" style="position: absolute; top: 24px; right: 24px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); color: #ef4444; font-size: 18px; cursor: pointer; padding: 0; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 8px; z-index: 10; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); font-weight: 600;">
+        <i class="fas fa-times"></i>
+      </button>
       
-      <div id="profileContent" style="padding: 36px; max-height: 85vh; overflow-y: auto;">
+      <div id="profileContent" style="padding: 40px; max-height: 90vh; overflow-y: auto;">
         <!-- Profile content loaded here -->
       </div>
     </div>
@@ -767,25 +1049,53 @@
   
   <style>
     #profileContent::-webkit-scrollbar {
-      width: 8px;
+      width: 6px;
     }
     #profileContent::-webkit-scrollbar-track {
-      background: #0a0a0a;
-      border-radius: 4px;
+      background: transparent;
     }
     #profileContent::-webkit-scrollbar-thumb {
-      background: #4a9eff;
-      border-radius: 4px;
+      background: #1f1f1f;
+      border-radius: 3px;
     }
     #profileContent::-webkit-scrollbar-thumb:hover {
-      background: #5da8ff;
+      background: #2a2a2a;
     }
     #closeModal:hover {
-      background: rgba(255,255,255,0.1) !important;
+      background: rgba(239, 68, 68, 0.2) !important;
+      border-color: #ef4444 !important;
+      transform: scale(1.05);
+    }
+    .profile-badge {
+      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1) !important;
     }
     .profile-badge:hover {
       transform: translateY(-4px) !important;
-      box-shadow: 0 8px 20px rgba(0,0,0,0.5) !important;
+      box-shadow: 0 8px 24px rgba(59, 130, 246, 0.2) !important;
+    }
+    #profileModal {
+      animation: fadeInModal 0.3s ease-out;
+    }
+    @keyframes fadeInModal {
+      from {
+        opacity: 0;
+      }
+      to {
+        opacity: 1;
+      }
+    }
+    #profileModalContent {
+      animation: slideUpModal 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    @keyframes slideUpModal {
+      from {
+        opacity: 0;
+        transform: translateY(30px) scale(0.96);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
     }
   </style>
 

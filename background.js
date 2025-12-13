@@ -329,8 +329,21 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
     // Clear session activities
     await chrome.storage.local.remove('sessionActivities');
     
-    // Update stats
-    await updateSessionStats(sessionDuration);
+    // Check minimum session duration (30 minutes = 1800000 ms)
+    const minimumDuration = 30 * 60 * 1000; // 30 minutes
+    if (sessionDuration < minimumDuration) {
+      console.log('[SessionEnd] Session too short to record:', Math.floor(sessionDuration / 60000), 'minutes');
+      // Show notification that session was too short
+      chrome.notifications.create({
+        type: 'basic',
+        iconUrl: 'icons/icon48.png',
+        title: '⏱️ Session Too Short',
+        message: `Session must be at least 30 minutes to be recorded. You focused for ${Math.floor(sessionDuration / 60000)} minutes.`
+      });
+    } else {
+      // Update stats only if session is long enough
+      await updateSessionStats(sessionDuration);
+    }
     
     await chrome.storage.local.set({focusActive:false, sessionEnd: 0, emergencyUsed: false});
     
@@ -410,21 +423,24 @@ async function updateSessionStats(durationMs) {
   if (!lastDate) {
     // First session ever
     currentStreak = 1;
+    console.log('[Streak] First session ever, streak = 1');
   } else if (lastDate === today) {
-    // Already counted today, don't increment
-    // Keep current streak as is
+    // Already counted today, keep current streak
+    console.log('[Streak] Already counted today, keeping streak at', currentStreak);
   } else if (lastDate === yesterdayStr) {
     // Continued streak from yesterday
     currentStreak++;
+    console.log('[Streak] Continued from yesterday, new streak:', currentStreak);
   } else {
     // Streak broken, start over
+    console.log('[Streak] Broken! Last:', lastDate, 'Yesterday:', yesterdayStr, 'Resetting to 1');
     currentStreak = 1;
   }
   
   // Always update longest if current is higher
   longestStreak = Math.max(longestStreak, currentStreak);
   
-  console.log('[Streak] Current:', currentStreak, 'Longest:', longestStreak, 'Last date:', lastDate);
+  console.log('[Streak] Current:', currentStreak, 'Longest:', longestStreak, 'Date:', today);
   
   // Calculate points (1 point per minute + bonuses)
   let pointsEarned = durationMin;
@@ -512,25 +528,60 @@ async function checkBadges(badges, totalTime, sessions, streak, level) {
   const validBadges = (badges || []).filter(b => b && b.id);
   
   const newBadges = [
+    // Session-based achievements
     {id: 'first-session', name: 'First Step', desc: 'Complete first session', condition: sessions >= 1},
+    {id: 'getting-started', name: 'Getting Started', desc: 'Complete 5 sessions', condition: sessions >= 5},
+    {id: 'dedicated', name: 'Dedicated', desc: 'Complete 10 sessions', condition: sessions >= 10},
+    {id: 'focus-warrior', name: 'Focus Warrior', desc: '25 sessions completed', condition: sessions >= 25},
+    {id: 'session-master', name: 'Session Master', desc: '50 sessions completed', condition: sessions >= 50},
+    
+    // Time-based achievements (in minutes)
+    {id: 'hour-achiever', name: 'Hour Achiever', desc: '5+ hours focused', condition: totalTime >= 300},
+    {id: 'time-warrior', name: 'Time Warrior', desc: '25+ hours focused', condition: totalTime >= 1500},
     {id: 'focus-champion', name: 'Focus Champion', desc: '100+ hours focused', condition: totalTime >= 6000},
+    
+    // Streak-based achievements
+    {id: 'streak-starter', name: 'Streak Starter', desc: '3 day streak', condition: streak >= 3},
     {id: 'streak-master', name: 'Streak Master', desc: '7 day streak', condition: streak >= 7},
-    {id: 'early-bird', name: 'Early Bird', desc: 'Focused before 8 AM', condition: false}, // Time-based, implemented separately
-    {id: 'night-owl', name: 'Night Owl', desc: 'Focused after 10 PM', condition: false}, // Time-based, implemented separately
-    {id: 'social-butterfly', name: 'Social Butterfly', desc: '10+ friends', condition: false}, // Friends count, checked elsewhere
-    {id: 'focus-warrior', name: 'Focus Warrior', desc: '50 sessions completed', condition: sessions >= 50},
-    {id: 'productivity-king', name: 'Productivity King', desc: 'Reached level 10', condition: level >= 10}
+    {id: 'streak-legend', name: 'Streak Legend', desc: '30 day streak', condition: streak >= 30},
+    
+    // Level-based achievements
+    {id: 'level-up', name: 'Level Up', desc: 'Reached level 3', condition: level >= 3},
+    {id: 'rising-star', name: 'Rising Star', desc: 'Reached level 5', condition: level >= 5},
+    {id: 'productivity-king', name: 'Productivity King', desc: 'Reached level 10', condition: level >= 10},
+    
+    // Time-based (checked separately)
+    {id: 'early-bird', name: 'Early Bird', desc: 'Focused before 8 AM', condition: false},
+    {id: 'night-owl', name: 'Night Owl', desc: 'Focused after 10 PM', condition: false},
+    
+    // Social (checked separately)
+    {id: 'social-butterfly', name: 'Social Butterfly', desc: '5+ friends', condition: false}
   ];
+  
+  console.log('[Badges] Checking badges - Sessions:', sessions, 'Time:', totalTime, 'Streak:', streak, 'Level:', level);
+  console.log('[Badges] Current badges:', validBadges.map(b => b.id).join(', '));
   
   for (const badge of newBadges) {
     if (badge.condition && !validBadges.find(b => b.id === badge.id)) {
-      console.log('[Badge] Unlocked:', badge.name);
-      validBadges.push({id: badge.id, name: badge.name, desc: badge.desc, earnedAt: Date.now()});
+      console.log('[Badge] ✅ Unlocked:', badge.name, badge.desc);
+      const newBadge = {id: badge.id, name: badge.name, desc: badge.desc, earnedAt: Date.now()};
+      validBadges.push(newBadge);
+      
+      // Show system notification
       chrome.notifications.create({
         type: 'basic',
         iconUrl: 'icons/icon48.png',
         title: '🏆 New Badge Unlocked!',
         message: `${badge.name}: ${badge.desc}`
+      });
+      
+      // Send message to dashboard for popup animation
+      chrome.runtime.sendMessage({
+        action: 'badgeUnlocked',
+        badge: newBadge
+      }).catch(() => {
+        // Dashboard might not be open, that's okay
+        console.log('[Badge] Dashboard not open for popup notification');
       });
     }
   }
@@ -601,66 +652,31 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           console.log('[StartSession] Current tab URL:', currentTab?.url);
           console.log('[StartSession] Current tab title:', currentTab?.title);
           
-          const activity = {
-            status: 'focusing',
+          // Use enhanced activity detection
+          const activity = getDetailedActivity(
+            currentTab?.url,
+            currentTab?.title,
+            true // focusActive
+          );
+          
+          // Store full activity locally
+          await chrome.storage.local.set({ activity: activity });
+          
+          // Prepare activity data with ALL fields
+          const activityToSend = {
+            status: activity.status || 'focusing',
             focusActive: true,
             startTime: now,
-            currentUrl: currentTab?.url || null,
-            videoTitle: null,
-            videoThumbnail: null,
-            videoChannel: null
+            currentUrl: activity.currentUrl || currentTab?.url || null,
+            videoTitle: activity.videoTitle || null,
+            videoThumbnail: activity.videoThumbnail || null,
+            videoChannel: activity.videoChannel || null,
+            activityType: activity.activityType || null,
+            activityDetails: activity.activityDetails || null,
+            actionButton: activity.actionButton || null
           };
           
-          // Get YouTube video info if watching
-          if (currentTab && currentTab.url && currentTab.url.includes('youtube.com/watch')) {
-            console.log('[StartSession] 🎬 YouTube detected! Processing...');
-            try {
-              const urlParams = new URL(currentTab.url);
-              const videoId = urlParams.searchParams.get('v');
-              
-              console.log('[StartSession] Video ID:', videoId);
-              console.log('[StartSession] Tab title available:', !!currentTab.title);
-              
-              if (videoId) {
-                console.log('[StartSession] Fetching YouTube data for video:', videoId);
-                
-                // Use tab title directly to avoid CORS
-                if (currentTab.title) {
-                  activity.videoTitle = currentTab.title.replace(' - YouTube', '');
-                  activity.videoThumbnail = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
-                  activity.videoChannel = 'YouTube';
-                  console.log('[StartSession] ✅ YouTube video from tab title:', activity.videoTitle);
-                } else {
-                  console.log('[StartSession] ⚠️ No tab title available');
-                }
-              } else {
-                console.log('[StartSession] ⚠️ No video ID found in URL');
-              }
-            } catch (e) {
-              console.error('[StartSession] Error fetching YouTube info:', e);
-            }
-          }
-          // Check for PDF files
-          else if (currentTab && currentTab.url && (currentTab.url.endsWith('.pdf') || currentTab.url.startsWith('file://') && currentTab.url.includes('.pdf'))) {
-            console.log('[StartSession] 📄 PDF detected! Processing...');
-            try {
-              // Extract PDF filename from URL
-              const urlParts = currentTab.url.split('/');
-              let pdfName = urlParts[urlParts.length - 1];
-              pdfName = decodeURIComponent(pdfName.replace('.pdf', ''));
-              
-              activity.videoTitle = pdfName;
-              activity.videoThumbnail = '📄';
-              activity.videoChannel = 'Reading PDF';
-              console.log('[StartSession] ✅ PDF detected:', pdfName);
-            } catch (e) {
-              console.error('[StartSession] Error parsing PDF name:', e);
-            }
-          } else {
-            console.log('[StartSession] ℹ️ Regular browsing tab');
-          }
-          
-          console.log('[StartSession] Activity data to send:', JSON.stringify(activity, null, 2));
+          console.log('[StartSession] Activity data to send:', JSON.stringify(activityToSend, null, 2));
           
           const response = await fetch(`${API_BASE_URL}/api/users/activity`, {
             method: 'PUT',
@@ -668,7 +684,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${token}`
             },
-            body: JSON.stringify({ activity })
+            body: JSON.stringify({ activity: activityToSend })
           });
           
           if (response.ok) {
@@ -709,37 +725,28 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
               const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
               const currentTab = tabs[0];
               
-              const activity = {
-                status: 'online',
-                focusActive: false,
-                currentUrl: currentTab?.url || null,
-                videoTitle: null,
-                videoThumbnail: null,
-                videoChannel: null
-              };
+              // Use enhanced activity detection with focusActive = false
+              const activity = getDetailedActivity(
+                currentTab?.url,
+                currentTab?.title,
+                false // focusActive = false (session ended)
+              );
               
-              // Check if watching YouTube
-              if (currentTab && currentTab.url && currentTab.url.includes('youtube.com/watch')) {
-                try {
-                  const urlParams = new URL(currentTab.url);
-                  const videoId = urlParams.searchParams.get('v');
-                  
-                  if (videoId) {
-                    const oembedUrl = `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`;
-                    const oembedResponse = await fetch(oembedUrl);
-                    
-                    if (oembedResponse.ok) {
-                      const videoData = await oembedResponse.json();
-                      activity.status = 'youtube';
-                      activity.videoTitle = videoData.title;
-                      activity.videoThumbnail = videoData.thumbnail_url;
-                      activity.videoChannel = videoData.author_name;
-                    }
-                  }
-                } catch (e) {
-                  console.error('[EndSession] Error fetching YouTube info:', e);
-                }
-              }
+              // Store full activity locally
+              await chrome.storage.local.set({ activity: activity });
+              
+              // Prepare activity data with ALL fields
+              const activityToSend = {
+                status: activity.status || 'online',
+                focusActive: false,
+                currentUrl: activity.currentUrl || null,
+                videoTitle: activity.videoTitle || null,
+                videoThumbnail: activity.videoThumbnail || null,
+                videoChannel: activity.videoChannel || null,
+                activityType: activity.activityType || null,
+                activityDetails: activity.activityDetails || null,
+                actionButton: activity.actionButton || null
+              };
               
               const response = await fetch(`${API_BASE_URL}/api/users/activity`, {
                 method: 'PUT',
@@ -747,7 +754,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
                   'Content-Type': 'application/json',
                   'Authorization': `Bearer ${token}`
                 },
-                body: JSON.stringify({ activity })
+                body: JSON.stringify({ activity: activityToSend })
               });
               
               if (response.ok) {
@@ -792,10 +799,20 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     } else if (msg.action === 'getState') {
       const s = await chrome.storage.local.get();
       sendResponse(s);
+    } else if (msg.action === 'checkForUpdates') {
+      // Handle manual update check request
+      (async () => {
+        await checkForUpdates();
+        sendResponse({ok: true});
+      })();
+      return true; // Keep message channel open for async response
     } else if (msg.action === 'downloadUpdate') {
       // Handle update download request from popup
-      downloadUpdate();
-      sendResponse({ok: true});
+      (async () => {
+        await downloadUpdate();
+        sendResponse({ok: true});
+      })();
+      return true; // Keep message channel open for async response
     } else if (msg.action === 'syncFromMongoDB') {
       await syncFromMongoDB();
       sendResponse({ok: true});
@@ -1043,8 +1060,14 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
     console.log('[SessionEnd] Current focusActive:', state.focusActive);
     const sessionDuration = state.sessionDuration || 0;
     
-    // Update stats
-    await updateSessionStats(sessionDuration);
+    // Check minimum session duration (30 minutes = 1800000 ms)
+    const minimumDuration = 30 * 60 * 1000; // 30 minutes
+    if (sessionDuration >= minimumDuration) {
+      // Update stats only if session is long enough
+      await updateSessionStats(sessionDuration);
+    } else {
+      console.log('[SessionEnd] Session too short to record:', Math.floor(sessionDuration / 60000), 'minutes');
+    }
     
     await chrome.storage.local.set({focusActive:false, sessionEnd: 0, emergencyUsed: false});
     
@@ -1058,37 +1081,28 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
         const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
         const currentTab = tabs[0];
         
-        const activity = {
-          status: 'online',
-          focusActive: false,
-          currentUrl: currentTab?.url || null,
-          videoTitle: null,
-          videoThumbnail: null,
-          videoChannel: null
-        };
+        // Use enhanced activity detection
+        const activity = getDetailedActivity(
+          currentTab?.url,
+          currentTab?.title,
+          false // focusActive = false (session ended)
+        );
         
-        // Check if watching YouTube
-        if (currentTab && currentTab.url && currentTab.url.includes('youtube.com/watch')) {
-          try {
-            const urlParams = new URL(currentTab.url);
-            const videoId = urlParams.searchParams.get('v');
-            
-            if (videoId) {
-              const oembedUrl = `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`;
-              const oembedResponse = await fetch(oembedUrl);
-              
-              if (oembedResponse.ok) {
-                const videoData = await oembedResponse.json();
-                activity.status = 'youtube';
-                activity.videoTitle = videoData.title;
-                activity.videoThumbnail = videoData.thumbnail_url;
-                activity.videoChannel = videoData.author_name;
-              }
-            }
-          } catch (e) {
-            console.error('[SessionComplete] Error fetching YouTube info:', e);
-          }
-        }
+        // Store full activity locally
+        await chrome.storage.local.set({ activity: activity });
+        
+        // Prepare activity data with ALL fields
+        const activityToSend = {
+          status: activity.status || 'online',
+          focusActive: false,
+          currentUrl: activity.currentUrl || null,
+          videoTitle: activity.videoTitle || null,
+          videoThumbnail: activity.videoThumbnail || null,
+          videoChannel: activity.videoChannel || null,
+          activityType: activity.activityType || null,
+          activityDetails: activity.activityDetails || null,
+          actionButton: activity.actionButton || null
+        };
         
         const response = await fetch(`${API_BASE_URL}/api/users/activity`, {
           method: 'PUT',
@@ -1096,7 +1110,7 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
           },
-          body: JSON.stringify({ activity })
+          body: JSON.stringify({ activity: activityToSend })
         });
         
         if (response.ok) {
@@ -1129,6 +1143,251 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
 });
 
 // Activity heartbeat function
+// Enhanced activity detection function
+function getDetailedActivity(url, title, focusActive) {
+  const activity = {
+    status: focusActive ? 'focusing' : 'online',
+    focusActive: focusActive || false,
+    currentUrl: url || null,
+    videoTitle: null,
+    videoThumbnail: null,
+    videoChannel: null,
+    activityType: null,
+    activityDetails: null,
+    actionButton: null // Text for repeat action button
+  };
+
+  if (!url) return activity;
+
+  // GetMarks.app - Study platform
+  if (url.includes('web.getmarks.app')) {
+    activity.status = focusActive ? 'focusing' : 'studying';
+    activity.videoChannel = 'GetMarks';
+    activity.videoThumbnail = '📚';
+    
+    if (url.includes('/formula-cards/')) {
+      activity.activityType = 'Reading Formulas';
+      activity.videoTitle = 'Learning Formulas';
+      activity.actionButton = 'Read Same Formula';
+    } else if (url.includes('/quick-concepts/')) {
+      activity.activityType = 'Revising Concepts';
+      activity.videoTitle = 'Quick Concept Revision';
+      activity.actionButton = 'Revise Same Concept';
+    } else if (url.match(/\/[a-zA-Z0-9]{6,}\//)) { // Question pages like /cpyqbV3/
+      activity.activityType = 'Solving Questions';
+      activity.videoTitle = 'Practice Problems';
+      activity.actionButton = 'Solve Same Question';
+    } else {
+      activity.activityType = 'Studying';
+      activity.videoTitle = 'GetMarks Session';
+    }
+  }
+  
+  // BYJU'S
+  else if (url.includes('byjus.com')) {
+    activity.status = focusActive ? 'focusing' : 'studying';
+    activity.videoChannel = "BYJU'S";
+    activity.videoThumbnail = '🎓';
+    activity.activityType = 'Online Class';
+    activity.videoTitle = title ? title.replace(" - BYJU'S", '') : "BYJU'S Learning";
+    activity.actionButton = 'Continue Learning';
+  }
+  
+  // Vedantu
+  else if (url.includes('vedantu.com')) {
+    activity.status = focusActive ? 'focusing' : 'studying';
+    activity.videoChannel = 'Vedantu';
+    activity.videoThumbnail = '👨‍🏫';
+    
+    if (url.includes('/live-class')) {
+      activity.activityType = 'Live Class';
+      activity.videoTitle = 'Attending Live Session';
+      activity.actionButton = 'Join Class';
+    } else if (url.includes('/doubt')) {
+      activity.activityType = 'Doubt Solving';
+      activity.videoTitle = 'Getting Help with Doubts';
+      activity.actionButton = 'Ask Doubt';
+    } else {
+      activity.activityType = 'Studying';
+      activity.videoTitle = title ? title.replace(' - Vedantu', '') : 'Vedantu Learning';
+    }
+  }
+  
+  // Physics Wallah (PW)
+  else if (url.includes('pw.live') || url.includes('physicswallah.')) {
+    activity.status = focusActive ? 'focusing' : 'studying';
+    activity.videoChannel = 'Physics Wallah';
+    activity.videoThumbnail = '📖';
+    
+    if (url.includes('/watch') || url.includes('/lecture')) {
+      activity.activityType = 'Watching Lecture';
+      activity.videoTitle = title ? title.replace(' - PW', '').replace(' - Physics Wallah', '') : 'PW Lecture';
+      activity.actionButton = 'Watch Again';
+    } else if (url.includes('/test') || url.includes('/practice')) {
+      activity.activityType = 'Taking Test';
+      activity.videoTitle = 'Practice Test';
+      activity.actionButton = 'Retake Test';
+    } else {
+      activity.activityType = 'Studying';
+      activity.videoTitle = 'Physics Wallah Session';
+    }
+  }
+  
+  // Doubtnut
+  else if (url.includes('doubtnut.com')) {
+    activity.status = focusActive ? 'focusing' : 'studying';
+    activity.videoChannel = 'Doubtnut';
+    activity.videoThumbnail = '❓';
+    
+    if (url.includes('/question')) {
+      activity.activityType = 'Solving Question';
+      activity.videoTitle = 'Question Solution';
+      activity.actionButton = 'Solve Similar';
+    } else {
+      activity.activityType = 'Clearing Doubts';
+      activity.videoTitle = title ? title.replace(' - Doubtnut', '') : 'Doubtnut Session';
+    }
+  }
+  
+  // Unacademy
+  else if (url.includes('unacademy.com')) {
+    activity.status = focusActive ? 'focusing' : 'studying';
+    activity.videoChannel = 'Unacademy';
+    activity.videoThumbnail = '🎯';
+    
+    if (url.includes('/lesson')) {
+      activity.activityType = 'Watching Lesson';
+      activity.videoTitle = title ? title.replace(' - Unacademy', '') : 'Unacademy Lesson';
+      activity.actionButton = 'Watch Again';
+    } else if (url.includes('/test')) {
+      activity.activityType = 'Taking Test';
+      activity.videoTitle = 'Practice Test';
+      activity.actionButton = 'Retake Test';
+    } else {
+      activity.activityType = 'Studying';
+      activity.videoTitle = 'Unacademy Session';
+    }
+  }
+  
+  // Khan Academy
+  else if (url.includes('khanacademy.org')) {
+    activity.status = focusActive ? 'focusing' : 'studying';
+    activity.videoChannel = 'Khan Academy';
+    activity.videoThumbnail = '🌳';
+    
+    if (url.includes('/video/')) {
+      activity.activityType = 'Watching Tutorial';
+      activity.videoTitle = title ? title.replace(' | Khan Academy', '') : 'Khan Academy Video';
+      activity.actionButton = 'Watch Again';
+    } else if (url.includes('/exercise/')) {
+      activity.activityType = 'Practicing';
+      activity.videoTitle = 'Practice Exercise';
+      activity.actionButton = 'Practice More';
+    } else {
+      activity.activityType = 'Learning';
+      activity.videoTitle = 'Khan Academy Session';
+    }
+  }
+  
+  // YouTube
+  else if (url.includes('youtube.com/watch')) {
+    activity.videoChannel = 'YouTube';
+    
+    const urlParams = new URL(url);
+    const videoId = urlParams.searchParams.get('v');
+    
+    if (videoId && title) {
+      activity.status = focusActive ? 'focusing' : 'youtube';
+      activity.videoTitle = title.replace(' - YouTube', '');
+      activity.videoThumbnail = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+      activity.activityType = 'Watching Video';
+      activity.actionButton = 'Watch Again';
+    }
+  }
+  
+  // YouTube Shorts
+  else if (url.includes('youtube.com/shorts/')) {
+    activity.status = focusActive ? 'focusing' : 'youtube-shorts';
+    activity.videoChannel = 'YouTube Shorts';
+    activity.videoThumbnail = '📱';
+    
+    const shortId = url.split('/shorts/')[1]?.split('?')[0];
+    if (shortId && title) {
+      activity.videoTitle = title.replace(' - YouTube', '').replace('#Shorts', '').trim();
+      activity.activityType = 'Watching Short';
+      activity.actionButton = 'Watch Again';
+      activity.videoThumbnail = `https://i.ytimg.com/vi/${shortId}/hqdefault.jpg`;
+    } else {
+      activity.videoTitle = 'Watching Shorts';
+    }
+  }
+  
+  // Google Search
+  else if (url.includes('google.com/search')) {
+    activity.status = focusActive ? 'focusing' : 'searching';
+    activity.videoChannel = 'Google';
+    activity.videoThumbnail = '🔍';
+    activity.activityType = 'Searching';
+    
+    try {
+      const searchParams = new URL(url).searchParams;
+      const query = searchParams.get('q');
+      if (query) {
+        activity.videoTitle = `Searching: ${query}`;
+        activity.actionButton = 'Search Again';
+      } else {
+        activity.videoTitle = 'Google Search';
+      }
+    } catch {
+      activity.videoTitle = 'Google Search';
+    }
+  }
+  
+  // Instagram
+  else if (url.includes('instagram.com')) {
+    activity.status = focusActive ? 'focusing' : 'social-media';
+    activity.videoChannel = 'Instagram';
+    activity.videoThumbnail = '📷';
+    
+    if (url.includes('/reel/')) {
+      activity.activityType = 'Watching Reel';
+      activity.videoTitle = 'Browsing Reels';
+    } else if (url.includes('/p/')) {
+      activity.activityType = 'Viewing Post';
+      activity.videoTitle = 'Checking Posts';
+    } else {
+      activity.activityType = 'Browsing Feed';
+      activity.videoTitle = 'Instagram Feed';
+    }
+  }
+  
+  // PDF Files
+  else if (url.endsWith('.pdf') || (url.startsWith('file://') && url.includes('.pdf'))) {
+    try {
+      const urlParts = url.split('/');
+      let pdfName = urlParts[urlParts.length - 1];
+      pdfName = decodeURIComponent(pdfName.replace('.pdf', ''));
+      
+      activity.status = focusActive ? 'focusing' : 'reading';
+      activity.videoTitle = pdfName;
+      activity.videoThumbnail = '📄';
+      activity.videoChannel = 'PDF Reader';
+      activity.activityType = 'Reading Document';
+      activity.actionButton = 'Open PDF';
+    } catch (e) {
+      activity.videoTitle = 'Reading PDF';
+    }
+  }
+  
+  // Default browsing
+  else {
+    activity.status = focusActive ? 'focusing' : 'browsing';
+    activity.videoTitle = title || 'Browsing Web';
+  }
+
+  return activity;
+}
+
 async function sendActivityHeartbeat() {
   try {
     const state = await getState();
@@ -1150,71 +1409,50 @@ async function sendActivityHeartbeat() {
     
     console.log('[Heartbeat] Current tab URL:', currentTab?.url);
     
-    const activity = {
-      status: state.focusActive ? 'focusing' : 'online',
-      focusActive: state.focusActive || false,
-      currentUrl: currentTab?.url || null,
-      videoTitle: null,
-      videoThumbnail: null,
-      videoChannel: null
+    // Use enhanced activity detection
+    const activity = getDetailedActivity(
+      currentTab?.url,
+      currentTab?.title,
+      state.focusActive
+    );
+    
+    console.log('[Heartbeat] Full activity data:', activity);
+    
+    // Send all activity fields to backend (now supported!)
+    const activityToSend = {
+      status: activity.status || 'online',
+      focusActive: activity.focusActive || false,
+      currentUrl: activity.currentUrl || null,
+      videoTitle: activity.videoTitle || null,
+      videoThumbnail: activity.videoThumbnail || null,
+      videoChannel: activity.videoChannel || null,
+      activityType: activity.activityType || null,
+      activityDetails: activity.activityDetails || null,
+      actionButton: activity.actionButton || null
     };
     
-    // Get YouTube video info if watching (even during focus mode)
-    if (currentTab && currentTab.url && currentTab.url.includes('youtube.com/watch')) {
-      try {
-        const urlParams = new URL(currentTab.url);
-        const videoId = urlParams.searchParams.get('v');
-        
-        if (videoId) {
-          console.log('[Heartbeat] YouTube detected, videoId:', videoId);
-          
-          // Use tab title as fallback to avoid CORS issues
-          if (currentTab.title) {
-            activity.status = state.focusActive ? 'focusing' : 'youtube';
-            activity.videoTitle = currentTab.title.replace(' - YouTube', '');
-            activity.videoThumbnail = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
-            activity.videoChannel = 'YouTube';
-            console.log('[Heartbeat] ✅ YouTube video from tab:', activity.videoTitle);
-          }
-        }
-      } catch (e) {
-        console.error('[Heartbeat] Error fetching YouTube info:', e);
-      }
-    }
-    // Check for PDF files
-    else if (currentTab && currentTab.url && (currentTab.url.endsWith('.pdf') || currentTab.url.startsWith('file://') && currentTab.url.includes('.pdf'))) {
-      try {
-        // Extract PDF filename from URL
-        const urlParts = currentTab.url.split('/');
-        let pdfName = urlParts[urlParts.length - 1];
-        pdfName = decodeURIComponent(pdfName.replace('.pdf', ''));
-        
-        activity.status = state.focusActive ? 'focusing' : 'browsing';
-        activity.videoTitle = pdfName;
-        activity.videoThumbnail = '📄'; // PDF icon as placeholder
-        activity.videoChannel = 'Reading PDF';
-        console.log('[Heartbeat] ✅ PDF detected:', pdfName);
-      } catch (e) {
-        console.error('[Heartbeat] Error parsing PDF name:', e);
-      }
-    }
+    // Store full activity data locally as well
+    await chrome.storage.local.set({ activity: activity });
     
-    console.log('[Heartbeat] Sending activity update:', activity);
+    console.log('[Heartbeat] Sending to backend:', activityToSend);
     
-    // Update backend
+    // Update backend with compatible fields only
     const response = await fetch('https://focus-backend-g1zg.onrender.com/api/users/activity', {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`
       },
-      body: JSON.stringify({ activity })
+      body: JSON.stringify({ activity: activityToSend })
     });
     
     if (response.ok) {
-      console.log('[Heartbeat] Activity updated successfully');
+      console.log('[Heartbeat] ✅ Activity updated successfully');
+      const responseData = await response.json();
+      console.log('[Heartbeat] Backend response:', responseData);
     } else {
-      console.error('[Heartbeat] Failed:', response.status, await response.text());
+      const errorText = await response.text();
+      console.error('[Heartbeat] ❌ Failed:', response.status, errorText);
     }
   } catch (error) {
     console.error('[Heartbeat] Error:', error);

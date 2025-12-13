@@ -383,6 +383,20 @@ async function loadFriendsWidget() {
       `;
     }).join('');
     
+    // Add click handlers to friend items
+    document.querySelectorAll('.friend-item[data-action="open-social"]').forEach(item => {
+      item.addEventListener('click', () => {
+        chrome.tabs.create({url: chrome.runtime.getURL('social.html')});
+      });
+    });
+    
+    // Add click handlers to friend items
+    document.querySelectorAll('.friend-item[data-action="open-social"]').forEach(item => {
+      item.addEventListener('click', () => {
+        chrome.tabs.create({url: chrome.runtime.getURL('social.html')});
+      });
+    });
+    
   } catch (error) {
     console.error('Failed to load friends:', error);
     friendsList.innerHTML = '<div class="friends-empty">Failed to load</div>';

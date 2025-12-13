@@ -79,5 +79,10 @@ async function loadSessionSummary() {
   await chrome.storage.local.remove('sessionSummary');
 }
 
+// Add close button handler
+document.getElementById('closeButton')?.addEventListener('click', () => {
+  window.close();
+});
+
 // Load summary on page load
 document.addEventListener('DOMContentLoaded', loadSessionSummary);

@@ -177,16 +177,143 @@ function getActivityText(friend) {
     return '🎯 In focus session';
   }
   
+  // Enhanced activity display
+  if (activity.activityType && activity.videoTitle) {
+    const icon = activity.videoThumbnail && typeof activity.videoThumbnail === 'string' && activity.videoThumbnail.length <= 2 
+      ? activity.videoThumbnail 
+      : '📚';
+    return `${icon} ${activity.activityType}: ${activity.videoTitle.substring(0, 35)}${activity.videoTitle.length > 35 ? '...' : ''}`;
+  }
+  
+  if (activity.status === 'studying' && activity.videoTitle) {
+    return `📚 ${activity.videoTitle.substring(0, 40)}${activity.videoTitle.length > 40 ? '...' : ''}`;
+  }
+  
   if (activity.status === 'youtube' && activity.videoTitle) {
     return `📺 ${activity.videoTitle.substring(0, 40)}${activity.videoTitle.length > 40 ? '...' : ''}`;
+  }
+  
+  if (activity.status === 'youtube-shorts' && activity.videoTitle) {
+    return `📱 ${activity.videoTitle.substring(0, 40)}${activity.videoTitle.length > 40 ? '...' : ''}`;
+  }
+  
+  if (activity.status === 'reading' && activity.videoTitle) {
+    return `📄 ${activity.videoTitle.substring(0, 40)}${activity.videoTitle.length > 40 ? '...' : ''}`;
+  }
+  
+  if (activity.status === 'searching' && activity.videoTitle) {
+    return `🔍 ${activity.videoTitle.substring(0, 40)}${activity.videoTitle.length > 40 ? '...' : ''}`;
   }
   
   if (activity.status === 'youtube') {
     return '📺 Watching YouTube';
   }
   
+  if (activity.status === 'studying') {
+    return '📚 Studying';
+  }
+  
+  if (activity.status === 'social-media') {
+    return '📱 Scrolling Social Media';
+  }
+  
+  // Custom labels for common websites
   if (activity.currentUrl) {
     const url = activity.currentUrl || '';
+    const lowerUrl = url.toLowerCase();
+    
+    // Google
+    if (lowerUrl.includes('google.com')) {
+      if (lowerUrl.includes('/search')) {
+        return '🔍 Googling...';
+      }
+      return '🔍 On Google';
+    }
+    
+    // Social Media
+    if (lowerUrl.includes('instagram.com')) {
+      if (lowerUrl.includes('/reel')) return '📸 Watching Reels';
+      if (lowerUrl.includes('/stories')) return '📸 Checking Stories';
+      return '📸 Scrolling Instagram';
+    }
+    
+    if (lowerUrl.includes('facebook.com')) {
+      return '👥 On Facebook';
+    }
+    
+    if (lowerUrl.includes('twitter.com') || lowerUrl.includes('x.com')) {
+      return '🐦 Scrolling X (Twitter)';
+    }
+    
+    if (lowerUrl.includes('reddit.com')) {
+      return '🤖 Browsing Reddit';
+    }
+    
+    if (lowerUrl.includes('tiktok.com')) {
+      return '🎵 Watching TikTok';
+    }
+    
+    if (lowerUrl.includes('snapchat.com')) {
+      return '👻 On Snapchat';
+    }
+    
+    if (lowerUrl.includes('linkedin.com')) {
+      return '💼 Networking on LinkedIn';
+    }
+    
+    if (lowerUrl.includes('pinterest.com')) {
+      return '📌 Pinning Ideas';
+    }
+    
+    // Entertainment
+    if (lowerUrl.includes('netflix.com')) {
+      return '🎬 Watching Netflix';
+    }
+    
+    if (lowerUrl.includes('spotify.com')) {
+      return '🎵 Listening to Spotify';
+    }
+    
+    if (lowerUrl.includes('twitch.tv')) {
+      return '🎮 Watching Twitch';
+    }
+    
+    if (lowerUrl.includes('discord.com')) {
+      return '💬 Chatting on Discord';
+    }
+    
+    // Shopping
+    if (lowerUrl.includes('amazon.')) {
+      return '🛒 Shopping on Amazon';
+    }
+    
+    if (lowerUrl.includes('flipkart.com')) {
+      return '🛒 Shopping on Flipkart';
+    }
+    
+    // News & Info
+    if (lowerUrl.includes('wikipedia.org')) {
+      return '📖 Reading Wikipedia';
+    }
+    
+    if (lowerUrl.includes('github.com')) {
+      return '💻 Coding on GitHub';
+    }
+    
+    if (lowerUrl.includes('stackoverflow.com')) {
+      return '💡 Finding Solutions';
+    }
+    
+    // Email
+    if (lowerUrl.includes('gmail.com') || lowerUrl.includes('mail.google.com')) {
+      return '📧 Checking Email';
+    }
+    
+    if (lowerUrl.includes('outlook.')) {
+      return '📧 Checking Outlook';
+    }
+    
+    // Default - show domain
     const domain = url.match(/https?:\/\/([^\/]+)/)?.[1] || 'web';
     return `🌐 ${domain}`;
   }
@@ -338,22 +465,23 @@ async function loadLeaderboard() {
       const rank = index + 1;
       const rankClass = rank === 1 ? 'top1' : rank === 2 ? 'top2' : rank === 3 ? 'top3' : '';
       const isCurrentUser = currentUser && user.userId === currentUser.userId;
+      const rankIcon = rank === 1 ? '👑' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : '#' + rank;
       
       return `
-        <div class="leaderboard-item" style="${isCurrentUser ? 'border-color: #4a9eff;' : ''}">
-          <div class="leaderboard-rank ${rankClass}">#${rank}</div>
+        <div class="leaderboard-item" style="${isCurrentUser ? 'border-color: #3b82f6; background: rgba(59, 130, 246, 0.05);' : ''}">
+          <div class="leaderboard-rank ${rankClass}">${rankIcon}</div>
           <div class="friend-avatar">${user.avatar || '👤'}</div>
           <div class="friend-info">
             <div class="friend-name">
               ${user.displayName}
-              ${isCurrentUser ? '<span style="color: #4a9eff; font-size: 11px;">(You)</span>' : ''}
+              ${isCurrentUser ? '<span style="color: #3b82f6; font-size: 11px; font-weight: 600;">(You)</span>' : ''}
             </div>
             <div class="friend-username">@${user.username}</div>
           </div>
           <div class="friend-stats">
-            <div class="friend-stat">Level <strong>${user.level || 1}</strong></div>
-            <div class="friend-stat"><strong>${user.points || 0}</strong> points</div>
-            <div class="friend-stat"><strong>${user.stats?.totalFocusTime || 0}</strong> min</div>
+            <div class="friend-stat" style="color: #3b82f6;">Lv <strong style="color: #3b82f6;">${user.level || 1}</strong></div>
+            <div class="friend-stat"><strong style="color: #fbbf24;">${user.points || 0}</strong> pts</div>
+            <div class="friend-stat"><strong style="color: #10b981;">${user.stats?.totalFocusTime || 0}</strong> min</div>
           </div>
         </div>
       `;
@@ -426,13 +554,141 @@ function getActivityTextFromData(activity) {
     return '🎯 In focus session';
   }
   
+  // Enhanced activity display with activityType
+  if (activity.activityType && activity.videoTitle) {
+    const icon = activity.videoThumbnail && typeof activity.videoThumbnail === 'string' && activity.videoThumbnail.length <= 2 
+      ? activity.videoThumbnail 
+      : '📚';
+    return `${icon} ${activity.activityType}: ${activity.videoTitle}`;
+  }
+  
+  if (activity.status === 'studying' && activity.videoTitle) {
+    return `📚 Studying: ${activity.videoTitle}`;
+  }
+  
   if (activity.status === 'youtube' && activity.videoTitle) {
     return `📺 Watching: ${activity.videoTitle}`;
   }
   
+  if (activity.status === 'youtube-shorts' && activity.videoTitle) {
+    return `📱 Watching Short: ${activity.videoTitle}`;
+  }
+  
+  if (activity.status === 'reading' && activity.videoTitle) {
+    return `📄 Reading: ${activity.videoTitle}`;
+  }
+  
+  if (activity.status === 'searching' && activity.videoTitle) {
+    return `🔍 ${activity.videoTitle}`;
+  }
+  
+  if (activity.status === 'studying') {
+    return '📚 Studying';
+  }
+  
+  if (activity.status === 'social-media') {
+    return '📱 Scrolling Social Media';
+  }
+  
+  // Custom labels for common websites
   if (activity.currentUrl) {
-    const domain = activity.currentUrl.match(/https?:\/\/([^\/]+)/)?.[1] || 'web';
-    return `🌐 Browsing ${domain}`;
+    const url = activity.currentUrl || '';
+    const lowerUrl = url.toLowerCase();
+    
+    // Google
+    if (lowerUrl.includes('google.com')) {
+      if (lowerUrl.includes('/search')) {
+        return '🔍 Googling...';
+      }
+      return '🔍 On Google';
+    }
+    
+    // Social Media
+    if (lowerUrl.includes('instagram.com')) {
+      if (lowerUrl.includes('/reel')) return '📸 Watching Reels';
+      if (lowerUrl.includes('/stories')) return '📸 Checking Stories';
+      return '📸 Scrolling Instagram';
+    }
+    
+    if (lowerUrl.includes('facebook.com')) {
+      return '👥 On Facebook';
+    }
+    
+    if (lowerUrl.includes('twitter.com') || lowerUrl.includes('x.com')) {
+      return '🐦 Scrolling X (Twitter)';
+    }
+    
+    if (lowerUrl.includes('reddit.com')) {
+      return '🤖 Browsing Reddit';
+    }
+    
+    if (lowerUrl.includes('tiktok.com')) {
+      return '🎵 Watching TikTok';
+    }
+    
+    if (lowerUrl.includes('snapchat.com')) {
+      return '👻 On Snapchat';
+    }
+    
+    if (lowerUrl.includes('linkedin.com')) {
+      return '💼 Networking on LinkedIn';
+    }
+    
+    if (lowerUrl.includes('pinterest.com')) {
+      return '📌 Pinning Ideas';
+    }
+    
+    // Entertainment
+    if (lowerUrl.includes('netflix.com')) {
+      return '🎬 Watching Netflix';
+    }
+    
+    if (lowerUrl.includes('spotify.com')) {
+      return '🎵 Listening to Spotify';
+    }
+    
+    if (lowerUrl.includes('twitch.tv')) {
+      return '🎮 Watching Twitch';
+    }
+    
+    if (lowerUrl.includes('discord.com')) {
+      return '💬 Chatting on Discord';
+    }
+    
+    // Shopping
+    if (lowerUrl.includes('amazon.')) {
+      return '🛒 Shopping on Amazon';
+    }
+    
+    if (lowerUrl.includes('flipkart.com')) {
+      return '🛒 Shopping on Flipkart';
+    }
+    
+    // News & Info
+    if (lowerUrl.includes('wikipedia.org')) {
+      return '📖 Reading Wikipedia';
+    }
+    
+    if (lowerUrl.includes('github.com')) {
+      return '💻 Coding on GitHub';
+    }
+    
+    if (lowerUrl.includes('stackoverflow.com')) {
+      return '💡 Finding Solutions';
+    }
+    
+    // Email
+    if (lowerUrl.includes('gmail.com') || lowerUrl.includes('mail.google.com')) {
+      return '📧 Checking Email';
+    }
+    
+    if (lowerUrl.includes('outlook.')) {
+      return '📧 Checking Outlook';
+    }
+    
+    // Default - show domain
+    const domain = url.match(/https?:\/\/([^\/]+)/)?.[1] || 'web';
+    return `🌐 ${domain}`;
   }
   
   return 'Online';
@@ -460,133 +716,219 @@ async function viewProfile(username) {
     
     content.innerHTML = `
       <div style="text-align: center; margin-bottom: 32px;">
-        <div style="position: relative; display: inline-block; margin-bottom: 16px;">
-          <div style="font-size: 80px; line-height: 1;">${profile.avatar || '👤'}</div>
-          <div style="position: absolute; bottom: 4px; right: 4px; width: 20px; height: 20px; background: ${isOnline ? '#22c55e' : '#64748b'}; border: 3px solid #1a1a1a; border-radius: 50%; box-shadow: 0 0 0 2px ${isOnline ? '#22c55e' : '#64748b'};"></div>
+        <div style="position: relative; display: inline-block; margin-bottom: 20px;">
+          <div style="font-size: 64px; line-height: 1;">${profile.avatar || '👤'}</div>
+          <div style="position: absolute; bottom: 2px; right: 2px; width: 16px; height: 16px; background: ${isOnline ? '#10b981' : '#4b5563'}; border: 2px solid #141414; border-radius: 50%;"></div>
         </div>
-        <h2 style="font-size: 28px; font-weight: 700; margin: 0 0 6px 0; background: linear-gradient(135deg, #4a9eff 0%, #5da8ff 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${profile.displayName}</h2>
-        <div style="color: #888; font-size: 15px; margin-bottom: 12px;">@${profile.username}</div>
-        <div style="display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px; background: ${isOnline ? 'linear-gradient(135deg, #166534 0%, #15803d 100%)' : 'rgba(30,30,30,0.8)'}; border-radius: 20px; font-size: 13px; font-weight: 600; border: 1px solid ${isOnline ? '#22c55e' : '#333'};">
-          <span style="width: 8px; height: 8px; background: ${isOnline ? '#22c55e' : '#64748b'}; border-radius: 50%; ${isOnline ? 'animation: pulse 2s infinite;' : ''}"></span>
-          ${isOnline ? 'Online Now' : `Last seen ${lastSeen}`}
-        </div>
-      </div>
-
-      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 28px;">
-        <div style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); padding: 20px 16px; border-radius: 12px; text-align: center; border: 1px solid rgba(74, 158, 255, 0.2); box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
-          <div style="font-size: 32px; font-weight: 800; background: linear-gradient(135deg, #4a9eff 0%, #22d3ee 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${profile.level || 1}</div>
-          <div style="font-size: 11px; color: #94a3b8; margin-top: 6px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Level</div>
-        </div>
-        <div style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); padding: 20px 16px; border-radius: 12px; text-align: center; border: 1px solid rgba(74, 158, 255, 0.2); box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
-          <div style="font-size: 32px; font-weight: 800; background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${profile.points || 0}</div>
-          <div style="font-size: 11px; color: #94a3b8; margin-top: 6px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Points</div>
-        </div>
-        <div style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); padding: 20px 16px; border-radius: 12px; text-align: center; border: 1px solid rgba(251, 113, 133, 0.2); box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
-          <div style="font-size: 32px; font-weight: 800; background: linear-gradient(135deg, #fb7185 0%, #f43f5e 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${profile.streak?.current || 0}</div>
-          <div style="font-size: 11px; color: #94a3b8; margin-top: 6px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">🔥 Streak</div>
+        <h2 style="font-size: 24px; font-weight: 600; margin: 0 0 6px 0; color: #ffffff;">${profile.displayName}</h2>
+        <div style="color: #6b7280; font-size: 14px; margin-bottom: 16px;">@${profile.username}</div>
+        <div style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; background: ${isOnline ? 'rgba(16, 185, 129, 0.1)' : '#0a0a0a'}; border: 1px solid ${isOnline ? '#10b981' : '#1f1f1f'}; border-radius: 6px; font-size: 12px; font-weight: 500; color: ${isOnline ? '#10b981' : '#6b7280'};">
+          <span style="width: 6px; height: 6px; background: ${isOnline ? '#10b981' : '#4b5563'}; border-radius: 50%;"></span>
+          ${isOnline ? 'Online' : `Last seen ${lastSeen}`}
         </div>
       </div>
 
-      <div style="background: rgba(15, 23, 42, 0.6); padding: 20px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #1e293b; backdrop-filter: blur(10px);">
-        <h3 style="font-size: 13px; margin: 0 0 16px 0; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; font-weight: 700;">📊 Statistics</h3>
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid #1e293b;">
-          <span style="color: #cbd5e1; font-size: 14px;">⏱️ Total Focus Time</span>
-          <strong style="color: #4a9eff; font-size: 16px; font-weight: 700;">${profile.stats?.totalFocusTime || 0} min</strong>
+      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 24px;">
+        <div style="background: #141414; border: 1px solid #2a2a2a; padding: 18px 12px; border-radius: 10px; text-align: center; transition: all 0.3s ease; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);">
+          <div style="font-size: 28px; font-weight: 600; color: #3b82f6; margin-bottom: 4px;">${profile.level || 1}</div>
+          <div style="font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 500;">Level</div>
         </div>
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid #1e293b;">
-          <span style="color: #cbd5e1; font-size: 14px;">✅ Sessions Completed</span>
-          <strong style="color: #22c55e; font-size: 16px; font-weight: 700;">${profile.stats?.sessionsCompleted || 0}</strong>
+        <div style="background: #141414; border: 1px solid #2a2a2a; padding: 18px 12px; border-radius: 10px; text-align: center; transition: all 0.3s ease; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);">
+          <div style="font-size: 28px; font-weight: 600; color: #ffffff; margin-bottom: 4px;">${profile.points || 0}</div>
+          <div style="font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 500;">Points</div>
         </div>
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid #1e293b;">
-          <span style="color: #cbd5e1; font-size: 14px;">🚫 Sites Blocked</span>
-          <strong style="color: #fb7185; font-size: 16px; font-weight: 700;">${profile.stats?.sitesBlocked || 0}</strong>
+        <div style="background: #141414; border: 1px solid #2a2a2a; padding: 18px 12px; border-radius: 10px; text-align: center; transition: all 0.3s ease; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);">
+          <div style="font-size: 28px; font-weight: 600; color: #ffffff; margin-bottom: 4px;">${profile.streak?.current || 0} <span style="color: #f97316; font-size: 20px;">🔥</span></div>
+          <div style="font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 500;">Streak</div>
+        </div>
+      </div>
+
+      <div style="background: #141414; border: 1px solid #2a2a2a; padding: 24px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);">
+        <h3 style="font-size: 13px; margin: 0 0 20px 0; color: #ffffff; font-weight: 600; display: flex; align-items: center; gap: 8px;"><i class="fas fa-chart-line" style="color: #3b82f6; font-size: 14px;"></i> Statistics</h3>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; padding-bottom: 14px; border-bottom: 1px solid #2a2a2a;">
+          <span style="color: #9ca3af; font-size: 13px; font-weight: 500;">Total Focus Time</span>
+          <strong style="color: #e5e5e5; font-size: 15px; font-weight: 600;">${profile.stats?.totalFocusTime || 0} min</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; padding-bottom: 14px; border-bottom: 1px solid #2a2a2a;">
+          <span style="color: #9ca3af; font-size: 13px; font-weight: 500;">Sessions Completed</span>
+          <strong style="color: #e5e5e5; font-size: 15px; font-weight: 600;">${profile.stats?.sessionsCompleted || 0}</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; padding-bottom: 14px; border-bottom: 1px solid #2a2a2a;">
+          <span style="color: #9ca3af; font-size: 13px; font-weight: 500;">Sites Blocked</span>
+          <strong style="color: #e5e5e5; font-size: 15px; font-weight: 600;">${profile.stats?.sitesBlocked || 0}</strong>
         </div>
         <div style="display: flex; justify-content: space-between; align-items: center;">
-          <span style="color: #cbd5e1; font-size: 14px;">🏆 Longest Streak</span>
-          <strong style="color: #fbbf24; font-size: 16px; font-weight: 700;">${profile.streak?.longest || 0} days</strong>
+          <span style="color: #9ca3af; font-size: 13px; font-weight: 500;">Longest Streak</span>
+          <strong style="color: #e5e5e5; font-size: 15px; font-weight: 600;">${profile.streak?.longest || 0} days</strong>
         </div>
       </div>
 
       ${profile.badges && profile.badges.length > 0 ? `
-        <div style="background: rgba(15, 23, 42, 0.6); padding: 20px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #1e293b; backdrop-filter: blur(10px);">
-          <h3 style="font-size: 13px; margin: 0 0 16px 0; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; font-weight: 700;">🏅 Achievements (${profile.badges.length})</h3>
-          <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px;">
+        <div style="background: #141414; border: 1px solid #2a2a2a; padding: 24px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);">
+          <h3 style="font-size: 13px; margin: 0 0 20px 0; color: #ffffff; font-weight: 600; display: flex; align-items: center; gap: 8px;"><i class="fas fa-trophy" style="color: #fbbf24; font-size: 14px;"></i> Achievements (${profile.badges.length})</h3>
+          <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px;">
             ${profile.badges.map(badge => {
               const badgeInfo = getBadgeInfo(badge);
-              return `<div class="profile-badge" style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); padding: 16px 12px; border-radius: 12px; text-align: center; border: 2px solid ${badgeInfo.color || '#2a2a2a'}; box-shadow: 0 4px 12px rgba(0,0,0,0.4); transition: all 0.2s; cursor: pointer;" title="${badgeInfo.description}"><div style="font-size: 32px; margin-bottom: 8px;">${badgeInfo.icon}</div><div style="font-size: 12px; font-weight: 600; color: #e2e8f0;">${badgeInfo.name}</div></div>`;
+              return `<div class="profile-badge" style="background: #0a0a0a; border: 1px solid #2a2a2a; padding: 14px 10px; border-radius: 10px; text-align: center; transition: all 0.3s; cursor: pointer; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);" title="${badgeInfo.description}"><div style="font-size: 28px; margin-bottom: 6px;">${badgeInfo.icon}</div><div style="font-size: 11px; font-weight: 500; color: #9ca3af;">${badgeInfo.name}</div></div>`;
             }).join('')}
           </div>
         </div>
-      ` : '<div style="background: rgba(15, 23, 42, 0.4); padding: 24px; border-radius: 12px; margin-bottom: 20px; border: 1px dashed #2a2a2a; text-align: center;"><div style="font-size: 40px; margin-bottom: 8px; opacity: 0.5;">🏅</div><div style="color: #64748b; font-size: 14px;">No badges earned yet</div></div>'}
+      ` : '<div style="background: #141414; border: 1px solid #2a2a2a; padding: 24px; border-radius: 12px; margin-bottom: 20px; text-align: center; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);"><div style="font-size: 32px; margin-bottom: 8px; opacity: 0.3;"><i class="fas fa-trophy" style="color: #6b7280;"></i></div><div style="color: #6b7280; font-size: 13px;">No badges earned yet</div></div>'}
 
       ${(isOnline || profile.activity?.focusActive) && profile.activity?.status && profile.activity.status !== 'offline' ? `
-        <div style="background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%); padding: 24px; border-radius: 12px; border: 1px solid #2563eb; box-shadow: 0 4px 16px rgba(37, 99, 235, 0.2);">
+        <div style="background: #141414; border: 1px solid #2a2a2a; padding: 24px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);">
           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
-            <h3 style="font-size: 14px; margin: 0; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; font-weight: 700;">⚡ Live Activity</h3>
-            ${profile.activity.focusActive ? `<span style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%); border-radius: 20px; font-size: 12px; font-weight: 700; color: white; box-shadow: 0 0 20px rgba(220, 38, 38, 0.5); animation: pulse 2s infinite;">
-              <span style="width: 6px; height: 6px; background: white; border-radius: 50%; animation: pulse 1s infinite;"></span>
-              IN FOCUS MODE
+            <h3 style="font-size: 13px; margin: 0; color: #ffffff; font-weight: 600; display: flex; align-items: center; gap: 8px;"><i class="fas fa-bolt" style="color: #fbbf24; font-size: 14px;"></i> Live Activity</h3>
+            ${profile.activity.focusActive ? `<span style="display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; background: #dc2626; border: 1px solid #ef4444; border-radius: 6px; font-size: 11px; font-weight: 600; color: white;">
+              <span style="width: 5px; height: 5px; background: white; border-radius: 50%;"></span>
+              FOCUS MODE
             </span>` : ''}
           </div>
           
-          <div style="display: flex; align-items: center; gap: 12px; padding: 14px; background: rgba(0,0,0,0.3); border-radius: 10px; margin-bottom: 16px;">
-            <span class="activity-indicator ${profile.activity.focusActive ? 'focusing' : profile.activity.status}" style="width: 14px; height: 14px; flex-shrink: 0;"></span>
+          <div style="display: flex; align-items: center; gap: 12px; padding: 12px; background: #0a0a0a; border: 1px solid #2a2a2a; border-radius: 8px; margin-bottom: 16px; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);">
+            <span class="activity-indicator ${profile.activity.focusActive ? 'focusing' : profile.activity.status}" style="width: 12px; height: 12px; flex-shrink: 0;"></span>
             <div style="flex: 1;">
-              <div style="color: #e2e8f0; font-size: 15px; font-weight: 600; margin-bottom: 4px;">${getActivityTextFromData(profile.activity)}</div>
-              ${profile.activity.focusActive ? `<div style="color: #94a3b8; font-size: 12px;">🎯 Deep focus session active</div>` : ''}
+              <div style="color: #e5e5e5; font-size: 13px; font-weight: 500; margin-bottom: 4px;">${getActivityTextFromData(profile.activity)}</div>
+              ${profile.activity.focusActive ? `<div style="color: #6b7280; font-size: 11px;">Deep focus session active</div>` : ''}
             </div>
           </div>
           
-          ${profile.activity.videoTitle && profile.activity.videoThumbnail ? `
-            ${profile.activity.videoThumbnail === '📄' ? `
-              <!-- PDF Display -->
-              <div style="margin-top: 16px; background: linear-gradient(135deg, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.4) 100%); border-radius: 12px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1); padding: 20px;">
-                ${profile.activity.focusActive ? `<div style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; background: rgba(220, 38, 38, 0.95); border-radius: 20px; font-size: 11px; font-weight: 700; color: white; margin-bottom: 16px;">🎯 FOCUSING</div>` : ''}
-                <div style="display: flex; align-items: center; gap: 16px;">
-                  <div style="width: 80px; height: 80px; background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 48px; flex-shrink: 0;">📄</div>
-                  <div style="flex: 1; min-width: 0;">
-                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-                      <div style="width: 6px; height: 6px; background: #ef4444; border-radius: 50%; animation: pulse 2s infinite;"></div>
-                      <span style="color: #fca5a5; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Reading PDF</span>
-                    </div>
-                    <div style="color: #e2e8f0; font-size: 15px; font-weight: 600; margin-bottom: 10px; line-height: 1.4;">${profile.activity.videoTitle}</div>
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                      <div style="color: #94a3b8; font-size: 12px;">📖 Document</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ` : `
-              <!-- YouTube Display -->
-              <div style="margin-top: 16px; background: linear-gradient(135deg, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.4) 100%); border-radius: 12px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1); transition: transform 0.2s; cursor: pointer;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
-                <div style="position: relative;">
-                  <img src="${profile.activity.videoThumbnail}" alt="Video thumbnail" style="width: 100%; height: auto; display: block;">
-                  ${profile.activity.focusActive ? `<div style="position: absolute; top: 8px; right: 8px; background: rgba(220, 38, 38, 0.95); padding: 6px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; color: white; backdrop-filter: blur(10px);">🎯 FOCUSING</div>` : ''}
-                  <div style="position: absolute; bottom: 0; left: 0; right: 0; background: linear-gradient(to top, rgba(0,0,0,0.9), transparent); padding: 20px 16px 12px;">
-                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-                      <div style="width: 6px; height: 6px; background: #ef4444; border-radius: 50%; animation: pulse 2s infinite;"></div>
-                      <span style="color: #fca5a5; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Now Watching</span>
-                    </div>
-                  </div>
-                </div>
-                <div style="padding: 16px;">
-                  <div style="color: #e2e8f0; font-size: 15px; font-weight: 600; margin-bottom: 10px; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${profile.activity.videoTitle}</div>
-                  ${profile.activity.videoChannel ? `
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                      <div style="width: 32px; height: 32px; background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px;">📺</div>
-                      <div>
-                        <div style="color: #94a3b8; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">Channel</div>
-                        <div style="color: #cbd5e1; font-size: 13px; font-weight: 600;">${profile.activity.videoChannel}</div>
+          ${profile.activity.videoTitle ? `
+            ${(() => {
+              // Dynamic detection based on thumbnail type
+              const hasImageThumbnail = profile.activity.videoThumbnail && 
+                                       typeof profile.activity.videoThumbnail === 'string' && 
+                                       (profile.activity.videoThumbnail.startsWith('http') || 
+                                        profile.activity.videoThumbnail.startsWith('https'));
+              
+              const hasEmojiIcon = profile.activity.videoThumbnail && 
+                                  typeof profile.activity.videoThumbnail === 'string' && 
+                                  profile.activity.videoThumbnail.length <= 2;
+              
+              const isPDF = profile.activity.videoThumbnail === '📄' || 
+                           profile.activity.status === 'reading';
+              
+              const isYouTubeContent = profile.activity.status === 'youtube' || 
+                                      profile.activity.status === 'youtube-shorts' ||
+                                      profile.activity.videoChannel === 'YouTube' ||
+                                      profile.activity.videoChannel === 'YouTube Shorts';
+              
+              // PRIORITY 1: If we have an actual image URL (YouTube videos/shorts), show it
+              if (hasImageThumbnail) {
+                const label = profile.activity.status === 'youtube-shorts' ? 'NOW WATCHING SHORT' : 
+                             profile.activity.activityType || 'NOW WATCHING';
+                
+                return `
+                  <div style="background: #0a0a0a; border: 1px solid #1f1f1f; border-radius: 10px; overflow: hidden; transition: transform 0.2s;">
+                    <div style="position: relative;">
+                      <img src="${profile.activity.videoThumbnail}" alt="Thumbnail" style="width: 100%; height: auto; display: block;">
+                      ${profile.activity.focusActive ? `<div style="position: absolute; top: 10px; right: 10px; background: #dc2626; border: 1px solid #ef4444; padding: 5px 10px; border-radius: 6px; font-size: 10px; font-weight: 600; color: white;">FOCUSING</div>` : ''}
+                      <div style="position: absolute; bottom: 0; left: 0; right: 0; background: linear-gradient(to top, rgba(0,0,0,0.9), transparent); padding: 16px 14px 10px;">
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                          <div style="width: 5px; height: 5px; background: #dc2626; border-radius: 50%;"></div>
+                          <span style="color: #6b7280; font-size: 10px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px;">${label}</span>
+                        </div>
                       </div>
                     </div>
-                  ` : ''}
-                </div>
-              </div>
-            `}
-          ` : profile.activity.videoTitle ? `<div style="color: #94a3b8; font-size: 13px; margin-top: 12px; padding: 12px; background: rgba(0,0,0,0.3); border-radius: 8px; border-left: 3px solid #4a9eff;">📺 ${profile.activity.videoTitle}</div>` : ''}
+                    <div style="padding: 14px;">
+                      <div style="color: #e5e5e5; font-size: 13px; font-weight: 500; margin-bottom: 10px; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${profile.activity.videoTitle}</div>
+                      ${profile.activity.videoChannel ? `
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                          <div style="width: 28px; height: 28px; background: #dc2626; border: 1px solid #ef4444; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px;">📺</div>
+                          <div>
+                            <div style="color: #6b7280; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px;">Channel</div>
+                            <div style="color: #9ca3af; font-size: 12px; font-weight: 500;">${profile.activity.videoChannel}</div>
+                          </div>
+                        </div>
+                      ` : ''}
+                    </div>
+                  </div>
+                `;
+              }
+              
+              // PRIORITY 2: PDF documents
+              if (isPDF) {
+                // PDF Display
+                return `
+                  <div style="background: #0a0a0a; border: 1px solid #1f1f1f; border-radius: 10px; overflow: hidden; padding: 16px;">
+                    ${profile.activity.focusActive ? `<div style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; background: #dc2626; border: 1px solid #ef4444; border-radius: 6px; font-size: 10px; font-weight: 600; color: white; margin-bottom: 12px;">FOCUSING</div>` : ''}
+                    <div style="display: flex; align-items: center; gap: 14px;">
+                      <div style="width: 60px; height: 60px; background: #3b82f6; border: 1px solid #60a5fa; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 32px; flex-shrink: 0;">📄</div>
+                      <div style="flex: 1; min-width: 0;">
+                        <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 6px;">
+                          <div style="width: 5px; height: 5px; background: #3b82f6; border-radius: 50%;"></div>
+                          <span style="color: #6b7280; font-size: 10px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px;">Reading Document</span>
+                        </div>
+                        <div style="color: #e5e5e5; font-size: 13px; font-weight: 500; line-height: 1.4;">${profile.activity.videoTitle}</div>
+                      </div>
+                    </div>
+                  </div>
+                `;
+              }
+              
+              // PRIORITY 3: Study activities with emoji icons
+              if (hasEmojiIcon || profile.activity.activityType) {
+                const icon = hasEmojiIcon ? profile.activity.videoThumbnail : '📚';
+                const activityLabel = profile.activity.activityType || 'Studying';
+                
+                return `
+                  <div style="background: #0a0a0a; border: 1px solid #1f1f1f; border-radius: 10px; overflow: hidden; padding: 16px;">
+                    ${profile.activity.focusActive ? `<div style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; background: #dc2626; border: 1px solid #ef4444; border-radius: 6px; font-size: 10px; font-weight: 600; color: white; margin-bottom: 12px;">FOCUSING</div>` : ''}
+                    <div style="display: flex; align-items: center; gap: 14px;">
+                      <div style="width: 60px; height: 60px; background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); border: 1px solid #60a5fa; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 32px; flex-shrink: 0; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);">${icon}</div>
+                      <div style="flex: 1; min-width: 0;">
+                        <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 6px;">
+                          <div style="width: 5px; height: 5px; background: #3b82f6; border-radius: 50%;"></div>
+                          <span style="color: #6b7280; font-size: 10px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px;">${activityLabel}</span>
+                        </div>
+                        <div style="color: #e5e5e5; font-size: 14px; font-weight: 600; line-height: 1.4; margin-bottom: 4px;">${profile.activity.videoTitle}</div>
+                        ${profile.activity.videoChannel ? `<div style="color: #9ca3af; font-size: 11px; display: flex; align-items: center; gap: 4px;"><span>📚</span> ${profile.activity.videoChannel}</div>` : ''}
+                      </div>
+                    </div>
+                  </div>
+                `;
+              }
+              
+              // PRIORITY 4: Fallback - Simple text display
+              {
+                // Fallback - Simple text display
+                return `<div style="color: #6b7280; font-size: 12px; padding: 10px; background: #0a0a0a; border: 1px solid #1f1f1f; border-radius: 8px; border-left: 2px solid #3b82f6;">${profile.activity.videoTitle}</div>`;
+              }
+            })()}
+          ` : ''}
+          
+          ${profile.activity.actionButton && profile.activity.currentUrl ? `
+            <button class="activity-action-btn" data-url="${profile.activity.currentUrl}" style="width: 100%; margin-top: 12px; padding: 10px 16px; background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); border: 1px solid #60a5fa; border-radius: 8px; color: white; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; outline: none;">
+              <i class="fas fa-external-link-alt"></i>
+              ${profile.activity.actionButton}
+            </button>
+          ` : ''}
         </div>
       ` : ''}
     `;
+    
+    // Add event listener for action button (CSP-compliant)
+    setTimeout(() => {
+      const actionBtn = content.querySelector('.activity-action-btn');
+      if (actionBtn) {
+        const url = actionBtn.getAttribute('data-url');
+        actionBtn.addEventListener('click', () => {
+          if (url) {
+            window.open(url, '_blank');
+          }
+        });
+        
+        // Add hover effects via JavaScript
+        actionBtn.addEventListener('mouseenter', () => {
+          actionBtn.style.transform = 'translateY(-1px)';
+          actionBtn.style.boxShadow = '0 4px 12px rgba(59, 130, 246, 0.4)';
+        });
+        actionBtn.addEventListener('mouseleave', () => {
+          actionBtn.style.transform = 'translateY(0)';
+          actionBtn.style.boxShadow = 'none';
+        });
+      }
+    }, 0);
     
   } catch (error) {
     console.error('Failed to load profile:', error);
