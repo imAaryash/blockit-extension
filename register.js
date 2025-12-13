@@ -5,7 +5,8 @@ async function send(msg) {
 
 function showError(message) {
   const errorEl = document.getElementById('errorMessage');
-  errorEl.textContent = message;
+  const errorText = errorEl.querySelector('span');
+  errorText.textContent = message;
   errorEl.classList.add('show');
   setTimeout(() => errorEl.classList.remove('show'), 5000);
 }
@@ -35,7 +36,7 @@ document.getElementById('registerForm').addEventListener('submit', async (e) => 
   }
   
   registerBtn.disabled = true;
-  registerBtn.textContent = 'Creating Account...';
+  registerBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating Account...';
   
   try {
     console.log('Attempting to register:', username, displayName);
@@ -61,46 +62,39 @@ document.getElementById('registerForm').addEventListener('submit', async (e) => 
       
       console.log('Redirecting to popup...');
       
+      registerBtn.innerHTML = '<i class="fas fa-check"></i> Account Created!';
+      
       // Redirect to main app
-      window.location.href = 'popup.html';
+      setTimeout(() => {
+        window.location.href = 'popup.html';
+      }, 1000);
     } else {
       console.error('Invalid response structure:', response);
       showError('Registration failed. Invalid response from server.');
       registerBtn.disabled = false;
-      registerBtn.textContent = 'Create Account';
+      registerBtn.innerHTML = '<i class="fas fa-rocket"></i> Create Account';
     }
   } catch (error) {
     console.error('Registration error:', error);
     showError(error.message || 'Registration failed. Please try again.');
     registerBtn.disabled = false;
-    registerBtn.textContent = 'Create Account';
+    registerBtn.innerHTML = '<i class="fas fa-rocket"></i> Create Account';
   }
 });
 
-// Login link
-document.getElementById('loginLink').addEventListener('click', async (e) => {
-  e.preventDefault();
+// Password visibility toggle
+document.getElementById('togglePassword').addEventListener('click', function() {
+  const passwordInput = document.getElementById('password');
+  const icon = this.querySelector('i');
   
-  const username = prompt('Enter your username:');
-  if (!username) return;
-  
-  const password = prompt('Enter your password:');
-  if (!password) return;
-  
-  try {
-    const response = await API.login(username.trim(), password);
-    
-    if (response.user && response.token) {
-      await chrome.storage.local.set({
-        user: response.user,
-        isRegistered: true
-      });
-      
-      await send({action: 'userRegistered', user: response.user});
-      window.location.href = 'popup.html';
-    }
-  } catch (error) {
-    showError(error.message || 'Login failed. Please check your credentials.');
+  if (passwordInput.type === 'password') {
+    passwordInput.type = 'text';
+    icon.classList.remove('fa-eye');
+    icon.classList.add('fa-eye-slash');
+  } else {
+    passwordInput.type = 'password';
+    icon.classList.remove('fa-eye-slash');
+    icon.classList.add('fa-eye');
   }
 });
 
