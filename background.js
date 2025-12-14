@@ -94,10 +94,16 @@ async function enforceTab(tab) {
 }
 
 async function incrementStat(key) {
-  const s = await chrome.storage.local.get({stats: DEFAULTS.stats});
+  const s = await chrome.storage.local.get({stats: DEFAULTS.stats, sessionBlockedCount: 0});
   s.stats = s.stats || {blockedCount:0, attempts:0};
   s.stats[key] = (s.stats[key]||0)+1;
-  await chrome.storage.local.set({stats: s.stats});
+  
+  // Track session-specific blocked attempts for focus score calculation
+  if (key === 'blockedCount') {
+    s.sessionBlockedCount = (s.sessionBlockedCount || 0) + 1;
+  }
+  
+  await chrome.storage.local.set({stats: s.stats, sessionBlockedCount: s.sessionBlockedCount});
   
   // Sync blocked count to MongoDB
   if (key === 'blockedCount') {
@@ -345,7 +351,7 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
       await updateSessionStats(sessionDuration);
     }
     
-    await chrome.storage.local.set({focusActive:false, sessionEnd: 0, emergencyUsed: false});
+    await chrome.storage.local.set({focusActive:false, sessionEnd: 0, emergencyUsed: false, sessionBlockedCount: 0});
     
     // Open session summary popup
     console.log('[SessionEnd] Opening session summary popup with', activities.length, 'activities');
@@ -397,6 +403,25 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
 async function updateSessionStats(durationMs) {
   const state = await getState();
   const durationMin = Math.floor(durationMs / 60000);
+  
+  // Calculate focus score based on blocked attempts
+  const sessionBlockedCount = state.sessionBlockedCount || 0;
+  
+  // Focus Score: 100% - (blocked attempts / (minutes * 0.5))
+  // Allows ~0.5 blocks per minute before score drops significantly
+  // Examples: 
+  // - 0 blocks in 30min = 100% score
+  // - 5 blocks in 30min = 67% score  
+  // - 15 blocks in 30min = 0% score
+  const maxExpectedBlocks = durationMin * 0.5;
+  let focusScore = Math.max(0, 100 - (sessionBlockedCount / maxExpectedBlocks * 100));
+  focusScore = Math.min(100, focusScore); // Cap at 100%
+  
+  // Focus multiplier (0.3x to 1.0x based on score)
+  // Even low focus gives some XP, but focused sessions get full rewards
+  const focusMultiplier = 0.3 + (focusScore / 100 * 0.7);
+  
+  console.log(`[FocusScore] Blocked: ${sessionBlockedCount}, Duration: ${durationMin}min, Score: ${focusScore.toFixed(1)}%, Multiplier: ${focusMultiplier.toFixed(2)}x`);
   
   // Update stats
   const newTotalTime = (state.stats.totalFocusTime || 0) + durationMin;
@@ -462,13 +487,34 @@ async function updateSessionStats(durationMs) {
   
   console.log('[Streak] ✅ Updated - Current:', currentStreak, 'Longest:', longestStreak, 'Last date:', today);
   
-  // Calculate points (1 point per minute + bonuses)
-  let pointsEarned = durationMin;
-  if (durationMin >= 60) pointsEarned += 20; // 1 hour bonus
-  if (currentStreak >= 7) pointsEarned += 50; // Week streak bonus
+  // Progressive leveling system
+  // Each level requires more XP: Level 1->2: 100, 2->3: 200, 3->4: 300, etc.
+  const calculateLevel = (points) => {
+    let level = 1;
+    let totalXpNeeded = 0;
+    let xpForNextLevel = 100; // Starting XP requirement
+    
+    while (points >= totalXpNeeded + xpForNextLevel) {
+      totalXpNeeded += xpForNextLevel;
+      level++;
+      xpForNextLevel = level * 100; // Each level needs level * 100 XP
+    }
+    
+    return level;
+  };
+  
+  // Calculate base points (1 point per minute + bonuses)
+  let basePoints = durationMin;
+  if (durationMin >= 60) basePoints += 20; // 1 hour bonus
+  if (currentStreak >= 7) basePoints += 50; // Week streak bonus
+  
+  // Apply focus multiplier to earned points
+  const pointsEarned = Math.floor(basePoints * focusMultiplier);
+  
+  console.log(`[Points] Base: ${basePoints}, After Focus Multiplier: ${pointsEarned}`);
   
   const newPoints = (state.points || 0) + pointsEarned;
-  const newLevel = Math.floor(newPoints / 500) + 1;
+  const newLevel = calculateLevel(newPoints);
   
   // Check for new badges
   const currentBadges = state.badges || [];
@@ -636,7 +682,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         sessionStart: now,
         sessionDuration: durationMin*60*1000,
         passcode: passcode || undefined,
-        allowed: allowedSites
+        allowed: allowedSites,
+        sessionBlockedCount: 0 // Reset blocked count for new session
       });
       
       // Update activity to focusing
