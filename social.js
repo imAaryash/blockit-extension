@@ -1353,11 +1353,76 @@ async function initCommunityChat() {
         const newBtn = chatSendBtn.cloneNode(true);
         chatSendBtn.parentNode.replaceChild(newBtn, chatSendBtn);
         
-        const badWords = ['fuck', 'shit', 'bitch', 'ass', 'damn', 'bastard', 'crap', 'piss', 'dick', 'pussy', 'cock', 'slut', 'whore', 'fag', 'nigger', 'retard', 'idiot', 'stupid', 'dumb', 'moron'];
+        // Create error message element
+        const errorMsg = document.createElement('div');
+        errorMsg.id = 'chatError';
+        errorMsg.style.cssText = 'color: #dc2626; font-size: 12px; margin-bottom: 8px; display: none; font-weight: 500;';
+        chatForm.insertBefore(errorMsg, chatInput);
+        
+        const showError = (message) => {
+          errorMsg.textContent = message;
+          errorMsg.style.display = 'block';
+          setTimeout(() => {
+            errorMsg.style.display = 'none';
+          }, 3000);
+        };
+        
+        // English profanity/abusive words
+        const badWordsEnglish = [
+          'fuck', 'fucking', 'fucked', 'fucker', 'fck', 'fuk',
+          'shit', 'shit', 'bullshit',
+          'bitch', 'bitches', 'btch',
+          'bastard', 'bastards',
+          'asshole', 'assholes', 
+          'dick', 'dickhead',
+          'pussy', 'pussies',
+          'cock', 'cocks',
+          'slut', 'sluts', 'whore', 'whores',
+          'nigger', 'nigga',
+          'cunt', 'cunts',
+          'retard', 'retarded',
+          'motherfucker', 'mofo'
+        ];
+        
+        // Hindi/Hinglish profanity
+        const badWordsHindi = [
+          'chutiya', 'chutiye', 'chod', 'chodu', 'madarchod', 'mc', 
+          'bhenchod', 'bc', 'bsdk', 'bhosdike', 'bkl', 'bhosdi',
+          'gandu', 'gaandu', 'gand', 'lund', 'loda', 'lawde',
+          'randi', 'raand', 'kutte', 'kutta', 'kuttiya',
+          'harami', 'haramzada', 'kamina', 'kamine',
+          'saala', 'sala', 'saali', 'sali','rand',
+          'behenchod', 'benchod', 'bhosad', 'chut',
+          'maa ki', 'maki', 'teri maa', 'maadar'
+        ];
+        
+        // Inappropriate names (actresses, porn stars, etc.)
+        const inappropriateNames = [
+          'mia khalifa', 'mia malkova', 'lana rhoades', 'riley reid',
+          'johnny sins', 'jonny sins', 'brazzers', 
+          'sunny leone', 'sunny leonne', 'sanny leon',
+          'mia khalifaa', 'khalifa',
+          'alexis texas', 'abella danger', 'angela white',
+          'asa akira', 'lisa ann', 'dani daniels',
+          'porn', 'pornstar', 'pornhub', 'xvideos', 'xnxx',
+          'sasha grey', 'kendra lust', 'adriana chechik',
+          'elsa jean', 'piper perri', 'anna bell peaks',
+          'ana de armas', 'swedny sweedy', 'sweeny', 'sydney sweeney'
+        ];
+        
+        const allBadWords = [...badWordsEnglish, ...badWordsHindi, ...inappropriateNames];
         
         const containsProfanity = (text) => {
-          const lower = text.toLowerCase();
-          return badWords.some(word => lower.includes(word));
+          const lower = text.toLowerCase()
+            .replace(/[^a-z0-9\s]/g, '') // Remove special chars
+            .replace(/\s+/g, ' '); // Normalize spaces
+          
+          // Check each bad word with word boundaries
+          return allBadWords.some(word => {
+            // Create regex with word boundaries to match whole words only
+            const regex = new RegExp(`\\b${word}\\b`, 'i');
+            return regex.test(lower);
+          });
         };
         
         const sendMessage = () => {
@@ -1366,7 +1431,7 @@ async function initCommunityChat() {
           
           // Check for profanity
           if (containsProfanity(message)) {
-            alert('Badmoshi na mittar');
+            showError('Badmoshi na mittar 🚫');
             chatInput.value = '';
             return;
           }
