@@ -51,6 +51,7 @@ document.querySelectorAll('.tab').forEach(tab => {
     if (tab.dataset.tab === 'leaderboard') loadLeaderboard();
     if (tab.dataset.tab === 'activity') loadActivity();
     if (tab.dataset.tab === 'chat') initCommunityChat();
+    if (tab.dataset.tab === 'shop') initializeShop();
   });
 });
 
@@ -94,24 +95,68 @@ async function loadFriends() {
       return;
     }
     
-    container.innerHTML = friends.map(friend => `
-      <div class="friend-card" data-username="${friend.username}" style="cursor: pointer;">
-        <div class="friend-avatar">${friend.avatar || '👤'}</div>
+    // Sort friends - online users at top
+    const sortedFriends = friends.sort((a, b) => {
+      const statusA = getActivityStatus(a);
+      const statusB = getActivityStatus(b);
+      const isOnlineA = statusA !== 'offline';
+      const isOnlineB = statusB !== 'offline';
+      
+      if (isOnlineA && !isOnlineB) return -1;
+      if (!isOnlineA && isOnlineB) return 1;
+      return 0;
+    });
+    
+    container.innerHTML = sortedFriends.map(friend => {
+      // Avatar decoration wrapper
+      const avatarContent = friend.avatarDecoration ? `
+        <div style="position: relative; display: inline-block;">
+          <div class="friend-avatar">${friend.avatar || '👤'}</div>
+          <div style="
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 56px;
+            height: 56px;
+            background: url('${chrome.runtime.getURL(`assets/avatar/${friend.avatarDecoration}.png`)}') center/contain no-repeat;
+            pointer-events: none;
+            z-index: 1;
+          "></div>
+        </div>
+      ` : `<div class="friend-avatar">${friend.avatar || '👤'}</div>`;
+      
+      const cardStyle = friend.nameBanner ? `
+        cursor: pointer;
+        background: url('${chrome.runtime.getURL(`assets/name_banner/${friend.nameBanner}.png`)}') center/cover;
+        background-size: 100% 100%;
+      ` : 'cursor: pointer;';
+      
+      const content = `
+        ${avatarContent}
         <div class="friend-info">
-          <div class="friend-name">${friend.displayName}</div>
-          <div class="friend-username">@${friend.username}</div>
-          <div class="friend-activity">
+          <div class="friend-name" style="text-shadow: 0 2px 8px rgba(0,0,0,0.8), 0 0 4px rgba(0,0,0,0.6);">
+            ${friend.displayName}
+          </div>
+          <div class="friend-username" style="text-shadow: 0 2px 8px rgba(0,0,0,0.8), 0 0 4px rgba(0,0,0,0.6);">@${friend.username}</div>
+          <div class="friend-activity" style="text-shadow: 0 2px 8px rgba(0,0,0,0.8), 0 0 4px rgba(0,0,0,0.6);">
             <span class="activity-indicator ${getActivityStatus(friend)}"></span>
             ${getActivityText(friend)}
           </div>
         </div>
         <div class="friend-stats">
-          <div class="friend-stat">Level <strong>${friend.level || 1}</strong></div>
-          <div class="friend-stat"><strong>${friend.stats?.totalFocusTime || 0}</strong> min focused</div>
+          <div class="friend-stat" style="color: #ffffff; text-shadow: 0 2px 8px rgba(0,0,0,0.8), 0 0 4px rgba(0,0,0,0.6);">Level <strong style="color: #ffffff; text-shadow: 0 2px 8px rgba(0,0,0,0.8), 0 0 4px rgba(0,0,0,0.6);">${friend.level || 1}</strong></div>
+          <div class="friend-stat" style="color: #ffffff; text-shadow: 0 2px 8px rgba(0,0,0,0.8), 0 0 4px rgba(0,0,0,0.6);"><strong style="color: #ffffff; text-shadow: 0 2px 8px rgba(0,0,0,0.8), 0 0 4px rgba(0,0,0,0.6);">${friend.stats?.totalFocusTime || 0}</strong> min focused</div>
         </div>
         <button class="btn-remove" data-id="${friend.userId}">Remove</button>
-      </div>
-    `).join('');
+      `;
+      
+      return `
+        <div class="friend-card" data-username="${friend.username}" style="${cardStyle}">
+          ${content}
+        </div>
+      `;
+    }).join('');
     
     // Add click listeners for profile viewing
     document.querySelectorAll('.friend-card').forEach(card => {
@@ -348,9 +393,9 @@ async function loadFriendRequests() {
         <div class="friend-item">
           <div class="friend-avatar">${req.avatar || '👤'}</div>
           <div class="friend-info">
-            <div class="friend-name">${req.displayName || req.username}</div>
-            <div class="friend-username">@${req.username}</div>
-            <div style="font-size: 11px; color: #888; margin-top: 4px;">
+            <div class="friend-name" style="text-shadow: 0 2px 8px rgba(0,0,0,0.8), 0 0 4px rgba(0,0,0,0.6);">${req.displayName || req.username}</div>
+            <div class="friend-username" style="text-shadow: 0 2px 8px rgba(0,0,0,0.8), 0 0 4px rgba(0,0,0,0.6);">@${req.username}</div>
+            <div style="font-size: 11px; color: #888; margin-top: 4px; text-shadow: 0 2px 8px rgba(0,0,0,0.8), 0 0 4px rgba(0,0,0,0.6);">
               📅 ${new Date(req.requestedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
             </div>
           </div>
@@ -408,9 +453,9 @@ async function loadFriendRequests() {
         <div class="friend-item">
           <div class="friend-avatar">${req.avatar || '👤'}</div>
           <div class="friend-info">
-            <div class="friend-name">${req.displayName || req.username}</div>
-            <div class="friend-username">@${req.username}</div>
-            <div style="font-size: 11px; color: #888; margin-top: 4px;">
+            <div class="friend-name" style="text-shadow: 0 2px 8px rgba(0,0,0,0.8), 0 0 4px rgba(0,0,0,0.6);">${req.displayName || req.username}</div>
+            <div class="friend-username" style="text-shadow: 0 2px 8px rgba(0,0,0,0.8), 0 0 4px rgba(0,0,0,0.6);">@${req.username}</div>
+            <div style="font-size: 11px; color: #888; margin-top: 4px; text-shadow: 0 2px 8px rgba(0,0,0,0.8), 0 0 4px rgba(0,0,0,0.6);">
               📤 Sent ${new Date(req.requestedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
             </div>
           </div>
@@ -445,7 +490,7 @@ async function loadFriendRequests() {
 
 async function loadLeaderboard() {
   try {
-    const leaderboard = await API.getLeaderboard(50);
+    const leaderboard = await API.getLeaderboard(10); // Top 10 only
     const currentUserData = await chrome.storage.local.get(['user']);
     const currentUser = currentUserData.user;
     
@@ -467,22 +512,51 @@ async function loadLeaderboard() {
       const isCurrentUser = currentUser && user.userId === currentUser.userId;
       const rankIcon = rank === 1 ? '👑' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : '#' + rank;
       
-      return `
-        <div class="leaderboard-item" style="${isCurrentUser ? 'border-color: #3b82f6; background: rgba(59, 130, 246, 0.05);' : ''}">
-          <div class="leaderboard-rank ${rankClass}">${rankIcon}</div>
+      let itemStyle = isCurrentUser ? 'border-color: #3b82f6; background: rgba(59, 130, 246, 0.05);' : '';
+      
+      // Apply name banner as card background
+      if (user.nameBanner) {
+        itemStyle = `background: url('${chrome.runtime.getURL(`assets/name_banner/${user.nameBanner}.png`)}') center/cover; background-size: 100% 100%;${isCurrentUser ? ' border-color: #3b82f6;' : ''}`;
+      }
+      
+      // Avatar decoration wrapper
+      const avatarContent = user.avatarDecoration ? `
+        <div style="position: relative; display: inline-block;">
           <div class="friend-avatar">${user.avatar || '👤'}</div>
-          <div class="friend-info">
-            <div class="friend-name">
-              ${user.displayName}
-              ${isCurrentUser ? '<span style="color: #3b82f6; font-size: 11px; font-weight: 600;">(You)</span>' : ''}
-            </div>
-            <div class="friend-username">@${user.username}</div>
+          <div style="
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 56px;
+            height: 56px;
+            background: url('${chrome.runtime.getURL(`assets/avatar/${user.avatarDecoration}.png`)}') center/contain no-repeat;
+            pointer-events: none;
+            z-index: 1;
+          "></div>
+        </div>
+      ` : `<div class="friend-avatar">${user.avatar || '👤'}</div>`;
+      
+      const content = `
+        <div class="leaderboard-rank ${rankClass}">${rankIcon}</div>
+        ${avatarContent}
+        <div class="friend-info">
+          <div class="friend-name">
+            ${user.displayName}
+            ${isCurrentUser ? '<span style="color: #3b82f6; font-size: 11px; font-weight: 600;">(You)</span>' : ''}
           </div>
-          <div class="friend-stats">
-            <div class="friend-stat" style="color: #3b82f6;">Lv <strong style="color: #3b82f6;">${user.level || 1}</strong></div>
-            <div class="friend-stat"><strong style="color: #fbbf24;">${user.points || 0}</strong> pts</div>
-            <div class="friend-stat"><strong style="color: #10b981;">${user.stats?.totalFocusTime || 0}</strong> min</div>
-          </div>
+          <div class="friend-username">@${user.username}</div>
+        </div>
+        <div class="friend-stats">
+          <div class="friend-stat" style="color: #ffffff; text-shadow: 0 2px 8px rgba(0,0,0,0.8), 0 0 4px rgba(0,0,0,0.6);">Lv <strong style="color: #ffffff; text-shadow: 0 2px 8px rgba(59, 130, 246, 0.8), 0 0 4px rgba(59, 130, 246, 0.6);">${user.level || 1}</strong></div>
+          <div class="friend-stat" style="color: #ffffff; text-shadow: 0 2px 8px rgba(0,0,0,0.8), 0 0 4px rgba(0,0,0,0.6);"><strong style="color: #fbbf24; text-shadow: 0 2px 8px rgba(0,0,0,0.8), 0 0 4px rgba(251, 191, 36, 0.6);">${user.points || 0}</strong> pts</div>
+          <div class="friend-stat" style="color: #ffffff; text-shadow: 0 2px 8px rgba(0,0,0,0.8), 0 0 4px rgba(0,0,0,0.6);"><strong style="color: #10b981; text-shadow: 0 2px 8px rgba(0,0,0,0.8), 0 0 4px rgba(16, 185, 129, 0.6);">${user.stats?.totalFocusTime || 0}</strong> min</div>
+        </div>
+      `;
+      
+      return `
+        <div class="leaderboard-item" style="${itemStyle}">
+          ${content}
         </div>
       `;
     }).join('');
@@ -512,21 +586,41 @@ async function loadActivity() {
       return;
     }
     
-    container.innerHTML = activity.map(friend => `
-      <div class="friend-card">
-        <div class="friend-avatar">${friend.avatar || '👤'}</div>
+    // Sort activity - online users at top
+    const sortedActivity = activity.sort((a, b) => {
+      const statusA = getActivityStatus(a);
+      const statusB = getActivityStatus(b);
+      const isOnlineA = statusA !== 'offline';
+      const isOnlineB = statusB !== 'offline';
+      
+      if (isOnlineA && !isOnlineB) return -1;
+      if (!isOnlineA && isOnlineB) return 1;
+      return 0;
+    });
+    
+    container.innerHTML = sortedActivity.map(friend => {
+      const avatarDecoration = friend.avatarDecoration ? `<div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: url('${chrome.runtime.getURL(`assets/avatar/${friend.avatarDecoration}.png`)}') center/contain no-repeat; pointer-events: none; z-index: 10;"></div>` : '';
+      const nameBannerStyle = friend.nameBanner ? `background: url('${chrome.runtime.getURL(`assets/name_banner/${friend.nameBanner}.png`)}') center/cover; background-size: 100% 100%;` : '';
+      
+      return `
+      <div class="friend-card" style="${nameBannerStyle}">
+        <div class="friend-avatar" style="position: relative;">
+          ${friend.avatar || '👤'}
+          ${avatarDecoration}
+        </div>
         <div class="friend-info">
-          <div class="friend-name">${friend.displayName}</div>
+          <div class="friend-name" style="text-shadow: 2px 2px 4px rgba(0,0,0,0.8);">${friend.displayName}</div>
           <div class="friend-activity">
             <span class="activity-indicator ${getActivityStatus(friend)}"></span>
-            ${getActivityText(friend)}
+            <span style="text-shadow: 1px 1px 3px rgba(0,0,0,0.8);">${getActivityText(friend)}</span>
           </div>
-          <div style="font-size: 11px; color: #666; margin-top: 4px;">
+          <div style="font-size: 11px; color: #ddd; margin-top: 4px; text-shadow: 1px 1px 2px rgba(0,0,0,0.8);">
             ${getTimeAgo(friend.activity?.lastUpdated)}
           </div>
         </div>
       </div>
-    `).join('');
+    `;
+    }).join('');
   } catch (error) {
     console.error('Failed to load activity:', error);
     document.getElementById('activityFeed').innerHTML = `
@@ -698,6 +792,8 @@ function getActivityTextFromData(activity) {
 async function viewProfile(username) {
   const modal = document.getElementById('profileModal');
   const content = document.getElementById('profileContent');
+  const modalWrapper = document.getElementById('profileModalWrapper');
+  const modalContent = document.getElementById('profileModalContent');
   
   modal.style.display = 'flex';
   content.innerHTML = '<div style="text-align: center; padding: 40px; color: #888;">Loading profile...</div>';
@@ -711,14 +807,58 @@ async function viewProfile(username) {
     
     const profile = await response.json();
     
+    console.log('👤 Profile loaded:', profile.username, 'Effect:', profile.profileEffect);
+    
     const isOnline = profile.isOnline;
     const lastSeen = profile.lastSeen ? getTimeAgo(profile.lastSeen) : 'Unknown';
+    
+    // Reset modal styles
+    modalWrapper.style.background = 'transparent';
+    modalWrapper.style.padding = '0';
+    modalWrapper.style.boxShadow = 'none';
+    modalContent.style.background = '#141414';
+    modalContent.style.border = '1px solid #1f1f1f';
+    modalContent.style.boxShadow = '0 24px 80px rgba(0,0,0,0.8)';
+    
+    // Profile decoration overlay (on top of modal, not as border)
+    const profileDecoration = profile.profileDecoration ? `
+      <div style="
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: url('${chrome.runtime.getURL(`assets/profile/${profile.profileDecoration}.png`)}');
+        background-size: 100% 100%;
+        background-position: center;
+        background-repeat: no-repeat;
+        pointer-events: none;
+        z-index: 1000;
+        border-radius: 15px;
+      "></div>
+    ` : '';
+    
+    // Discord-style avatar decoration (uses assets/avatar/ folder)
+    const avatarDecoration = profile.avatarDecoration ? `
+      <div style="
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 140px;
+        height: 140px;
+        background: url('${chrome.runtime.getURL(`assets/avatar/${profile.avatarDecoration}.png`)}') center/contain no-repeat;
+        pointer-events: none;
+        z-index: 10;
+      "></div>
+    ` : '';
     
     content.innerHTML = `
       <div style="text-align: center; margin-bottom: 32px;">
         <div style="position: relative; display: inline-block; margin-bottom: 20px;">
           <div style="font-size: 64px; line-height: 1;">${profile.avatar || '👤'}</div>
-          <div style="position: absolute; bottom: 2px; right: 2px; width: 16px; height: 16px; background: ${isOnline ? '#10b981' : '#4b5563'}; border: 2px solid #141414; border-radius: 50%;"></div>
+          ${avatarDecoration}
+          <div style="position: absolute; bottom: 2px; right: 2px; width: 16px; height: 16px; background: ${isOnline ? '#10b981' : '#4b5563'}; border: 2px solid #141414; border-radius: 50%; z-index: 11;"></div>
         </div>
         <h2 style="font-size: 24px; font-weight: 600; margin: 0 0 6px 0; color: #ffffff;">${profile.displayName}</h2>
         <div style="color: #6b7280; font-size: 14px; margin-bottom: 16px;">@${profile.username}</div>
@@ -939,6 +1079,7 @@ async function viewProfile(username) {
           ` : ''}
         </div>
       ` : ''}
+      ${profileDecoration}
     `;
     
     // Add event listener for action button (CSP-compliant)
@@ -1149,9 +1290,15 @@ async function initCommunityChat() {
     chatSocket.on('chat-history', (messages) => {
       console.log('📜 Received chat history:', messages.length, 'messages');
       const container = document.getElementById('chatMessages');
-      container.innerHTML = '';
-      messages.forEach(msg => addMessageToChat(msg, false));
-      scrollToBottom();
+      
+      if (messages && messages.length > 0) {
+        container.innerHTML = '';
+        messages.forEach(msg => addMessageToChat(msg, false));
+        scrollToBottom();
+      } else {
+        console.log('💬 No chat history, keeping welcome message');
+        // Keep the welcome message if no messages
+      }
     });
 
     chatSocket.on('user-joined-chat', (user) => {
@@ -1206,9 +1353,24 @@ async function initCommunityChat() {
         const newBtn = chatSendBtn.cloneNode(true);
         chatSendBtn.parentNode.replaceChild(newBtn, chatSendBtn);
         
+        const badWords = ['fuck', 'shit', 'bitch', 'ass', 'damn', 'bastard', 'crap', 'piss', 'dick', 'pussy', 'cock', 'slut', 'whore', 'fag', 'nigger', 'retard', 'idiot', 'stupid', 'dumb', 'moron'];
+        
+        const containsProfanity = (text) => {
+          const lower = text.toLowerCase();
+          return badWords.some(word => lower.includes(word));
+        };
+        
         const sendMessage = () => {
           const message = chatInput.value.trim();
           console.log('📤 Attempting to send message:', message);
+          
+          // Check for profanity
+          if (containsProfanity(message)) {
+            alert('Badmoshi na mittar');
+            chatInput.value = '';
+            return;
+          }
+          
           if (message && chatSocket && chatSocket.connected) {
             console.log('✅ Sending message via socket');
             chatSocket.emit('community-message', { text: message });
@@ -1231,7 +1393,125 @@ async function initCommunityChat() {
             sendMessage();
           }
         });
-        console.log('✅ Chat input handlers attached');
+        
+        // @ Mention autocomplete
+        let mentionDropdown = null;
+        
+        chatInput.addEventListener('input', (e) => {
+          const value = chatInput.value;
+          const cursorPos = chatInput.selectionStart;
+          const textBeforeCursor = value.substring(0, cursorPos);
+          const lastAtSymbol = textBeforeCursor.lastIndexOf('@');
+          
+          if (lastAtSymbol !== -1) {
+            const searchTerm = textBeforeCursor.substring(lastAtSymbol + 1).toLowerCase();
+            const spaceAfterAt = searchTerm.includes(' ');
+            
+            if (!spaceAfterAt && searchTerm.length >= 0) {
+              // Show mention suggestions - get from onlineUsers Map
+              const usersArray = Array.from(onlineUsers.values());
+              const matches = usersArray.filter(u => 
+                u.username && u.username.toLowerCase().startsWith(searchTerm)
+              ).slice(0, 5);
+              
+              if (matches.length > 0) {
+                showMentionDropdown(matches, lastAtSymbol);
+              } else {
+                hideMentionDropdown();
+              }
+            } else {
+              hideMentionDropdown();
+            }
+          } else {
+            hideMentionDropdown();
+          }
+        });
+        
+        function showMentionDropdown(users, atPosition) {
+          hideMentionDropdown();
+          
+          mentionDropdown = document.createElement('div');
+          mentionDropdown.style.cssText = `
+            position: absolute;
+            bottom: 60px;
+            left: 16px;
+            width: 280px;
+            background: #1a1a1a;
+            border: 1px solid #3b82f6;
+            border-radius: 8px;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 1000;
+            box-shadow: 0 -4px 16px rgba(59, 130, 246, 0.3);
+          `;
+          
+          users.forEach((user, index) => {
+            const item = document.createElement('div');
+            item.style.cssText = `
+              padding: 10px 12px;
+              cursor: pointer;
+              display: flex;
+              align-items: center;
+              gap: 10px;
+              transition: background 0.2s;
+            `;
+            item.innerHTML = `
+              <span style="font-size: 18px;">${user.avatar || '👤'}</span>
+              <div style="flex: 1; min-width: 0;">
+                <div style="font-weight: 600; color: #fff; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${user.displayName}</div>
+                <div style="font-size: 11px; color: #3b82f6; font-weight: 600;">@${user.username}</div>
+              </div>
+            `;
+            
+            item.addEventListener('mouseenter', () => {
+              item.style.background = 'rgba(59, 130, 246, 0.2)';
+            });
+            
+            item.addEventListener('mouseleave', () => {
+              item.style.background = 'transparent';
+            });
+            
+            item.addEventListener('click', () => {
+              const value = chatInput.value;
+              const cursorPos = chatInput.selectionStart;
+              const textBeforeCursor = value.substring(0, cursorPos);
+              const lastAtSymbol = textBeforeCursor.lastIndexOf('@');
+              const textAfterCursor = value.substring(cursorPos);
+              
+              const newValue = value.substring(0, lastAtSymbol) + '@' + user.username + ' ' + textAfterCursor;
+              chatInput.value = newValue;
+              
+              // Flash the input border to show mention added
+              chatInput.style.borderColor = '#3b82f6';
+              setTimeout(() => {
+                chatInput.style.borderColor = '';
+              }, 500);
+              
+              chatInput.focus();
+              chatInput.selectionStart = chatInput.selectionEnd = lastAtSymbol + user.username.length + 2;
+              
+              hideMentionDropdown();
+            });
+            
+            mentionDropdown.appendChild(item);
+          });
+          
+          document.querySelector('.chat-input-area').appendChild(mentionDropdown);
+        }
+        
+        function hideMentionDropdown() {
+          if (mentionDropdown) {
+            mentionDropdown.remove();
+            mentionDropdown = null;
+          }
+        }
+        
+        // Hide dropdown on blur (with delay to allow click)
+        chatInput.addEventListener('blur', () => {
+          setTimeout(() => hideMentionDropdown(), 200);
+        });
+        
+        console.log('✅ Chat input handlers attached with @ mention autocomplete');
       } else {
         console.error('❌ Chat form elements not found');
       }
@@ -1322,6 +1602,8 @@ function updateChatStatus(status, text) {
   }
 }
 
+let lastMessageUser = null;
+
 function addMessageToChat(message, scroll = true) {
   const container = document.getElementById('chatMessages');
   
@@ -1331,22 +1613,73 @@ function addMessageToChat(message, scroll = true) {
     welcome.remove();
   }
 
-  const messageEl = document.createElement('div');
-  messageEl.className = 'message';
-  
   const time = new Date(message.timestamp || Date.now());
   const timeStr = time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   
-  messageEl.innerHTML = `
-    <div class="message-avatar">${message.avatar || '👤'}</div>
-    <div class="message-content">
-      <div class="message-header">
-        <span class="message-author">${message.displayName || message.username}</span>
-        <span class="message-time">${timeStr}</span>
+  // Check if this is a consecutive message from same user
+  const isConsecutive = lastMessageUser === message.userId;
+  lastMessageUser = message.userId;
+  
+  // Process @ mentions
+  let processedText = escapeHtml(message.text);
+  const mentionRegex = /@(\w+)/g;
+  processedText = processedText.replace(mentionRegex, '<span style="color: #3b82f6; background: rgba(59, 130, 246, 0.1); padding: 2px 6px; border-radius: 4px; font-weight: 600;">@$1</span>');
+  
+  // Check if current user is mentioned
+  chrome.storage.local.get(['user'], (data) => {
+    if (data.user && message.text.includes('@' + data.user.username)) {
+      // Show notification for mention
+      new Notification('You were mentioned!', {
+        body: `${message.displayName}: ${message.text}`,
+        icon: chrome.runtime.getURL('icons/icon128.png')
+      });
+    }
+  });
+  
+  const messageEl = document.createElement('div');
+  messageEl.className = isConsecutive ? 'message message-consecutive' : 'message';
+  
+  if (isConsecutive) {
+    // Consecutive message - only show text with time
+    messageEl.innerHTML = `
+      <div class="message-avatar" style="visibility: hidden;"></div>
+      <div class="message-content">
+        <div class="message-text" style="position: relative;">
+          ${processedText}
+          <span class="message-time" style="font-size: 10px; color: #6b7280; margin-left: 8px;">${timeStr}</span>
+        </div>
       </div>
-      <div class="message-text">${escapeHtml(message.text)}</div>
-    </div>
-  `;
+    `;
+  } else {
+    // New message - show avatar with decoration
+    const avatarDecoration = message.avatarDecoration ? `
+      <div style="
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 42px;
+        height: 42px;
+        background: url('${chrome.runtime.getURL(`assets/avatar/${message.avatarDecoration}.png`)}') center/contain no-repeat;
+        pointer-events: none;
+        z-index: 10;
+      "></div>
+    ` : '';
+    
+    messageEl.innerHTML = `
+      <div style="position: relative; width: 36px; height: 36px; flex-shrink: 0;">
+        <div class="message-avatar" style="position: relative; z-index: 1;">${message.avatar || '👤'}</div>
+        ${avatarDecoration}
+      </div>
+      <div class="message-content">
+        <div class="message-header">
+          <span class="message-author">${message.displayName || message.username}</span>
+          <span class="message-time">${timeStr}</span>
+        </div>
+        <div class="message-text">${processedText}</div>
+      </div>
+    `;
+  }
   
   container.appendChild(messageEl);
   
@@ -1368,15 +1701,39 @@ function updateOnlineUsers() {
   
   const usersArray = Array.from(onlineUsers.values());
   
-  container.innerHTML = usersArray.map(user => `
-    <div class="online-user">
-      <div class="online-user-avatar">${user.avatar || '👤'}</div>
-      <div class="online-user-info">
-        <div class="online-user-name">${user.displayName || user.username}</div>
+  container.innerHTML = usersArray.map(user => {
+    const avatarDecoration = user.avatarDecoration ? `
+      <div style="
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 38px;
+        height: 38px;
+        background: url('${chrome.runtime.getURL(`assets/avatar/${user.avatarDecoration}.png`)}') center/contain no-repeat;
+        pointer-events: none;
+        z-index: 10;
+      "></div>
+    ` : '';
+    
+    const cardStyle = user.nameBanner ? `
+      background: url('${chrome.runtime.getURL(`assets/name_banner/${user.nameBanner}.png`)}') center/cover;
+      background-size: 100% 100%;
+    ` : '';
+    
+    return `
+      <div class="online-user" style="${cardStyle}">
+        <div style="position: relative; width: 32px; height: 32px; flex-shrink: 0;">
+          <div class="online-user-avatar" style="position: relative; z-index: 1;">${user.avatar || '👤'}</div>
+          ${avatarDecoration}
+        </div>
+        <div class="online-user-info">
+          <div class="online-user-name" style="text-shadow: 0 2px 8px rgba(0,0,0,0.8), 0 0 4px rgba(0,0,0,0.6);">${user.displayName || user.username}</div>
+        </div>
+        <div class="online-indicator-small"></div>
       </div>
-      <div class="online-indicator-small"></div>
-    </div>
-  `).join('');
+    `;
+  }).join('');
 }
 
 function scrollToBottom() {
@@ -1388,6 +1745,290 @@ function escapeHtml(text) {
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
+}
+
+// ====================
+// SHOP FUNCTIONALITY
+// ====================
+
+const shopItems = {
+  avatar: [
+    { id: 'av', name: 'Avatar Frame 1', price: 100 },
+    { id: 'av1', name: 'Avatar Frame 2', price: 125 },
+    { id: 'av2', name: 'Avatar Frame 3', price: 150 },
+    { id: 'av3', name: 'Avatar Frame 4', price: 200 },
+    { id: 'av4', name: 'Avatar Frame 5', price: 250 },
+    { id: 'av5', name: 'Avatar Frame 6', price: 300 },
+    { id: 'av6', name: 'Avatar Frame 7', price: 350 },
+    { id: 'av7', name: 'Avatar Frame 8', price: 400 },
+    { id: 'a8', name: 'Avatar Frame 9', price: 500 }
+  ],
+  banner: [
+    { id: 'b1', name: 'Banner Style 1', price: 100 },
+    { id: 'b2', name: 'Banner Style 2', price: 150 },
+    { id: 'b4', name: 'Banner Style 3', price: 200 },
+    { id: 'b5', name: 'Banner Style 4', price: 250 },
+    { id: 'b6', name: 'Banner Style 5', price: 300 },
+    { id: 'b7', name: 'Banner Style 6', price: 350 },
+    { id: 'b8', name: 'Banner Style 7', price: 400 },
+    { id: 'b9', name: 'Banner Style 8', price: 450 }
+  ],
+  profile: [
+    { id: 'gradient-1', name: 'Gradient Frame', price: 200 },
+    { id: 'p2', name: 'Profile Frame 2', price: 300 },
+    { id: 'p3', name: 'Profile Frame 3', price: 400 }
+  ]
+};
+
+let currentShopCategory = 'avatar';
+let currentUserData = null;
+
+async function initializeShop() {
+  try {
+    // Fetch fresh user data from API
+    const profile = await API.getProfile();
+    if (!profile) return;
+    
+    currentUserData = profile;
+    
+    // Update local storage with fresh data
+    await chrome.storage.local.set({ user: profile });
+    
+    // Update user info
+    document.getElementById('shopUserAvatar').textContent = currentUserData.avatar || '👤';
+    document.getElementById('shopUserName').textContent = currentUserData.displayName || currentUserData.username;
+    document.getElementById('shopUserLevel').textContent = currentUserData.level || 1;
+    document.getElementById('shopUserPoints').textContent = currentUserData.points || 0;
+    
+    // Load shop items
+    await loadShopItems(currentShopCategory);
+    
+    // Add category button listeners
+    document.querySelectorAll('.shop-category-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        document.querySelectorAll('.shop-category-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentShopCategory = btn.dataset.category;
+        await loadShopItems(currentShopCategory);
+      });
+    });
+    
+    // Update preview with current decorations
+    updatePreview();
+    
+  } catch (error) {
+    console.error('Failed to initialize shop:', error);
+  }
+}
+
+async function loadShopItems(category) {
+  const grid = document.getElementById('shopItemsGrid');
+  const items = shopItems[category] || [];
+  
+  // Use current user data which is already fresh from API
+  const user = currentUserData;
+  if (!user) return;
+  
+  const purchasedEffects = user.purchasedEffects || [];
+  
+  let currentEquipped = null;
+  if (category === 'avatar') currentEquipped = user.avatarDecoration;
+  else if (category === 'banner') currentEquipped = user.nameBanner;
+  else if (category === 'profile') currentEquipped = user.profileDecoration;
+  
+  grid.innerHTML = items.map(item => {
+    const isOwned = purchasedEffects.includes(item.id);
+    const isEquipped = currentEquipped === item.id;
+    
+    let folderPath = '';
+    if (category === 'avatar') folderPath = 'assets/avatar';
+    else if (category === 'banner') folderPath = 'assets/name_banner';
+    else if (category === 'profile') folderPath = 'assets/profile';
+    
+    const imageUrl = chrome.runtime.getURL(`${folderPath}/${item.id}.png`);
+    
+    return `
+      <div class="shop-item ${isOwned ? 'owned' : ''} ${isEquipped ? 'equipped' : ''}" data-item-id="${item.id}" data-category="${category}">
+        ${isEquipped ? '<div class="shop-item-status equipped">EQUIPPED</div>' : (isOwned ? '<div class="shop-item-status owned">OWNED</div>' : '')}
+        <div class="shop-item-image">
+          <img src="${imageUrl}" style="width: 100%; height: 100%; object-fit: ${category === 'banner' ? 'cover' : 'contain'};" />
+        </div>
+        <div style="text-align: center; font-size: 13px; font-weight: 600; color: #ddd; margin-bottom: 4px;">${item.name}</div>
+        ${isEquipped ? 
+          '<div style="padding: 8px; background: #fbbf24; border-radius: 6px; font-weight: 600; font-size: 13px; color: #000; text-align: center;">EQUIPPED</div>' :
+          (isOwned ? 
+            '<button class="shop-item-equip-btn" style="width: 100%; padding: 8px; background: #3b82f6; border: none; border-radius: 6px; font-weight: 600; font-size: 13px; color: #fff; cursor: pointer;">EQUIP</button>' :
+            `<div class="shop-item-price"><i class="fas fa-coins"></i> ${item.price} Points</div>`
+          )
+        }
+      </div>
+    `;
+  }).join('');
+  
+  // Add click listeners
+  grid.querySelectorAll('.shop-item').forEach(itemEl => {
+    itemEl.addEventListener('click', async (e) => {
+      const itemId = itemEl.dataset.itemId;
+      const category = itemEl.dataset.category;
+      
+      if (e.target.classList.contains('shop-item-equip-btn')) {
+        await equipItem(itemId, category);
+      } else if (!itemEl.classList.contains('owned') && !itemEl.classList.contains('equipped')) {
+        await purchaseItem(itemId, category);
+      }
+    });
+    
+    // Preview on hover
+    itemEl.addEventListener('mouseenter', () => {
+      const itemId = itemEl.dataset.itemId;
+      const category = itemEl.dataset.category;
+      previewItem(itemId, category);
+    });
+  });
+}
+
+async function purchaseItem(itemId, category) {
+  const items = shopItems[category];
+  const item = items.find(i => i.id === itemId);
+  
+  if (!item) return;
+  
+  const userData = await chrome.storage.local.get(['user']);
+  const user = userData.user;
+  
+  if (user.points < item.price) {
+    alert(`Not enough points! You need ${item.price} points but have ${user.points} points.`);
+    return;
+  }
+  
+  if (confirm(`Purchase ${item.name} for ${item.price} points?`)) {
+    try {
+      // Add to purchased effects
+      const purchasedEffects = user.purchasedEffects || [];
+      if (!purchasedEffects.includes(itemId)) {
+        purchasedEffects.push(itemId);
+      }
+      
+      // Deduct points
+      const newPoints = user.points - item.price;
+      
+      // Update backend
+      const response = await API.request('/users/purchase-effect', {
+        method: 'POST',
+        body: JSON.stringify({ effectId: itemId, price: item.price })
+      });
+      
+      // Update local storage with response from server
+      user.purchasedEffects = response.purchasedEffects || purchasedEffects;
+      user.points = response.points || newPoints;
+      await chrome.storage.local.set({ user });
+      currentUserData = user;
+      
+      // Refresh shop
+      document.getElementById('shopUserPoints').textContent = newPoints;
+      await loadShopItems(category);
+      
+      alert(`Successfully purchased ${item.name}!`);
+    } catch (error) {
+      console.error('Purchase failed:', error);
+      alert('Purchase failed! Please try again.');
+    }
+  }
+}
+
+async function equipItem(itemId, category) {
+  try {
+    let endpoint = '';
+    if (category === 'avatar') endpoint = 'updateAvatarDecoration';
+    else if (category === 'banner') endpoint = 'updateNameBanner';
+    else if (category === 'profile') endpoint = 'updateProfileDecoration';
+    
+    if (category === 'avatar') {
+      await API.updateAvatarDecoration(itemId);
+    } else if (category === 'banner') {
+      await API.updateNameBanner(itemId);
+    } else if (category === 'profile') {
+      await API.updateProfileDecoration(itemId);
+    }
+    
+    // Update local storage
+    const userData = await chrome.storage.local.get(['user']);
+    if (category === 'avatar') userData.user.avatarDecoration = itemId;
+    else if (category === 'banner') userData.user.nameBanner = itemId;
+    else if (category === 'profile') userData.user.profileDecoration = itemId;
+    
+    await chrome.storage.local.set({ user: userData.user });
+    currentUserData = userData.user;
+    
+    // Refresh shop and preview
+    await loadShopItems(category);
+    updatePreview();
+    
+    alert('Item equipped successfully!');
+  } catch (error) {
+    console.error('Equip failed:', error);
+    alert('Failed to equip item!');
+  }
+}
+
+function previewItem(itemId, category) {
+  if (category === 'avatar') {
+    const decorationUrl = chrome.runtime.getURL(`assets/avatar/${itemId}.png`);
+    document.getElementById('previewAvatarDecoration').style.background = `url('${decorationUrl}') center/contain no-repeat`;
+    document.getElementById('previewAvatarDecoration').style.pointerEvents = 'none';
+  } else if (category === 'banner') {
+    const bannerUrl = chrome.runtime.getURL(`assets/name_banner/${itemId}.png`);
+    document.getElementById('previewCard').style.background = `url('${bannerUrl}') center/cover`;
+    document.getElementById('previewCard').style.backgroundSize = '100% 100%';
+    // Keep user info visible
+    if (currentUserData) {
+      document.getElementById('previewCardAvatar').textContent = currentUserData.avatar || '👤';
+      document.getElementById('previewCardName').textContent = currentUserData.displayName || currentUserData.username || 'Your Name';
+      document.getElementById('previewCardUsername').textContent = '@' + (currentUserData.username || 'username');
+    }
+  } else if (category === 'profile') {
+    const profileUrl = chrome.runtime.getURL(`assets/profile/${itemId}.png`);
+    document.getElementById('previewProfile').style.background = `url('${profileUrl}') center/cover`;
+    document.getElementById('previewProfile').style.backgroundSize = '100% 100%';
+    document.getElementById('previewProfile').textContent = '';
+  }
+}
+
+function updatePreview() {
+  if (!currentUserData) return;
+  
+  // Update avatar preview
+  document.getElementById('previewAvatar').textContent = currentUserData.avatar || '👤';
+  if (currentUserData.avatarDecoration) {
+    const decorationUrl = chrome.runtime.getURL(`assets/avatar/${currentUserData.avatarDecoration}.png`);
+    document.getElementById('previewAvatarDecoration').style.background = `url('${decorationUrl}') center/contain no-repeat`;
+  } else {
+    document.getElementById('previewAvatarDecoration').style.background = 'none';
+  }
+  
+  // Update card preview with user's actual info
+  document.getElementById('previewCardAvatar').textContent = currentUserData.avatar || '👤';
+  document.getElementById('previewCardName').textContent = currentUserData.displayName || currentUserData.username || 'Your Name';
+  document.getElementById('previewCardUsername').textContent = '@' + (currentUserData.username || 'username');
+  
+  if (currentUserData.nameBanner) {
+    const bannerUrl = chrome.runtime.getURL(`assets/name_banner/${currentUserData.nameBanner}.png`);
+    document.getElementById('previewCard').style.background = `url('${bannerUrl}') center/cover`;
+    document.getElementById('previewCard').style.backgroundSize = '100% 100%';
+  } else {
+    document.getElementById('previewCard').style.background = '#141414';
+  }
+  
+  // Update profile preview
+  if (currentUserData.profileDecoration) {
+    const profileUrl = chrome.runtime.getURL(`assets/profile/${currentUserData.profileDecoration}.png`);
+    document.getElementById('previewProfile').style.background = `url('${profileUrl}') center/cover`;
+    document.getElementById('previewProfile').style.backgroundSize = '100% 100%';
+    document.getElementById('previewProfile').textContent = '';
+  } else {
+    document.getElementById('previewProfile').style.background = '#141414';
+    document.getElementById('previewProfile').textContent = 'Profile Frame';
+  }
 }
 
 // Cleanup on page unload

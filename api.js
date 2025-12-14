@@ -8,6 +8,10 @@ const API_CONFIG = {
     updateStats: '/users/stats',
     updateSettings: '/users/settings',
     updateActivity: '/users/activity',
+    updateProfileEffect: '/users/profile-effect',
+    updateNameBanner: '/users/name-banner',
+    updateAvatarDecoration: '/users/avatar-decoration',
+    updateProfileDecoration: '/users/profile-decoration',
     getUser: '/users', // + /:username
     leaderboard: '/users/leaderboard',
     addFriend: '/friends/add',
@@ -115,6 +119,34 @@ class API {
     return await this.request(API_CONFIG.endpoints.updateActivity, {
       method: 'PUT',
       body: JSON.stringify({ status, startTime })
+    });
+  }
+
+  static async updateProfileEffect(effectId) {
+    return await this.request(API_CONFIG.endpoints.updateProfileEffect, {
+      method: 'PUT',
+      body: JSON.stringify({ effectId })
+    });
+  }
+
+  static async updateNameBanner(bannerId) {
+    return await this.request(API_CONFIG.endpoints.updateNameBanner, {
+      method: 'PUT',
+      body: JSON.stringify({ bannerId })
+    });
+  }
+
+  static async updateAvatarDecoration(decorationId) {
+    return await this.request(API_CONFIG.endpoints.updateAvatarDecoration, {
+      method: 'PUT',
+      body: JSON.stringify({ decorationId })
+    });
+  }
+
+  static async updateProfileDecoration(decorationId) {
+    return await this.request(API_CONFIG.endpoints.updateProfileDecoration, {
+      method: 'PUT',
+      body: JSON.stringify({ decorationId })
     });
   }
 

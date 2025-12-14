@@ -3,7 +3,7 @@
 
 const GITHUB_REPO = 'imAaryash/blockit-extension'; // Replace with your actual repo
 const CHECK_INTERVAL = 24 * 60 * 60 * 1000; // Check once per day
-const CURRENT_VERSION = '2.1.0'; // Keep this synced with manifest.json
+const CURRENT_VERSION = '2.2.0'; // Keep this synced with manifest.json
 
 // Check for updates on extension install/update
 chrome.runtime.onInstalled.addListener(async (details) => {

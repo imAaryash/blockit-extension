@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>Friends & Leaderboard</title>
+  <title>ChatGPT</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <style>
     * {
@@ -407,6 +407,7 @@
       background: linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, transparent 50%);
       opacity: 0;
       transition: opacity 0.4s ease;
+      pointer-events: none;
     }
 
     .friend-card:hover::before {
@@ -417,6 +418,33 @@
       border-color: #3b82f6;
       transform: translateY(-4px);
       box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(59, 130, 246, 0.1);
+    }
+
+    /* Gradient border effect */
+    .friend-card.has-gradient-effect,
+    .leaderboard-item.has-gradient-effect {
+      border: 3px solid transparent;
+      background-origin: border-box;
+      background-clip: padding-box, border-box;
+      position: relative;
+    }
+
+    .friend-card.has-gradient-effect::after,
+    .leaderboard-item.has-gradient-effect::after {
+      content: '';
+      position: absolute;
+      top: -3px;
+      left: -3px;
+      right: -3px;
+      bottom: -3px;
+      border-radius: 12px;
+      padding: 3px;
+      background: var(--gradient-url);
+      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+      pointer-events: none;
+      z-index: -1;
     }
 
     .friend-avatar {
@@ -523,6 +551,14 @@
       border-radius: 4px;
       font-size: 11px;
       cursor: pointer;
+      position: relative;
+      z-index: 10;
+      transition: all 0.2s ease;
+    }
+
+    .btn-remove:hover {
+      background: #ff6b6b;
+      color: #fff;
     }
 
     .leaderboard-list {
@@ -564,6 +600,10 @@
       border-color: #3b82f6;
       transform: translateY(-2px);
       box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(59, 130, 246, 0.1);
+    }
+
+    .leaderboard-item.has-gradient-effect::after {
+      border-radius: 14px;
     }
 
     .leaderboard-rank {
@@ -879,15 +919,17 @@
     .online-user-info {
       flex: 1;
       min-width: 0;
+      max-width: 120px;
     }
 
     .online-user-name {
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 500;
       color: #ddd;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+      max-width: 100%;
     }
 
     .online-indicator-small {
@@ -917,6 +959,91 @@
         display: none;
       }
     }
+
+    /* Shop Styles */
+    .shop-category-btn.active {
+      color: #3b82f6 !important;
+      border-bottom-color: #3b82f6 !important;
+    }
+
+    .shop-category-btn:hover {
+      color: #60a5fa !important;
+    }
+
+    .shop-item {
+      background: #141414;
+      border: 2px solid #2a2a2a;
+      border-radius: 12px;
+      padding: 16px;
+      cursor: pointer;
+      transition: all 0.3s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .shop-item:hover {
+      border-color: #3b82f6;
+      transform: translateY(-4px);
+      box-shadow: 0 8px 24px rgba(59, 130, 246, 0.3);
+    }
+
+    .shop-item.owned {
+      border-color: #10b981;
+      background: rgba(16, 185, 129, 0.05);
+    }
+
+    .shop-item.equipped {
+      border-color: #fbbf24;
+      background: rgba(251, 191, 36, 0.05);
+    }
+
+    .shop-item-image {
+      width: 100%;
+      aspect-ratio: 1;
+      background: #0a0a0a;
+      border-radius: 8px;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .shop-item-price {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 8px;
+      background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 14px;
+      color: #000;
+      margin-top: 12px;
+    }
+
+    .shop-item-status {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      z-index: 10;
+    }
+
+    .shop-item-status.owned {
+      background: #10b981;
+      color: #000;
+    }
+
+    .shop-item-status.equipped {
+      background: #fbbf24;
+      color: #000;
+    }
   </style>
 </head>
 <body>
@@ -944,6 +1071,7 @@
       <button class="tab active" data-tab="friends"><i class="fas fa-user-friends"></i> Friends</button>
       <button class="tab" data-tab="requests"><i class="fas fa-user-plus"></i> Requests <span id="requestsBadge" class="requests-badge" style="display:none;">0</span></button>
       <button class="tab" data-tab="leaderboard"><i class="fas fa-trophy"></i> Leaderboard</button>
+      <button class="tab" data-tab="shop"><i class="fas fa-shopping-bag"></i> Shop</button>
       <button class="tab" data-tab="activity"><i class="fas fa-rss"></i> Live Activity</button>
       <button class="tab" data-tab="chat"><i class="fas fa-comments"></i> Community Chat</button>
     </div>
@@ -993,6 +1121,79 @@
       </div>
     </div>
 
+    <!-- Shop Tab -->
+    <div class="tab-content" id="shopTab">
+      <div style="padding: 24px; max-width: 1200px; margin: 0 auto;">
+        <!-- User Info & Points -->
+        <div style="background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%); border-radius: 16px; padding: 24px; margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 8px 24px rgba(59, 130, 246, 0.3);">
+          <div style="display: flex; align-items: center; gap: 16px;">
+            <div id="shopUserAvatar" style="font-size: 48px;">👤</div>
+            <div>
+              <div style="font-size: 20px; font-weight: 600; color: #ffffff;" id="shopUserName">Loading...</div>
+              <div style="font-size: 14px; color: rgba(255, 255, 255, 0.8);">Level <span id="shopUserLevel">0</span></div>
+            </div>
+          </div>
+          <div style="text-align: right;">
+            <div style="font-size: 14px; color: rgba(255, 255, 255, 0.8); margin-bottom: 4px;">Your Points</div>
+            <div style="font-size: 32px; font-weight: 700; color: #fbbf24; text-shadow: 0 4px 12px rgba(251, 191, 36, 0.5);" id="shopUserPoints">0</div>
+          </div>
+        </div>
+
+        <!-- Preview Section -->
+        <div style="background: #141414; border: 1px solid #2a2a2a; border-radius: 16px; padding: 24px; margin-bottom: 32px;">
+          <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 20px; color: #ffffff;"><i class="fas fa-eye" style="color: #3b82f6;"></i> Preview</h3>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px;">
+            <!-- Avatar Preview -->
+            <div style="background: #0a0a0a; border: 1px solid #2a2a2a; border-radius: 12px; padding: 20px; text-align: center;">
+              <div style="font-size: 14px; color: #888; margin-bottom: 16px; font-weight: 500;">Avatar Decoration</div>
+              <div style="position: relative; width: 120px; height: 120px; margin: 0 auto; display: flex; align-items: center; justify-content: center;">
+                <div id="previewAvatar" style="font-size: 72px; position: absolute; z-index: 1;">👤</div>
+                <div id="previewAvatarDecoration" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10;"></div>
+              </div>
+            </div>
+
+            <!-- Card Preview -->
+            <div style="background: #0a0a0a; border: 1px solid #2a2a2a; border-radius: 12px; padding: 20px;">
+              <div style="font-size: 14px; color: #888; margin-bottom: 16px; font-weight: 500; text-align: center;">Name Banner Card</div>
+              <div id="previewCard" style="background: #141414; border: 1px solid #2a2a2a; border-radius: 10px; padding: 12px 16px; display: flex; align-items: center; gap: 12px; height: 70px; box-sizing: border-box;">
+                <div id="previewCardAvatar" style="font-size: 36px;">👤</div>
+                <div style="flex: 1; min-width: 0;">
+                  <div id="previewCardName" style="font-size: 15px; font-weight: 600; color: #ffffff; text-shadow: 2px 2px 4px rgba(0,0,0,0.8); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Your Name</div>
+                  <div id="previewCardUsername" style="font-size: 12px; color: #ddd; text-shadow: 1px 1px 3px rgba(0,0,0,0.8);">@username</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Profile Preview -->
+            <div style="background: #0a0a0a; border: 1px solid #2a2a2a; border-radius: 12px; padding: 20px; text-align: center;">
+              <div style="font-size: 14px; color: #888; margin-bottom: 16px; font-weight: 500;">Profile Effect</div>
+              <div id="previewProfile" style="width: 100%; height: 180px; border-radius: 12px; background: #141414; border: 2px solid #2a2a2a; display: flex; align-items: center; justify-content: center; color: #666; font-size: 13px; position: relative; overflow: hidden; background-size: 100% 100% !important;">
+                Profile Frame
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Shop Categories -->
+        <div class="shop-categories" style="display: flex; gap: 16px; margin-bottom: 24px; border-bottom: 2px solid #2a2a2a;">
+          <button class="shop-category-btn active" data-category="avatar" style="padding: 12px 24px; background: none; border: none; color: #888; font-size: 14px; font-weight: 600; cursor: pointer; border-bottom: 3px solid transparent; transition: all 0.3s;">
+            <i class="fas fa-user-circle"></i> Avatar Decorations
+          </button>
+          <button class="shop-category-btn" data-category="banner" style="padding: 12px 24px; background: none; border: none; color: #888; font-size: 14px; font-weight: 600; cursor: pointer; border-bottom: 3px solid transparent; transition: all 0.3s;">
+            <i class="fas fa-id-card"></i> Name Banners
+          </button>
+          <button class="shop-category-btn" data-category="profile" style="padding: 12px 24px; background: none; border: none; color: #888; font-size: 14px; font-weight: 600; cursor: pointer; border-bottom: 3px solid transparent; transition: all 0.3s;">
+            <i class="fas fa-portrait"></i> Profile Effects
+          </button>
+        </div>
+
+        <!-- Shop Items Grid -->
+        <div id="shopItemsGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px;">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+    </div>
+
     <!-- Community Chat Tab -->
     <div class="tab-content" id="chatTab">
       <div class="chat-container">
@@ -1036,13 +1237,15 @@
 
   <!-- Profile Modal -->
   <div id="profileModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(8px);">
-    <div id="profileModalContent" style="background: #141414; border-radius: 16px; padding: 0; max-width: 600px; width: 90%; max-height: 90vh; overflow: hidden; position: relative; border: 1px solid #1f1f1f; box-shadow: 0 24px 80px rgba(0,0,0,0.8), 0 0 0 1px rgba(59, 130, 246, 0.1);">
-      <button id="closeModal" style="position: absolute; top: 24px; right: 24px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); color: #ef4444; font-size: 18px; cursor: pointer; padding: 0; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 8px; z-index: 10; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); font-weight: 600;">
-        <i class="fas fa-times"></i>
-      </button>
-      
-      <div id="profileContent" style="padding: 40px; max-height: 90vh; overflow-y: auto;">
-        <!-- Profile content loaded here -->
+    <div id="profileModalWrapper" style="max-width: 600px; width: 90%; border-radius: 18px; padding: 0; display: block; position: relative; z-index: 1;">
+      <div id="profileModalContent" style="background: #141414; border-radius: 15px; padding: 0; max-height: 90vh; overflow: hidden; position: relative; border: 1px solid #1f1f1f; box-shadow: 0 24px 80px rgba(0,0,0,0.8), 0 0 0 1px rgba(59, 130, 246, 0.1); z-index: 2;">
+        <button id="closeModal" style="position: absolute; top: 24px; right: 24px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); color: #ef4444; font-size: 18px; cursor: pointer; padding: 0; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 8px; z-index: 100; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); font-weight: 600;">
+          <i class="fas fa-times"></i>
+        </button>
+        
+        <div id="profileContent" style="padding: 40px; max-height: 90vh; overflow-y: auto;">
+          <!-- Profile content loaded here -->
+        </div>
       </div>
     </div>
   </div>

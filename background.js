@@ -1048,12 +1048,12 @@ async function syncFromMongoDB() {
           streak: {
             current: userData.streak?.current || 0,
             longest: userData.streak?.longest || 0,
-            lastSessionDate: userData.streak?.lastUpdate
+            lastSessionDate: userData.streak?.lastSessionDate || null
           },
           dailyGoal: userData.settings?.dailyGoal || 120,
           pomodoroBreakDuration: userData.settings?.breakTime || 5
         });
-        console.log('Data synced from MongoDB successfully');
+        console.log('✅ Data synced from MongoDB - Streak:', userData.streak);
       }
     }
   } catch (error) {
