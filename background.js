@@ -22,7 +22,13 @@ const DEFAULTS = {
   badges: [],
   dailyGoal: 120, // minutes
   todayFocusTime: 0,
-  todayDate: new Date().toDateString(),
+  todayDate: (() => { 
+    // IST is UTC+5:30
+    const d = new Date();
+    const istOffset = 5.5 * 60 * 60 * 1000; // 5 hours 30 minutes in milliseconds
+    const istTime = new Date(d.getTime() + istOffset);
+    return istTime.toISOString().substring(0, 10);
+  })(),
   presets: {
     deepWork: {name: "Deep Work", duration: 90, allowedSites: ["https://www.google.com/"]},
     study: {name: "Study", duration: 45, allowedSites: ["https://www.youtube.com/", "https://www.google.com/"]},
@@ -61,24 +67,13 @@ async function enforceTab(tab) {
   // Allowed check (simple substring match for now)
   for (const a of state.allowed || []) {
     if (!a) continue;
-    if (url.includes(a) || hostname.includes(a.replace(/^https?:\/\//, ''))) return; // allowed — keep
+    const allowedHost = a.replace(/^https?:\/\//, '').replace(/\/$/, ''); // Remove protocol and trailing slash
+    if (url.includes(allowedHost) || hostname.includes(allowedHost)) return; // allowed — keep
   }
 
-  // YouTube single-tab rule
+  // YouTube is allowed - removed single-tab restriction to allow multiple YouTube tabs
   if (hostname.includes('youtube.com')) {
-    // allow only one youtube tab — find all youtube tabs and keep the earliest one
-    const tabs = await chrome.tabs.query({});
-    const ytTabs = tabs.filter(t => t.url && t.url.includes('youtube.com'));
-    // if more than one, close the newest (if this tab is not the earliest)
-    if (ytTabs.length > 1) {
-      // choose earliest by id (simple heuristic)
-      const earliest = ytTabs.reduce((a,b)=> (a.id<b.id?a:b));
-      if (tab.id !== earliest.id) {
-        await chrome.tabs.update(tab.id, {url: chrome.runtime.getURL('blocked.html')});
-        await incrementStat('blockedCount');
-      }
-    }
-    return;
+    return; // Allow all YouTube tabs
   }
 
   // Blocked keywords check
@@ -303,7 +298,10 @@ async function updateUserActivity(tab) {
 
 // Alarms to end session when time's up
 chrome.alarms.onAlarm.addListener(async (alarm) => {
-  if (alarm.name === 'break-end') {
+  if (alarm.name === 'activity-heartbeat') {
+    // Handle activity heartbeat
+    await sendActivityHeartbeat();
+  } else if (alarm.name === 'break-end') {
     // End the emergency break, resume blocking
     await chrome.storage.local.set({onBreak: false});
     console.log('[EmergencyBreak] Break ended, resuming blocking');
@@ -316,14 +314,22 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
     });
   } else if (alarm.name === 'focus-end') {
     const state = await getState();
-    const sessionDuration = state.sessionDuration || 0;
+    
+    // Calculate ACTUAL elapsed time (not planned duration)
+    const sessionStart = state.sessionStart || Date.now();
+    const sessionEnd = Date.now();
+    const actualDuration = sessionEnd - sessionStart; // Actual time elapsed in milliseconds
+    
+    console.log('[SessionEnd] Session start:', new Date(sessionStart).toISOString());
+    console.log('[SessionEnd] Session end:', new Date(sessionEnd).toISOString());
+    console.log('[SessionEnd] Actual duration:', Math.floor(actualDuration / 60000), 'minutes');
     
     // Get session activities
     const result = await chrome.storage.local.get(['sessionActivities']);
     const activities = result.sessionActivities || [];
     
-    // Save session summary for popup
-    const durationSeconds = Math.floor(sessionDuration / 1000);
+    // Save session summary for popup (use actual duration)
+    const durationSeconds = Math.floor(actualDuration / 1000);
     await chrome.storage.local.set({
       sessionSummary: {
         duration: durationSeconds,
@@ -337,21 +343,52 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
     
     // Check minimum session duration (30 minutes = 1800000 ms)
     const minimumDuration = 30 * 60 * 1000; // 30 minutes
-    if (sessionDuration < minimumDuration) {
-      console.log('[SessionEnd] Session too short to record:', Math.floor(sessionDuration / 60000), 'minutes');
+    if (actualDuration < minimumDuration) {
+      console.log('[SessionEnd] Session too short to record:', Math.floor(actualDuration / 60000), 'minutes');
       // Show notification that session was too short
       chrome.notifications.create({
         type: 'basic',
         iconUrl: 'icons/icon48.png',
         title: '⏱️ Session Too Short',
-        message: `Session must be at least 30 minutes to be recorded. You focused for ${Math.floor(sessionDuration / 60000)} minutes.`
+        message: `Session must be at least 30 minutes to be recorded. You focused for ${Math.floor(actualDuration / 60000)} minutes.`
       });
     } else {
-      // Update stats only if session is long enough
-      await updateSessionStats(sessionDuration);
+      // Update stats using ACTUAL elapsed time
+      await updateSessionStats(actualDuration);
     }
     
     await chrome.storage.local.set({focusActive:false, sessionEnd: 0, emergencyUsed: false, sessionBlockedCount: 0});
+    
+    // Update activity back to online
+    try {
+      const token = (await chrome.storage.local.get('authToken'))?.authToken;
+      if (token) {
+        const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+        const currentTab = tabs[0];
+        const activity = getDetailedActivity(currentTab?.url, currentTab?.title, false);
+        await chrome.storage.local.set({ activity: activity });
+        
+        const activityToSend = {
+          status: activity.status || 'online',
+          focusActive: false,
+          currentUrl: activity.currentUrl || null,
+          videoTitle: activity.videoTitle || null,
+          videoThumbnail: activity.videoThumbnail || null,
+          videoChannel: activity.videoChannel || null,
+          activityType: activity.activityType || null,
+          activityDetails: activity.activityDetails || null,
+          actionButton: activity.actionButton || null
+        };
+        
+        await fetch(`${API_BASE_URL}/api/users/activity`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ activity: activityToSend })
+        });
+      }
+    } catch (error) {
+      console.error('[SessionEnd] Error updating activity:', error);
+    }
     
     // Open session summary popup
     console.log('[SessionEnd] Opening session summary popup with', activities.length, 'activities');
@@ -427,65 +464,74 @@ async function updateSessionStats(durationMs) {
   const newTotalTime = (state.stats.totalFocusTime || 0) + durationMin;
   const newSessions = (state.stats.sessionsCompleted || 0) + 1;
   
-  // Update daily focus time
-  const today = new Date().toDateString();
+  // Update daily focus time with IST date comparison (IST = UTC+5:30)
+  const now = new Date();
+  const istOffset = 5.5 * 60 * 60 * 1000; // 5 hours 30 minutes in milliseconds
+  const istTime = new Date(now.getTime() + istOffset);
+  const todayDateString = istTime.toISOString().substring(0, 10); // YYYY-MM-DD in IST
+  
   let todayTime = state.todayFocusTime || 0;
-  if (state.todayDate !== today) {
+  const storedDate = state.todayDate || '';
+  
+  // Reset if it's a new day (comparing YYYY-MM-DD strings in IST)
+  if (storedDate !== todayDateString) {
     todayTime = 0; // Reset if new day
   }
   todayTime += durationMin;
   
-  // Update streak with proper date comparison
-  const lastDate = state.streak?.lastSessionDate;
-  const todayDate = new Date();
-  todayDate.setHours(0, 0, 0, 0); // Reset to midnight
+  // Update streak with IST-based date comparison (using same istOffset and todayDateString)
+  const lastDate = state.streak?.lastSessionDate; // Format: YYYY-MM-DD
   
-  const yesterday = new Date(todayDate);
-  yesterday.setDate(yesterday.getDate() - 1);
+  // Get yesterday in IST (reuse istTime calculated above)
+  const yesterdayIST = new Date(istTime.getTime() - (24 * 60 * 60 * 1000));
+  const yesterdayDateString = yesterdayIST.toISOString().substring(0, 10);
   
   let currentStreak = state.streak?.current || 0;
   let longestStreak = state.streak?.longest || 0;
   
   console.log('[Streak Debug] Last session date:', lastDate);
-  console.log('[Streak Debug] Today:', today);
-  console.log('[Streak Debug] Yesterday:', yesterday.toDateString());
+  console.log('[Streak Debug] Today (IST):', todayDateString);
+  console.log('[Streak Debug] Yesterday (IST):', yesterdayDateString);
   console.log('[Streak Debug] Current streak before update:', currentStreak);
   
-  // Update streak logic
+  // Maintain streak logic using UTC dates (prevents timezone issues)
   if (!lastDate) {
     // First session ever
     currentStreak = 1;
     console.log('[Streak] First session ever, streak = 1');
-  } else if (lastDate === today) {
-    // Already counted today, keep current streak
-    console.log('[Streak] Already counted today, keeping streak at', currentStreak);
-  } else if (lastDate === yesterday.toDateString()) {
+  } else if (lastDate === todayDateString) {
+    // Already completed a session today, keep current streak (don't increment)
+    console.log('[Streak] Already completed a session today, keeping streak at', currentStreak);
+  } else if (lastDate === yesterdayDateString) {
     // Continued streak from yesterday
     currentStreak++;
     console.log('[Streak] Continued from yesterday! New streak:', currentStreak);
   } else {
-    // Calculate days difference to check if streak is broken
-    const lastDateObj = new Date(lastDate);
-    lastDateObj.setHours(0, 0, 0, 0);
-    const daysDiff = Math.floor((todayDate - lastDateObj) / (1000 * 60 * 60 * 24));
+    // Calculate if more than 1 day gap (streak broken)
+    const lastDateObj = new Date(lastDate + 'T00:00:00Z'); // Parse as base date
+    const lastDateIST = new Date(lastDateObj.getTime() + istOffset);
+    const daysDiff = Math.floor((istTime - lastDateIST) / (1000 * 60 * 60 * 24));
     
     console.log('[Streak] Days since last session:', daysDiff);
     
     if (daysDiff === 1) {
-      // Edge case: Should continue streak
+      // Should be caught by yesterday check, but safety net
       currentStreak++;
-      console.log('[Streak] Edge case - continued from yesterday, new streak:', currentStreak);
-    } else {
+      console.log('[Streak] Edge case - continued, new streak:', currentStreak);
+    } else if (daysDiff > 1) {
       // Streak broken, start over
-      console.log('[Streak] Broken! Last:', lastDate, 'Today:', today, 'Days gap:', daysDiff, '- Resetting to 1');
+      console.log('[Streak] Broken! Last:', lastDate, 'Today:', todayDateString, 'Days gap:', daysDiff, '- Resetting to 1');
       currentStreak = 1;
+    } else {
+      // daysDiff === 0 means same day (already handled above) or negative (clock issue)
+      console.log('[Streak] Same day or clock issue, keeping streak at', currentStreak);
     }
   }
   
   // Always update longest if current is higher
   longestStreak = Math.max(longestStreak, currentStreak);
   
-  console.log('[Streak] ✅ Updated - Current:', currentStreak, 'Longest:', longestStreak, 'Last date:', today);
+  console.log('[Streak] ✅ Updated - Current:', currentStreak, 'Longest:', longestStreak, 'Last date:', todayDateString);
   
   // Progressive leveling system
   // Each level requires more XP: Level 1->2: 100, 2->3: 200, 3->4: 300, etc.
@@ -530,13 +576,13 @@ async function updateSessionStats(durationMs) {
     streak: {
       current: currentStreak,
       longest: longestStreak,
-      lastSessionDate: today
+      lastSessionDate: todayDateString // Store as YYYY-MM-DD in IST
     },
     points: newPoints,
     level: newLevel,
     badges: updatedBadges,
     todayFocusTime: todayTime,
-    todayDate: today
+    todayDate: todayDateString // Store as YYYY-MM-DD in IST
   });
   
   // Sync to MongoDB
@@ -558,7 +604,7 @@ async function updateSessionStats(durationMs) {
           streak: {
             current: currentStreak,
             longest: longestStreak,
-            lastSessionDate: today
+            lastSessionDate: todayDateString
           },
           points: newPoints,
           level: newLevel,
@@ -1062,8 +1108,8 @@ chrome.runtime.onInstalled.addListener(async () => {
 // Sync data from MongoDB on startup
 async function syncFromMongoDB() {
   try {
-    const state = await chrome.storage.local.get(['authToken']);
-    const token = state.authToken;
+    const currentState = await getState();
+    const token = currentState.authToken;
     
     if (token) {
       const response = await fetch(`${API_BASE_URL}/api/auth/profile`, {
@@ -1074,140 +1120,68 @@ async function syncFromMongoDB() {
       
       if (response.ok) {
         const userData = await response.json();
-        console.log('Syncing data from MongoDB:', userData);
+        console.log('[Sync] Data from MongoDB:', userData);
+        console.log('[Sync] Current local stats:', currentState.stats);
         
-        // Update local storage with MongoDB data
-        await chrome.storage.local.set({
+        // ONLY sync from MongoDB if local data is empty or MongoDB has more data
+        // This prevents MongoDB from overwriting accurate local stats
+        const mongoTotalTime = userData.stats?.totalFocusTime || 0;
+        const localTotalTime = currentState.stats?.totalFocusTime || 0;
+        
+        // Only update if MongoDB has more time (user might have focused on another device)
+        // OR if local is empty (fresh install)
+        const shouldUpdateStats = localTotalTime === 0 || mongoTotalTime > localTotalTime;
+        
+        console.log('[Sync] MongoDB time:', mongoTotalTime, 'Local time:', localTotalTime, 'Should update:', shouldUpdateStats);
+        
+        // Always update user profile, points, level, badges
+        const updateData = {
           user: {
             userId: userData.userId,
             username: userData.username,
             displayName: userData.displayName,
             avatar: userData.avatar
           },
-          points: userData.points || 0,
-          level: userData.level || 1,
-          badges: userData.badges || [],
-          stats: {
-            totalFocusTime: userData.stats?.totalFocusTime || 0,
+          dailyGoal: userData.settings?.dailyGoal || currentState.dailyGoal || 120,
+          pomodoroBreakDuration: userData.settings?.breakTime || currentState.pomodoroBreakDuration || 5
+        };
+        
+        // Only overwrite stats if MongoDB has newer/more data
+        if (shouldUpdateStats) {
+          updateData.points = userData.points || 0;
+          updateData.level = userData.level || 1;
+          updateData.badges = userData.badges || [];
+          updateData.stats = {
+            totalFocusTime: mongoTotalTime,
             sessionsCompleted: userData.stats?.sessionsCompleted || 0,
             blockedCount: userData.stats?.sitesBlocked || 0
-          },
-          streak: {
+          };
+          updateData.streak = {
             current: userData.streak?.current || 0,
             longest: userData.streak?.longest || 0,
             lastSessionDate: userData.streak?.lastSessionDate || null
-          },
-          dailyGoal: userData.settings?.dailyGoal || 120,
-          pomodoroBreakDuration: userData.settings?.breakTime || 5
-        });
-        console.log('✅ Data synced from MongoDB - Streak:', userData.streak);
+          };
+          console.log('[Sync] ✅ Updated stats from MongoDB');
+        } else {
+          console.log('[Sync] ⚠️ Skipped stats update - local data is more recent');
+        }
+        
+        await chrome.storage.local.set(updateData);
       }
     }
   } catch (error) {
-    console.error('Failed to sync from MongoDB:', error);
+    console.error('[Sync] Failed to sync from MongoDB:', error);
   }
 }
 
-// Run sync on extension startup
-syncFromMongoDB();
+// Note: syncFromMongoDB() is now only called manually or on login
+// Not on startup to prevent overwriting accurate local data
 
 // Setup heartbeat alarm for activity updates
 chrome.alarms.create('activity-heartbeat', { periodInMinutes: 1 });
 
 // Send initial heartbeat immediately
 sendActivityHeartbeat();
-
-// Handle heartbeat alarm
-chrome.alarms.onAlarm.addListener(async (alarm) => {
-  if (alarm.name === 'activity-heartbeat') {
-    await sendActivityHeartbeat();
-  } else if (alarm.name === 'focus-end') {
-    console.log('[SessionEnd] 🔔 Focus timer alarm triggered!');
-    const state = await getState();
-    console.log('[SessionEnd] Current focusActive:', state.focusActive);
-    const sessionDuration = state.sessionDuration || 0;
-    
-    // Check minimum session duration (30 minutes = 1800000 ms)
-    const minimumDuration = 30 * 60 * 1000; // 30 minutes
-    if (sessionDuration >= minimumDuration) {
-      // Update stats only if session is long enough
-      await updateSessionStats(sessionDuration);
-    } else {
-      console.log('[SessionEnd] Session too short to record:', Math.floor(sessionDuration / 60000), 'minutes');
-    }
-    
-    await chrome.storage.local.set({focusActive:false, sessionEnd: 0, emergencyUsed: false});
-    
-    // Update activity back to online IMMEDIATELY
-    try {
-      const token = (await chrome.storage.local.get('authToken'))?.authToken;
-      console.log('[SessionComplete] Updating status to online...');
-      
-      if (token) {
-        // Get current tab to update activity
-        const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-        const currentTab = tabs[0];
-        
-        // Use enhanced activity detection
-        const activity = getDetailedActivity(
-          currentTab?.url,
-          currentTab?.title,
-          false // focusActive = false (session ended)
-        );
-        
-        // Store full activity locally
-        await chrome.storage.local.set({ activity: activity });
-        
-        // Prepare activity data with ALL fields
-        const activityToSend = {
-          status: activity.status || 'online',
-          focusActive: false,
-          currentUrl: activity.currentUrl || null,
-          videoTitle: activity.videoTitle || null,
-          videoThumbnail: activity.videoThumbnail || null,
-          videoChannel: activity.videoChannel || null,
-          activityType: activity.activityType || null,
-          activityDetails: activity.activityDetails || null,
-          actionButton: activity.actionButton || null
-        };
-        
-        const response = await fetch(`${API_BASE_URL}/api/users/activity`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({ activity: activityToSend })
-        });
-        
-        if (response.ok) {
-          console.log('[SessionComplete] ✅ Status updated to online');
-        } else {
-          console.error('[SessionComplete] ❌ Failed:', response.status, await response.text());
-        }
-      }
-    } catch (error) {
-      console.error('[SessionComplete] ❌ Error:', error);
-    }
-    
-    // Check for Pomodoro break
-    if (state.pomodoroEnabled) {
-      chrome.notifications.create({
-        type: 'basic',
-        iconUrl: 'icons/icon48.png',
-        title: 'Break Time! 🎉',
-        message: `Great work! Take a ${state.pomodoroBreakDuration || 5} minute break.`
-      });
-    } else {
-      chrome.notifications.create({
-        type: 'basic',
-        iconUrl: 'icons/icon48.png',
-        title: 'Focus session ended',
-        message: 'Your Focus Mode session has finished — good job! 🎯'
-      });
-    }
-  }
-});
 
 // Activity heartbeat function
 // Enhanced activity detection function

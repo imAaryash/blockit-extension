@@ -56,7 +56,7 @@ function showCountdownScreen(duration, passcode, preset) {
   const countdownScreen = document.getElementById('countdownScreen');
   countdownScreen.style.display = 'flex';
   
-  let secondsLeft = 10;
+  let secondsLeft = 5;
   const countdownNumber = document.getElementById('countdownNumber');
   const countdownBar = document.getElementById('countdownBar');
   
@@ -70,7 +70,7 @@ function showCountdownScreen(duration, passcode, preset) {
     countdownNumber.textContent = secondsLeft;
     
     // Update progress bar (counting down)
-    const progress = (secondsLeft / 10) * 100;
+    const progress = (secondsLeft / 5) * 100;
     countdownBar.style.width = progress + '%';
     
     if (secondsLeft <= 0) {
@@ -119,7 +119,7 @@ function cancelCountdown() {
   document.getElementById('friendsWidget').style.display = 'block';
   
   // Reset countdown
-  document.getElementById('countdownNumber').textContent = '10';
+  document.getElementById('countdownNumber').textContent = '5';
   document.getElementById('countdownBar').style.width = '100%';
 }
 
@@ -428,7 +428,36 @@ if (viewUpdateBtn) {
   });
 }
 
+// Check and reset daily stats if it's a new day
+async function checkDailyReset() {
+  const state = await send({action: 'getState'});
+  
+  // Get today's date in IST (YYYY-MM-DD format) - IST is UTC+5:30
+  const now = new Date();
+  const istOffset = 5.5 * 60 * 60 * 1000; // 5 hours 30 minutes in milliseconds
+  const istTime = new Date(now.getTime() + istOffset);
+  const todayDateString = istTime.toISOString().substring(0, 10);
+  
+  const storedDate = state.todayDate || '';
+  
+  // If it's a new day, reset daily stats
+  if (storedDate !== todayDateString) {
+    console.log('[DailyReset] New day detected! Resetting daily stats (IST)');
+    console.log('[DailyReset] Stored date:', storedDate, 'Today (IST):', todayDateString);
+    
+    await send({
+      action: 'updateSettings',
+      settings: {
+        todayFocusTime: 0,
+        todayDate: todayDateString,
+        goalCompletedToday: false
+      }
+    });
+  }
+}
+
 // Initial state check
+checkDailyReset(); // Check for daily reset first
 updateTimer();
 startTimerUpdate(); // Start interval immediately to keep timer running
 checkUpdateBanner(); // Check for available updates

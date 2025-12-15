@@ -189,10 +189,17 @@ function createBadgeConfetti() {
 }
 
 function updateLevelProgress(level, points) {
-  const pointsPerLevel = 500;
-  const currentLevelPoints = (level - 1) * pointsPerLevel;
-  const pointsInCurrentLevel = points - currentLevelPoints;
-  const pointsNeededForNext = pointsPerLevel;
+  // Calculate total XP needed to reach current level (progressive system)
+  let totalXPForCurrentLevel = 0;
+  for (let i = 1; i < level; i++) {
+    totalXPForCurrentLevel += i * 100;
+  }
+  
+  // XP needed for next level
+  const pointsNeededForNext = level * 100;
+  
+  // Current progress toward next level
+  const pointsInCurrentLevel = points - totalXPForCurrentLevel;
   const progress = (pointsInCurrentLevel / pointsNeededForNext) * 100;
   
   document.getElementById('levelProgressFill').style.width = `${Math.min(progress, 100)}%`;
