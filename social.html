@@ -25,7 +25,7 @@
     @keyframes slideIn {
       from {
         opacity: 0;
-        transform: translateX(-10px);
+        transform: translateX(20px);
       }
       to {
         opacity: 1;
@@ -33,12 +33,71 @@
       }
     }
 
+    @keyframes slideOut {
+      from {
+        opacity: 1;
+        transform: translateX(0);
+      }
+      to {
+        opacity: 0;
+        transform: translateX(20px);
+      }
+    }
+
     @keyframes pulse {
       0%, 100% {
         transform: scale(1);
+        opacity: 1;
       }
       50% {
         transform: scale(1.05);
+        opacity: 0.8;
+      }
+    }
+
+    @keyframes nudgeSlideIn {
+      0% {
+        opacity: 0;
+        transform: translateX(100%) scale(0.8);
+      }
+      60% {
+        transform: translateX(-10px) scale(1.05);
+      }
+      100% {
+        opacity: 1;
+        transform: translateX(0) scale(1);
+      }
+    }
+
+    @keyframes nudgeSlideOut {
+      0% {
+        opacity: 1;
+        transform: translateX(0) scale(1);
+      }
+      100% {
+        opacity: 0;
+        transform: translateX(100%) scale(0.8);
+      }
+    }
+
+    @keyframes gradientShift {
+      0% {
+        background-position: 0% 50%;
+      }
+      50% {
+        background-position: 100% 50%;
+      }
+      100% {
+        background-position: 0% 50%;
+      }
+    }
+
+    @keyframes nudgeBounce {
+      0%, 100% {
+        transform: translateY(0);
+      }
+      50% {
+        transform: translateY(-4px);
       }
     }
 
@@ -47,7 +106,7 @@
       background: #0a0a0a;
       color: #e5e5e5;
       min-height: 100vh;
-      line-height: 1.6;
+      line-height: 1.5;
     }
 
     .social-container {
@@ -63,24 +122,25 @@
     }
 
     .social-header h1 {
-      font-size: 32px;
-      font-weight: 600;
+      font-size: 28px;
+      font-weight: 300;
       margin-bottom: 8px;
       color: #ffffff;
       display: flex;
       align-items: center;
       gap: 12px;
+      letter-spacing: -0.5px;
     }
 
     .social-header h1 i {
-      font-size: 28px;
+      font-size: 24px;
       color: #6b7280;
       transition: all 0.3s ease;
     }
 
     .social-header:hover h1 i {
       color: #3b82f6;
-      transform: rotate(5deg) scale(1.1);
+      transform: scale(1.05);
     }
 
     .social-header p {
@@ -383,18 +443,17 @@
     }
 
     .friend-card {
-      background: #141414;
-      border: 1px solid #2a2a2a;
-      border-radius: 12px;
-      padding: 20px;
+      background: #111111;
+      border: 1px solid #1f1f1f;
+      border-radius: 10px;
+      padding: 16px;
       display: flex;
       align-items: center;
-      gap: 16px;
-      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      gap: 14px;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       cursor: pointer;
       position: relative;
-      overflow: hidden;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+      overflow: visible;
     }
 
     .friend-card::before {
@@ -416,8 +475,11 @@
 
     .friend-card:hover {
       border-color: #3b82f6;
-      transform: translateY(-4px);
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(59, 130, 246, 0.1);
+      background: #1a1a1a;
+    }
+    
+    .friend-card:not(:has(.friend-menu-btn:hover)):not(:has(.friend-menu:hover)):hover {
+      transform: translateY(-2px);
     }
 
     /* Gradient border effect */
@@ -530,35 +592,187 @@
 
     .friend-stats {
       text-align: right;
+      z-index: 1;
+      position: relative;
     }
 
     .friend-stat {
-      font-size: 11px;
-      color: #666;
-      margin-bottom: 4px;
+      font-size: 12px;
+      color: #fff;
+      white-space: nowrap;
     }
 
     .friend-stat strong {
-      color: #4a9eff;
-      font-size: 13px;
+      font-weight: 700;
     }
 
-    .btn-remove {
-      background: transparent;
-      border: 1px solid #ff6b6b;
-      color: #ff6b6b;
-      padding: 6px 12px;
-      border-radius: 4px;
-      font-size: 11px;
-      cursor: pointer;
-      position: relative;
-      z-index: 10;
-      transition: all 0.2s ease;
-    }
-
-    .btn-remove:hover {
-      background: #ff6b6b;
+    .friend-menu-btn {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
       color: #fff;
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+      position: absolute;
+      bottom: 12px;
+      right: 12px;
+      z-index: 101;
+      transition: all 0.2s ease;
+      backdrop-filter: blur(5px);
+      will-change: transform;
+    }
+
+    .friend-menu-btn:hover {
+      background: rgba(255, 255, 255, 0.2);
+      transform: scale(1.05);
+    }
+    
+    .friend-menu {
+      position: fixed;
+      background: rgba(20, 20, 20, 0.95);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      padding: 8px 0;
+      z-index: 10000;
+      min-width: 140px;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+      transition: opacity 0.2s ease, transform 0.2s ease;
+      transform-origin: top right;
+      will-change: opacity, transform;
+    }
+    
+    .friend-menu.hidden {
+      opacity: 0;
+      transform: scale(0.9);
+      pointer-events: none;
+      visibility: hidden;
+    }
+    
+    .friend-menu-item {
+      padding: 10px 16px;
+      color: #fff;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    
+    .friend-menu-item i {
+      font-size: 14px;
+    }
+    
+    .friend-menu-item.nudge-option:hover {
+      background: rgba(139, 92, 246, 0.2);
+      color: #a855f7;
+    }
+    
+    .friend-menu-item.remove-option:hover {
+      background: rgba(255, 107, 107, 0.2);
+      color: #ff6b6b;
+    }
+    
+    .remove-confirmation-modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      backdrop-filter: blur(5px);
+    }
+    
+    .remove-confirmation-modal.show {
+      opacity: 1;
+    }
+    
+    .remove-confirmation-content {
+      background: linear-gradient(135deg, #1a1a1a 0%, #0a0a0a 100%);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 16px;
+      padding: 32px;
+      max-width: 400px;
+      text-align: center;
+      box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6);
+      transform: scale(0.9);
+      transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    
+    .remove-confirmation-modal.show .remove-confirmation-content {
+      transform: scale(1);
+    }
+    
+    .remove-confirmation-icon {
+      font-size: 48px;
+      color: #fbbf24;
+      margin-bottom: 16px;
+      animation: nudgeBounce 1s ease-in-out infinite;
+    }
+    
+    .remove-confirmation-content h3 {
+      font-size: 24px;
+      color: #fff;
+      margin-bottom: 12px;
+      font-weight: 600;
+    }
+    
+    .remove-confirmation-content p {
+      font-size: 14px;
+      color: #aaa;
+      margin-bottom: 24px;
+      line-height: 1.5;
+    }
+    
+    .remove-confirmation-content strong {
+      color: #fff;
+      font-weight: 600;
+    }
+    
+    .remove-confirmation-buttons {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+    }
+    
+    .remove-confirmation-buttons button {
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      border: none;
+    }
+    
+    .btn-cancel {
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+    
+    .btn-cancel:hover {
+      background: rgba(255, 255, 255, 0.15);
+      transform: translateY(-2px);
+    }
+    
+    .btn-confirm-remove {
+      background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
+      color: #fff;
+    }
+    
+    .btn-confirm-remove:hover {
+      background: linear-gradient(135deg, #ee5a52 0%, #ff6b6b 100%);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 16px rgba(255, 107, 107, 0.4);
     }
 
     .leaderboard-list {
@@ -567,17 +781,16 @@
     }
 
     .leaderboard-item {
-      background: #141414;
-      border: 1px solid #2a2a2a;
-      border-radius: 12px;
-      padding: 18px;
+      background: #111111;
+      border: 1px solid #1f1f1f;
+      border-radius: 10px;
+      padding: 16px;
       display: flex;
       align-items: center;
-      gap: 16px;
-      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      gap: 14px;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       position: relative;
       overflow: hidden;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
     }
 
     .leaderboard-item::before {
@@ -599,7 +812,7 @@
     .leaderboard-item:hover {
       border-color: #3b82f6;
       transform: translateY(-2px);
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(59, 130, 246, 0.1);
+      background: #1a1a1a;
     }
 
     .leaderboard-item.has-gradient-effect::after {
@@ -653,9 +866,10 @@
     }
 
     .empty-state-icon {
-      font-size: 48px;
+      font-size: 42px;
       margin-bottom: 16px;
-      opacity: 0.5;
+      opacity: 0.4;
+      color: #6b7280;
     }
 
     /* Button Styles */
@@ -1044,6 +1258,33 @@
       background: #fbbf24;
       color: #000;
     }
+
+    .shop-item-status.coming-soon {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: #fff;
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    .shop-item.coming-soon {
+      cursor: not-allowed;
+      position: relative;
+    }
+
+    .shop-item.coming-soon::after {
+      content: '🔒';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 32px;
+      z-index: 5;
+      opacity: 0.6;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
   </style>
 </head>
 <body>
@@ -1070,6 +1311,7 @@
     <div class="tabs">
       <button class="tab active" data-tab="friends"><i class="fas fa-user-friends"></i> Friends</button>
       <button class="tab" data-tab="requests"><i class="fas fa-user-plus"></i> Requests <span id="requestsBadge" class="requests-badge" style="display:none;">0</span></button>
+      <button class="tab" data-tab="suggestions"><i class="fas fa-users"></i> Suggestions <span id="suggestionsBadge" class="requests-badge" style="display:none;">0</span></button>
       <button class="tab" data-tab="leaderboard"><i class="fas fa-trophy"></i> Leaderboard</button>
       <button class="tab" data-tab="shop"><i class="fas fa-shopping-bag"></i> Shop</button>
       <button class="tab" data-tab="activity"><i class="fas fa-rss"></i> Live Activity</button>
@@ -1102,6 +1344,17 @@
       <div class="requests-section">
         <h3>📤 Sent Requests</h3>
         <div id="sentRequestsList">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Friend Suggestions Tab -->
+    <div class="tab-content" id="suggestionsTab">
+      <div class="requests-section">
+        <h3><i class="fas fa-lightbulb" style="color: #fbbf24;"></i> People You May Know</h3>
+        <p style="color: #6b7280; font-size: 13px; margin-bottom: 16px;">Based on mutual friends</p>
+        <div id="suggestionsList" class="friends-list">
           <!-- Populated by JS -->
         </div>
       </div>
@@ -1146,30 +1399,33 @@
             <!-- Avatar Preview -->
             <div style="background: #0a0a0a; border: 1px solid #2a2a2a; border-radius: 12px; padding: 20px; text-align: center;">
               <div style="font-size: 14px; color: #888; margin-bottom: 16px; font-weight: 500;">Avatar Decoration</div>
-              <div style="position: relative; width: 120px; height: 120px; margin: 0 auto; display: flex; align-items: center; justify-content: center;">
+              <div style="position: relative; width: 120px; height: 120px; margin: 0 auto; display: flex; align-items: center; justify-content: center; margin-bottom: 16px;">
                 <div id="previewAvatar" style="font-size: 72px; position: absolute; z-index: 1;">👤</div>
                 <div id="previewAvatarDecoration" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10;"></div>
               </div>
+              <button id="purchaseAvatarBtn" style="display: none; width: 100%; padding: 12px; background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); border: none; border-radius: 8px; color: #fff; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s;">Purchase</button>
             </div>
 
             <!-- Card Preview -->
             <div style="background: #0a0a0a; border: 1px solid #2a2a2a; border-radius: 12px; padding: 20px;">
               <div style="font-size: 14px; color: #888; margin-bottom: 16px; font-weight: 500; text-align: center;">Name Banner Card</div>
-              <div id="previewCard" style="background: #141414; border: 1px solid #2a2a2a; border-radius: 10px; padding: 12px 16px; display: flex; align-items: center; gap: 12px; height: 70px; box-sizing: border-box;">
+              <div id="previewCard" style="background: #141414; border: 1px solid #2a2a2a; border-radius: 10px; padding: 12px 16px; display: flex; align-items: center; gap: 12px; height: 70px; box-sizing: border-box; margin-bottom: 16px;">
                 <div id="previewCardAvatar" style="font-size: 36px;">👤</div>
                 <div style="flex: 1; min-width: 0;">
                   <div id="previewCardName" style="font-size: 15px; font-weight: 600; color: #ffffff; text-shadow: 2px 2px 4px rgba(0,0,0,0.8); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Your Name</div>
                   <div id="previewCardUsername" style="font-size: 12px; color: #ddd; text-shadow: 1px 1px 3px rgba(0,0,0,0.8);">@username</div>
                 </div>
               </div>
+              <button id="purchaseBannerBtn" style="display: none; width: 100%; padding: 12px; background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); border: none; border-radius: 8px; color: #fff; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s;">Purchase</button>
             </div>
 
             <!-- Profile Preview -->
             <div style="background: #0a0a0a; border: 1px solid #2a2a2a; border-radius: 12px; padding: 20px; text-align: center;">
               <div style="font-size: 14px; color: #888; margin-bottom: 16px; font-weight: 500;">Profile Effect</div>
-              <div id="previewProfile" style="width: 100%; height: 180px; border-radius: 12px; background: #141414; border: 2px solid #2a2a2a; display: flex; align-items: center; justify-content: center; color: #666; font-size: 13px; position: relative; overflow: hidden; background-size: 100% 100% !important;">
+              <div id="previewProfile" style="width: 100%; height: 500px; border-radius: 12px; background: #141414; border: 2px solid #2a2a2a; display: flex; align-items: center; justify-content: center; color: #666; font-size: 13px; position: relative; overflow: hidden; background-size: 100% 100% !important; margin-bottom: 16px;">
                 Profile Frame
               </div>
+              <button id="purchaseProfileBtn" style="display: none; width: 100%; padding: 12px; background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); border: none; border-radius: 8px; color: #fff; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s;">Purchase</button>
             </div>
           </div>
         </div>
@@ -1200,7 +1456,7 @@
         <div class="chat-main">
           <div class="chat-messages" id="chatMessages">
             <div class="chat-welcome">
-              <div class="chat-welcome-icon">💬</div>
+              <div class="chat-welcome-icon"><i class="fas fa-comments"></i></div>
               <h3 style="margin-bottom: 8px; color: #888;">Welcome to Community Chat</h3>
               <p style="font-size: 13px; color: #666;">Connect with the focus community worldwide</p>
             </div>
@@ -1237,7 +1493,7 @@
 
   <!-- Profile Modal -->
   <div id="profileModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(8px);">
-    <div id="profileModalWrapper" style="max-width: 600px; width: 90%; border-radius: 18px; padding: 0; display: block; position: relative; z-index: 1;">
+    <div id="profileModalWrapper" style="max-width: 400px; width: 400px; border-radius: 18px; padding: 0; display: block; position: relative; z-index: 1;">
       <div id="profileModalContent" style="background: #141414; border-radius: 15px; padding: 0; max-height: 90vh; overflow: hidden; position: relative; border: 1px solid #1f1f1f; box-shadow: 0 24px 80px rgba(0,0,0,0.8), 0 0 0 1px rgba(59, 130, 246, 0.1); z-index: 2;">
         <button id="closeModal" style="position: absolute; top: 24px; right: 24px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); color: #ef4444; font-size: 18px; cursor: pointer; padding: 0; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 8px; z-index: 100; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); font-weight: 600;">
           <i class="fas fa-times"></i>
