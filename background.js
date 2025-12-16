@@ -1164,6 +1164,19 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       // Get fresh activity for friends (simulate - in real app would fetch from server)
       const friendsList = friends.map(userId => friendsData[userId]).filter(Boolean);
       sendResponse({friends: friendsList});
+    } else if (msg.action === 'userRegistered') {
+      // Handle user registration/login notification
+      console.log('[Background] User registered/logged in:', msg.user?.username);
+      
+      // Trigger immediate activity update
+      sendActivityHeartbeat();
+      
+      // Acknowledge to unblock UI
+      sendResponse({ok: true});
+    } else {
+      // Catch-all for unknown messages to prevent hanging
+      console.warn('[Background] Unknown message action:', msg.action);
+      sendResponse({ok: false, error: 'Unknown action'});
     }
   })();
   // indicate we'll respond asynchronously

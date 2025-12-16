@@ -53,6 +53,12 @@ async function loadPopupData() {
       'dailyGoal', 'goalAchievedToday'
     ]);
     
+    // Check for login - Redirect to login if not authenticated
+    if (!state.authToken || !state.user) {
+      window.location.href = 'login.html';
+      return;
+    }
+    
     // Load saved duration or default to 25
     selectedDuration = state.selectedDuration || 25;
     
