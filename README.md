@@ -17,8 +17,11 @@
   - Current & longest streaks
 - **🏆 Leaderboard** - Compete with friends and see who's most productive
 - **👥 Friends System** - Add friends, view their stats and activity in real-time
+- **� Study Groups** - Create or join study groups with group chat and collective stats tracking
 - **💬 Community Chat** - Global chat room to connect with other focused users
 - **🎨 Custom Themes** - Personalize your blocked page with colors and avatars
+- **📅 Focus Heatmap** - GitHub-style calendar showing your 90-day focus history
+- **💡 Daily Quotes** - Motivational quotes on blocked pages to keep you inspired
 
 ### 🎯 Smart Features
 - **YouTube Watch Tracking** - See what your friends are watching
@@ -184,6 +187,22 @@
 - Friend requests
 - Leaderboard
 - Community chat
+
+### Study Groups
+- Create public or private groups
+- Group chat with real-time messaging
+- Collective stats tracking (total focus time, sessions)
+- Mark groups as "Active" to auto-track your focus sessions
+- View members with roles (admin/member)
+- 50-member capacity per group
+
+### Visual Progress Tracking
+- **Focus Heatmap** - 90-day calendar view of your daily focus activity
+  - GitHub-style visualization with 5 intensity levels
+  - Hover tooltips showing exact times
+  - Color-coded: no focus → light green → dark green (120+ mins)
+- **Daily Quotes** - Motivational quotes on blocked pages that change daily
+- **Stats Display** - Today's focus, streak, and total time shown on blocked pages
 
 ## 🎨 Screenshots
 
