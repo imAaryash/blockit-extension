@@ -1,311 +1,779 @@
-<!doctype html>
+<!DOCTYPE html>
 <html>
 <head>
-  <meta charset="utf-8" />
+  <meta charset="UTF-8">
   <title>Focus Mode</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0a0a0a;
+      color: #e5e7eb;
+      width: 400px;
+      min-height: 600px;
+      overflow-x: hidden;
+    }
+
+    /* Custom scrollbar for body */
+    body::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    body::-webkit-scrollbar-track {
+      background: #0a0a0a;
+    }
+
+    body::-webkit-scrollbar-thumb {
+      background: linear-gradient(180deg, #1f1f1f 0%, #2a2a2a 100%);
+      border-radius: 4px;
+      border: 1px solid #1a1a1a;
+    }
+
+    body::-webkit-scrollbar-thumb:hover {
+      background: linear-gradient(180deg, #2a2a2a 0%, #3a3a3a 100%);
+    }
+
+    .popup1 {
+      width: 400px;
+      min-height: 600px;
+      background: #0a0a0a;
+      padding: 28px 24px;
+    }
+
+    /* Daily Goal Progress */
+    .popup1 .daily-goal-section {
+      background: linear-gradient(135deg, #1a1a1a 0%, #0f0f0f 100%);
+      border: 1px solid #2a2a2a;
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 20px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .popup1 .daily-goal-section.goal-achieved {
+      border-color: #22c55e;
+      box-shadow: 0 0 20px rgba(34, 197, 94, 0.3);
+      animation: goalGlow 2s infinite;
+    }
+
+    @keyframes goalGlow {
+      0%, 100% { box-shadow: 0 0 20px rgba(34, 197, 94, 0.3); }
+      50% { box-shadow: 0 0 30px rgba(34, 197, 94, 0.5); }
+    }
+
+    .popup1 .goal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+
+    .popup1 .goal-title {
+      font-size: 12px;
+      color: #9ca3af;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .popup1 .goal-title i {
+      color: #3b82f6;
+      font-size: 14px;
+    }
+
+    .popup1 .goal-stats {
+      font-size: 14px;
+      font-weight: 600;
+      color: #ffffff;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .popup1 .goal-stats .current {
+      color: #3b82f6;
+    }
+
+    .popup1 .goal-stats .separator {
+      color: #4b5563;
+      margin: 0 4px;
+    }
+
+    .popup1 .progress-bar-container {
+      position: relative;
+      height: 10px;
+      background: #0a0a0a;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid #1f1f1f;
+    }
+
+    .popup1 .progress-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #3b82f6 0%, #2563eb 100%);
+      border-radius: 10px;
+      transition: width 0.5s ease, background 0.3s;
+      box-shadow: 0 0 10px rgba(59, 130, 246, 0.4);
+    }
+
+    .popup1 .progress-bar-fill.goal-reached {
+      background: linear-gradient(90deg, #22c55e 0%, #16a34a 100%);
+      box-shadow: 0 0 10px rgba(34, 197, 94, 0.5);
+    }
+
+    .popup1 .goal-percentage {
+      text-align: center;
+      margin-top: 8px;
+      font-size: 11px;
+      font-weight: 600;
+      color: #6b7280;
+    }
+
+    .popup1 .goal-percentage.achieved {
+      color: #22c55e;
+    }
+
+    /* Celebration Confetti */
+    .confetti {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 9999;
+    }
+
+    .confetti-piece {
+      position: absolute;
+      width: 10px;
+      height: 10px;
+      background: #3b82f6;
+      top: -10px;
+      opacity: 0;
+      animation: confettiFall 3s ease-in-out forwards;
+    }
+
+    @keyframes confettiFall {
+      0% {
+        opacity: 1;
+        transform: translateY(0) rotate(0deg);
+      }
+      100% {
+        opacity: 0;
+        transform: translateY(600px) rotate(360deg);
+      }
+    }
+
+    #mainContent {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .popup1 .header {
+      text-align: center;
+      border-bottom: 1px solid #1f1f1f;
+      padding-bottom: 20px;
+    }
+
+    .popup1 .header h1 {
+      font-size: 28px;
+      font-weight: 200;
+      letter-spacing: 8px;
+      color: #ffffff;
+      margin-bottom: 4px;
+    }
+
+    .popup1 .subtitle {
+      font-size: 11px;
+      color: #6b7280;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      font-weight: 500;
+    }
+
+    .popup1 .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+
+    .popup1 .stat-card {
+      background: #111111;
+      border: 1px solid #1f1f1f;
+      border-radius: 12px;
+      padding: 16px 12px;
+      text-align: center;
+      transition: all 0.3s;
+    }
+
+    .popup1 .stat-card:hover {
+      border-color: #2a2a2a;
+      background: #141414;
+    }
+
+    .popup1 .stat-value {
+      font-size: 22px;
+      font-weight: 700;
+      color: #ffffff;
+      margin-bottom: 6px;
+      line-height: 1;
+    }
+
+    .popup1 .stat-label {
+      font-size: 10px;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+    }
+
+    .popup1 .stat-label i {
+      font-size: 11px;
+      color: #9ca3af;
+    }
+
+    .popup1 .stat-card:nth-child(1) .stat-label i {
+      color: #f59e0b;
+    }
+
+    .popup1 .stat-card:nth-child(2) .stat-label i {
+      color: #ef4444;
+    }
+
+    .popup1 .stat-card:nth-child(3) .stat-label i {
+      color: #3b82f6;
+    }
+
+    .popup1 .timer-circle {
+      position: relative;
+      width: 180px;
+      height: 180px;
+      margin: 0 auto;
+    }
+
+    .popup1 .timer-svg {
+      transform: rotate(-90deg);
+      width: 100%;
+      height: 100%;
+    }
+
+    .popup1 .timer-svg-bg {
+      fill: none;
+      stroke: #1f1f1f;
+      stroke-width: 8;
+    }
+
+    .popup1 .timer-svg-progress {
+      fill: none;
+      stroke: #ef4444;
+      stroke-width: 8;
+      stroke-linecap: round;
+      stroke-dasharray: 502;
+      stroke-dashoffset: 0;
+      transition: stroke-dashoffset 1s linear, stroke 0.3s;
+    }
+
+    .popup1 .timer-svg-progress.break {
+      stroke: #22c55e;
+    }
+
+    .popup1 .timer-content {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+    }
+
+    .popup1 .timer-time {
+      font-size: 36px;
+      font-weight: 700;
+      color: #ffffff;
+      line-height: 1;
+      margin-bottom: 8px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .popup1 .timer-status {
+      font-size: 11px;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-weight: 600;
+    }
+
+    .popup1 .custom-timer {
+      background: #111111;
+      border: 1px solid #1f1f1f;
+      border-radius: 12px;
+      padding: 16px;
+      text-align: center;
+    }
+
+    .popup1 .custom-timer-label {
+      font-size: 10px;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 12px;
+      font-weight: 600;
+    }
+
+    .popup1 .custom-timer-input {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .popup1 .custom-timer-input input {
+      width: 100px;
+      padding: 10px 14px;
+      background: #0a0a0a;
+      border: 1px solid #2a2a2a;
+      border-radius: 8px;
+      color: #ffffff;
+      font-size: 16px;
+      font-weight: 600;
+      text-align: center;
+      outline: none;
+      transition: all 0.2s;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .popup1 .custom-timer-input input:focus {
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+
+    .popup1 .custom-timer-input span {
+      font-size: 13px;
+      color: #6b7280;
+      font-weight: 500;
+    }
+
+    .popup1 .action-btn {
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+      border: none;
+      border-radius: 10px;
+      color: white;
+      font-size: 14px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+    }
+
+    .popup1 .action-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
+    }
+
+    .popup1 .action-btn:active {
+      transform: translateY(0);
+    }
+
+    .popup1 .friends-section {
+      background: rgba(17, 17, 17, 0.6);
+      backdrop-filter: blur(10px);
+      border: 1px solid #1f1f1f;
+      border-radius: 12px;
+      padding: 16px;
+      overflow: hidden;
+    }
+
+    .popup1 .friends-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .popup1 .friends-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: #9ca3af;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .popup1 .friends-title i {
+      color: #3b82f6;
+      font-size: 14px;
+    }
+
+    .popup1 .online-badge {
+      padding: 4px 10px;
+      background: rgba(34, 197, 94, 0.1);
+      border: 1px solid rgba(34, 197, 94, 0.3);
+      border-radius: 12px;
+      font-size: 10px;
+      font-weight: 600;
+      color: #22c55e;
+    }
+
+    .popup1 .friends-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 250px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .popup1 .friends-list::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    .popup1 .friends-list::-webkit-scrollbar-track {
+      background: #0a0a0a;
+      border-radius: 4px;
+    }
+
+    .popup1 .friends-list::-webkit-scrollbar-thumb {
+      background: linear-gradient(180deg, #1f1f1f 0%, #2a2a2a 100%);
+      border-radius: 4px;
+      border: 1px solid #1a1a1a;
+    }
+
+    .popup1 .friends-list::-webkit-scrollbar-thumb:hover {
+      background: linear-gradient(180deg, #2a2a2a 0%, #3b82f6 100%);
+      box-shadow: 0 0 8px rgba(59, 130, 246, 0.3);
+    }
+
+    .popup1 .friend-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px;
+      background: #0a0a0a;
+      border: 1px solid #1f1f1f;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .popup1 .friend-item:hover {
+      border-color: #2a2a2a;
+      background: #111111;
+    }
+
+    .popup1 .friend-avatar {
+      position: relative;
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      flex-shrink: 0;
+      border: 2px solid transparent;
+    }
+
+    .popup1 .friend-avatar.online {
+      border-color: #22c55e;
+      box-shadow: 0 0 12px rgba(34, 197, 94, 0.3);
+    }
+
+    .popup1 .friend-avatar.focusing {
+      border-color: #dc2626;
+      box-shadow: 0 0 12px rgba(220, 38, 38, 0.4);
+      animation: focusPulse 2s infinite;
+    }
+
+    @keyframes focusPulse {
+      0%, 100% {
+        box-shadow: 0 0 12px rgba(220, 38, 38, 0.4);
+      }
+      50% {
+        box-shadow: 0 0 20px rgba(220, 38, 38, 0.6);
+      }
+    }
+
+    .popup1 .friend-avatar.idle {
+      border-color: #4b5563;
+    }
+
+    .popup1 .friend-avatar-decoration {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 56px;
+      height: 56px;
+      background-size: contain;
+      background-position: center;
+      background-repeat: no-repeat;
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    .popup1 .friend-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .popup1 .friend-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: #e5e7eb;
+      margin-bottom: 4px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .popup1 .friend-activity {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 11px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .popup1 .friend-activity.online {
+      color: #22c55e;
+    }
+
+    .popup1 .friend-activity.focusing {
+      color: #ef4444;
+    }
+
+    .popup1 .friend-activity.idle {
+      color: #6b7280;
+    }
+
+    .popup1 .activity-icon {
+      font-size: 12px;
+    }
+
+    .popup1 .no-friends {
+      text-align: center;
+      padding: 28px 16px;
+      color: #6b7280;
+      font-size: 12px;
+    }
+
+    .popup1 .loading {
+      text-align: center;
+      padding: 28px 16px;
+      color: #6b7280;
+      font-size: 12px;
+    }
+
+    .popup1 .quick-actions {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      transition: all 0.3s;
+    }
+
+    .popup1 .quick-actions.hidden {
+      opacity: 0;
+      pointer-events: none;
+      height: 0;
+      overflow: hidden;
+    }
+
+    .popup1 .quick-action-btn {
+      padding: 10px;
+      background: #111111;
+      border: 1px solid #1f1f1f;
+      border-radius: 8px;
+      color: #9ca3af;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: center;
+    }
+
+    .popup1 .quick-action-btn:hover {
+      border-color: #3b82f6;
+      color: #3b82f6;
+      background: rgba(59, 130, 246, 0.05);
+    }
+
+    /* Countdown Screen */
+    .countdown-screen {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 80px 24px;
+      gap: 20px;
+    }
+
+    .countdown-screen.active {
+      display: flex;
+    }
+
+    .countdown-number {
+      font-size: 96px;
+      font-weight: 300;
+      color: #ffffff;
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .countdown-text {
+      font-size: 11px;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-weight: 600;
+    }
+
+    .countdown-bar-container {
+      width: 100%;
+      height: 2px;
+      background: #1f1f1f;
+      border-radius: 1px;
+      overflow: hidden;
+      margin-top: 8px;
+    }
+
+    .countdown-bar {
+      height: 100%;
+      background: #ffffff;
+      border-radius: 1px;
+      transition: width 1s linear;
+    }
+
+    .countdown-cancel {
+      margin-top: 12px;
+      padding: 10px 28px;
+      background: transparent;
+      border: 1px solid #2a2a2a;
+      border-radius: 8px;
+      color: #9ca3af;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .countdown-cancel:hover {
+      border-color: #ef4444;
+      color: #ef4444;
+    }
+  </style>
 </head>
 <body>
-  <div class="container">
-    <!-- Update Banner -->
-    <div id="updateBanner" class="update-banner" style="display: none;">
-      <div class="update-content">
-        <span class="update-icon">🎉</span>
-        <div class="update-text">
-          <strong>Update Available!</strong>
-          <span id="updateVersion">v1.2.0</span>
+  <div class="popup1">
+    <!-- Countdown Screen -->
+    <div class="countdown-screen" id="countdownScreen">
+      <div class="countdown-number" id="countdownNumber">5</div>
+      <div class="countdown-text">Starting Focus Session...</div>
+      <div class="countdown-bar-container">
+        <div class="countdown-bar" id="countdownBar"></div>
+      </div>
+      <button class="countdown-cancel" id="cancelCountdown">Cancel</button>
+    </div>
+
+    <!-- Main Content -->
+    <div id="mainContent">
+      <div class="header">
+        <h1>FOCUS</h1>
+        <div class="subtitle">Productivity Mode</div>
+      </div>
+
+      <!-- Daily Goal Progress -->
+      <div class="daily-goal-section" id="dailyGoalSection">
+        <div class="goal-header">
+          <div class="goal-title">
+            <i class="fas fa-bullseye"></i>
+            Daily Goal
+          </div>
+          <div class="goal-stats">
+            <span class="current" id="goalCurrentTime">0m</span>
+            <span class="separator">/</span>
+            <span id="goalTargetTime">120m</span>
+          </div>
+        </div>
+        <div class="progress-bar-container">
+          <div class="progress-bar-fill" id="goalProgressBar"></div>
+        </div>
+        <div class="goal-percentage" id="goalPercentage">0% Complete</div>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-value" id="levelDisplay1">1</div>
+          <div class="stat-label"><i class="fas fa-trophy"></i> Level</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="streakDisplay1">0</div>
+          <div class="stat-label"><i class="fas fa-fire"></i> Streak</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="todayDisplay1">0m</div>
+          <div class="stat-label"><i class="fas fa-clock"></i> Today</div>
         </div>
       </div>
-      <button id="viewUpdateBtn" class="btn-update">View Update</button>
-    </div>
-    
-    <h2>FOCUS MODE</h2>
-    
-    <!-- Stats Overview -->
-    <div id="statsOverview" class="stats-overview">
-      <div class="stat-item">
-        <div class="stat-label">Level</div>
-        <div class="stat-value" id="levelDisplay">1</div>
-      </div>
-      <div class="stat-item">
-        <div class="stat-label">Streak</div>
-        <div class="stat-value" id="streakDisplay">0🔥</div>
-      </div>
-      <div class="stat-item">
-        <div class="stat-label">Today</div>
-        <div class="stat-value" id="todayDisplay">0m</div>
-      </div>
-    </div>
 
-    <!-- Daily Goal Progress -->
-    <div id="goalProgress" class="goal-progress">
-      <div class="goal-bar">
-        <div class="goal-fill" id="goalFill" style="width: 0%"></div>
-      </div>
-      <div class="goal-text" id="goalText">0/120 min daily goal</div>
-    </div>
-
-    <!-- Friends Activity Widget -->
-    <div id="friendsWidget" class="friends-widget">
-      <div class="friends-header">
-        <span>👥 Friends Online</span>
-        <span id="onlineCount" class="online-count">0</span>
-      </div>
-      <div id="friendsList" class="friends-list">
-        <div class="friends-loading">Loading...</div>
-      </div>
-    </div>
-    
-    <div id="timerDisplay" class="timer-display">
-      <svg class="timer-circle" viewBox="0 0 200 200">
-        <circle class="timer-bg" cx="100" cy="100" r="90"></circle>
-        <circle class="timer-progress" cx="100" cy="100" r="90"></circle>
-      </svg>
-      <div class="timer-text">
-        <div class="timer-time">00:00</div>
-        <div class="timer-label">remaining</div>
-      </div>
-    </div>
-    
-    <div id="setupControls" class="setup-controls">
-      <!-- Quick Buttons -->
-      <div class="quick-buttons">
-        <button class="btn-quick" data-duration="15">15 min</button>
-        <button class="btn-quick" data-duration="25">25 min</button>
-        <button class="btn-quick" data-duration="45">45 min</button>
-        <button class="btn-quick" data-duration="90">90 min</button>
-      </div>
-
-      <!-- Presets -->
-      <div class="presets">
-        <label>Quick Presets</label>
-        <select id="preset">
-          <option value="">Custom</option>
-          <option value="deepWork">Deep Work (90 min)</option>
-          <option value="study">Study (45 min)</option>
-          <option value="quickFocus">Quick Focus (15 min)</option>
-        </select>
-      </div>
-      
-      <div class="input-group">
-        <label>Custom Duration (minutes)</label>
-        <input id="duration" type="number" min="1" value="25" />
-      </div>
-      
-      <div class="input-group">
-        <label>Passcode (optional)</label>
-        <input id="passcode" type="password" placeholder="Enter passcode" />
-      </div>
-
-      <div class="checkbox-group">
-        <label>
-          <input type="checkbox" id="pomodoroToggle" />
-          Pomodoro Mode (auto break)
-        </label>
-      </div>
-      
-      <button id="start" class="btn-primary">Start Session</button>
-      <button id="viewStats" class="btn-secondary">View Dashboard</button>
-      <button id="viewFriends" class="btn-secondary">Friends & Leaderboard</button>
-    </div>
-    
-    <div id="activeControls" class="active-controls">
-      <button id="emergency" class="btn-break">Emergency Break (2 min)</button>
-    </div>
-    
-    <div id="status" class="status"></div>
-    
-    <!-- Countdown Loading Screen -->
-    <div id="countdownScreen" class="countdown-screen" style="display: none;">
-      <div class="countdown-content">
-        <div class="countdown-icon">
-          <svg
-            aria-label="loader being flipped clockwise and circled by three white curves fading in and out"
-            role="img"
-            height="56px"
-            width="56px"
-            viewBox="0 0 56 56"
-            class="loader"
-          >
-            <clipPath id="sand-mound-top">
-              <path
-                d="M 14.613 13.087 C 15.814 12.059 19.3 8.039 20.3 6.539 C 21.5 4.789 21.5 2.039 21.5 2.039 L 3 2.039 C 3 2.039 3 4.789 4.2 6.539 C 5.2 8.039 8.686 12.059 9.887 13.087 C 11 14.039 12.25 14.039 12.25 14.039 C 12.25 14.039 13.5 14.039 14.613 13.087 Z"
-                class="loader__sand-mound-top"
-              ></path>
-            </clipPath>
-            <clipPath id="sand-mound-bottom">
-              <path
-                d="M 14.613 20.452 C 15.814 21.48 19.3 25.5 20.3 27 C 21.5 28.75 21.5 31.5 21.5 31.5 L 3 31.5 C 3 31.5 3 28.75 4.2 27 C 5.2 25.5 8.686 21.48 9.887 20.452 C 11 19.5 12.25 19.5 12.25 19.5 C 12.25 19.5 13.5 19.5 14.613 20.452 Z"
-                class="loader__sand-mound-bottom"
-              ></path>
-            </clipPath>
-            <g transform="translate(2,2)">
-              <g
-                transform="rotate(-90,26,26)"
-                stroke-linecap="round"
-                stroke-dashoffset="153.94"
-                stroke-dasharray="153.94 153.94"
-                stroke="hsl(0,0%,100%)"
-                fill="none"
-              >
-                <circle
-                  transform="rotate(0,26,26)"
-                  r="24.5"
-                  cy="26"
-                  cx="26"
-                  stroke-width="2.5"
-                  class="loader__motion-thick"
-                ></circle>
-                <circle
-                  transform="rotate(90,26,26)"
-                  r="24.5"
-                  cy="26"
-                  cx="26"
-                  stroke-width="1.75"
-                  class="loader__motion-medium"
-                ></circle>
-                <circle
-                  transform="rotate(180,26,26)"
-                  r="24.5"
-                  cy="26"
-                  cx="26"
-                  stroke-width="1"
-                  class="loader__motion-thin"
-                ></circle>
-              </g>
-              <g transform="translate(13.75,9.25)" class="loader__model">
-                <path
-                  d="M 1.5 2 L 23 2 C 23 2 22.5 8.5 19 12 C 16 15.5 13.5 13.5 13.5 16.75 C 13.5 20 16 18 19 21.5 C 22.5 25 23 31.5 23 31.5 L 1.5 31.5 C 1.5 31.5 2 25 5.5 21.5 C 8.5 18 11 20 11 16.75 C 11 13.5 8.5 15.5 5.5 12 C 2 8.5 1.5 2 1.5 2 Z"
-                  fill="hsl(210,90%,85%)"
-                ></path>
-
-                <g stroke-linecap="round" stroke="hsl(35,90%,90%)">
-                  <line
-                    y2="20.75"
-                    x2="12"
-                    y1="15.75"
-                    x1="12"
-                    stroke-dasharray="0.25 33.75"
-                    stroke-width="1"
-                    class="loader__sand-grain-left"
-                  ></line>
-                  <line
-                    y2="21.75"
-                    x2="12.5"
-                    y1="16.75"
-                    x1="12.5"
-                    stroke-dasharray="0.25 33.75"
-                    stroke-width="1"
-                    class="loader__sand-grain-right"
-                  ></line>
-                  <line
-                    y2="31.5"
-                    x2="12.25"
-                    y1="18"
-                    x1="12.25"
-                    stroke-dasharray="0.5 107.5"
-                    stroke-width="1"
-                    class="loader__sand-drop"
-                  ></line>
-                  <line
-                    y2="31.5"
-                    x2="12.25"
-                    y1="14.75"
-                    x1="12.25"
-                    stroke-dasharray="54 54"
-                    stroke-width="1.5"
-                    class="loader__sand-fill"
-                  ></line>
-                  <line
-                    y2="31.5"
-                    x2="12"
-                    y1="16"
-                    x1="12"
-                    stroke-dasharray="1 107"
-                    stroke-width="1"
-                    stroke="hsl(35,90%,83%)"
-                    class="loader__sand-line-left"
-                  ></line>
-                  <line
-                    y2="31.5"
-                    x2="12.5"
-                    y1="16"
-                    x1="12.5"
-                    stroke-dasharray="12 96"
-                    stroke-width="1"
-                    stroke="hsl(35,90%,83%)"
-                    class="loader__sand-line-right"
-                  ></line>
-
-                  <g stroke-width="0" fill="hsl(35,90%,90%)">
-                    <path
-                      d="M 12.25 15 L 15.392 13.486 C 21.737 11.168 22.5 2 22.5 2 L 2 2.013 C 2 2.013 2.753 11.046 9.009 13.438 L 12.25 15 Z"
-                      clip-path="url(#sand-mound-top)"
-                    ></path>
-                    <path
-                      d="M 12.25 18.5 L 15.392 20.014 C 21.737 22.332 22.5 31.5 22.5 31.5 L 2 31.487 C 2 31.487 2.753 22.454 9.009 20.062 Z"
-                      clip-path="url(#sand-mound-bottom)"
-                    ></path>
-                  </g>
-                </g>
-
-                <g stroke-width="2" stroke-linecap="round" opacity="0.7" fill="none">
-                  <path
-                    d="M 19.437 3.421 C 19.437 3.421 19.671 6.454 17.914 8.846 C 16.157 11.238 14.5 11.5 14.5 11.5"
-                    stroke="hsl(0,0%,100%)"
-                    class="loader__glare-top"
-                  ></path>
-                  <path
-                    transform="rotate(180,12.25,16.75)"
-                    d="M 19.437 3.421 C 19.437 3.421 19.671 6.454 17.914 8.846 C 16.157 11.238 14.5 11.5 14.5 11.5"
-                    stroke="hsla(0,0%,100%,0)"
-                    class="loader__glare-bottom"
-                  ></path>
-                </g>
-
-                <rect height="2" width="24.5" fill="hsl(210,90%,50%)"></rect>
-                <rect
-                  height="1"
-                  width="19.5"
-                  y="0.5"
-                  x="2.5"
-                  ry="0.5"
-                  rx="0.5"
-                  fill="hsl(210,90%,57.5%)"
-                ></rect>
-                <rect
-                  height="2"
-                  width="24.5"
-                  y="31.5"
-                  fill="hsl(210,90%,50%)"
-                ></rect>
-                <rect
-                  height="1"
-                  width="19.5"
-                  y="32"
-                  x="2.5"
-                  ry="0.5"
-                  rx="0.5"
-                  fill="hsl(210,90%,57.5%)"
-                ></rect>
-              </g>
-            </g>
-          </svg>
+      <div class="timer-circle">
+        <svg class="timer-svg" viewBox="0 0 180 180">
+          <circle class="timer-svg-bg" cx="90" cy="90" r="80"></circle>
+          <circle class="timer-svg-progress" id="progressCircle1" cx="90" cy="90" r="80"></circle>
+        </svg>
+        <div class="timer-content">
+          <div class="timer-time" id="timerDisplay1">25:00</div>
+          <div class="timer-status" id="statusDisplay1">Ready</div>
         </div>
-        <h2 class="countdown-title">Get Ready to Focus</h2>
-        <div class="countdown-number" id="countdownNumber">5</div>
-        <div class="countdown-label">seconds until focus mode starts</div>
-        
-        <div class="countdown-bar-container">
-          <div class="countdown-bar" id="countdownBar"></div>
+      </div>
+
+      <div class="custom-timer">
+        <div class="custom-timer-label">Session Duration</div>
+        <div class="custom-timer-input">
+          <input type="number" id="customMinutes1" placeholder="25" min="1" max="480" value="25" />
+          <span>minutes</span>
         </div>
-        
-        <button id="cancelCountdown" class="btn-cancel-countdown">Cancel</button>
+      </div>
+
+      <button class="action-btn" id="startBtn1">Start Focus</button>
+
+      <div class="friends-section" id="friendsSection1">
+        <div class="friends-header">
+          <div class="friends-title"><i class="fas fa-users"></i> Friends</div>
+          <div class="online-badge" id="onlineCount1">0 online</div>
+        </div>
+        <div class="friends-list" id="friendsList1">
+          <div class="loading">Loading friends...</div>
+        </div>
+      </div>
+
+      <div class="quick-actions" id="quickActions1">
+        <button class="quick-action-btn" id="socialBtn1"><i class="fas fa-users"></i> Social</button>
+        <button class="quick-action-btn" id="dashboardBtn1"><i class="fas fa-chart-line"></i> Stats</button>
       </div>
     </div>
   </div>
 
-  <script src="api.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>
