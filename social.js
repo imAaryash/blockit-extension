@@ -7,6 +7,53 @@ async function send(msg) {
   return new Promise((res) => chrome.runtime.sendMessage(msg, res));
 }
 
+// Privacy: Check if URL is safe to share (public sites like YouTube, not private sites like Meet/Zoom)
+function isPublicURL(url) {
+  if (!url) return false;
+  
+  const lowerUrl = url.toLowerCase();
+  
+  // Public sites that are safe to show exact URLs
+  const publicDomains = [
+    'youtube.com',
+    'youtu.be',
+    'wikipedia.org',
+    'github.com',
+    'stackoverflow.com',
+    'reddit.com',
+    'twitter.com',
+    'x.com'
+  ];
+  
+  // Private/sensitive sites that should be hidden
+  const privateDomains = [
+    'meet.google.com',
+    'zoom.us',
+    'teams.microsoft.com',
+    'webex.com',
+    'whereby.com',
+    'discord.com/channels',
+    'slack.com'
+  ];
+  
+  // Check if URL contains any private domain - hide it
+  for (const domain of privateDomains) {
+    if (lowerUrl.includes(domain)) {
+      return false;
+    }
+  }
+  
+  // Check if URL contains any public domain - show it
+  for (const domain of publicDomains) {
+    if (lowerUrl.includes(domain)) {
+      return true;
+    }
+  }
+  
+  // Default: hide for privacy
+  return false;
+}
+
 // Store for real-time updates (using polling instead of WebSocket for now)
 const onlineFriends = new Set();
 const friendsActivity = new Map();
@@ -55,6 +102,38 @@ document.querySelectorAll('.tab').forEach(tab => {
   });
 });
 
+// Toast notification function
+function showToast(message, type = 'info') {
+  const toast = document.createElement('div');
+  const colors = {
+    success: '#10b981',
+    error: '#ef4444',
+    info: '#3b82f6'
+  };
+  
+  toast.style.cssText = `
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: ${colors[type] || colors.info};
+    color: white;
+    padding: 16px 20px;
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    z-index: 10000;
+    font-size: 14px;
+    animation: slideIn 0.3s ease-out;
+  `;
+  
+  toast.textContent = message;
+  document.body.appendChild(toast);
+  
+  setTimeout(() => {
+    toast.style.animation = 'slideOut 0.3s ease-out';
+    setTimeout(() => toast.remove(), 300);
+  }, 3000);
+}
+
 // Add friend (send friend request)
 document.getElementById('addFriendBtn').addEventListener('click', async () => {
   const username = document.getElementById('friendUsername').value.trim();
@@ -65,9 +144,9 @@ document.getElementById('addFriendBtn').addEventListener('click', async () => {
     document.getElementById('friendUsername').value = '';
     
     if (result.status === 'pending') {
-      alert(result.message || 'Friend request sent!');
+      showToast(result.message || 'Friend request sent!', 'success');
     } else if (result.status === 'accepted') {
-      alert(result.message || 'You are now friends!');
+      showToast(result.message || 'You are now friends!', 'success');
       loadFriends();
     }
     
@@ -76,9 +155,59 @@ document.getElementById('addFriendBtn').addEventListener('click', async () => {
       loadFriendRequests();
     }
   } catch (error) {
-    alert(error.message || 'Failed to send friend request');
+    showToast(error.message || 'Failed to send friend request', 'error');
   }
 });
+
+function showRemoveConfirmation(friendId, friendName) {
+  const modal = document.createElement('div');
+  modal.className = 'remove-confirmation-modal';
+  modal.innerHTML = `
+    <div class="remove-confirmation-content">
+      <div class="remove-confirmation-icon">
+        <i class="fas fa-exclamation-triangle"></i>
+      </div>
+      <h3>Remove Friend?</h3>
+      <p>Are you sure you want to remove <strong>${friendName}</strong> from your friends list?</p>
+      <div class="remove-confirmation-buttons">
+        <button class="btn-cancel">Cancel</button>
+        <button class="btn-confirm-remove">Remove</button>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(modal);
+  
+  // Animate in
+  setTimeout(() => modal.classList.add('show'), 10);
+  
+  // Cancel button
+  modal.querySelector('.btn-cancel').addEventListener('click', () => {
+    modal.classList.remove('show');
+    setTimeout(() => modal.remove(), 300);
+  });
+  
+  // Confirm remove button
+  modal.querySelector('.btn-confirm-remove').addEventListener('click', async () => {
+    try {
+      await API.removeFriend(friendId);
+      modal.classList.remove('show');
+      setTimeout(() => modal.remove(), 300);
+      showToast(`Removed ${friendName} from friends`, 'success');
+      loadFriends();
+    } catch (error) {
+      showToast('Failed to remove friend', 'error');
+    }
+  });
+  
+  // Click outside to close
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      modal.classList.remove('show');
+      setTimeout(() => modal.remove(), 300);
+    }
+  });
+}
 
 async function loadFriends() {
   try {
@@ -126,15 +255,17 @@ async function loadFriends() {
         </div>
       ` : `<div class="friend-avatar">${friend.avatar || '👤'}</div>`;
       
+      const isAnimated = isAnimatedBanner(friend.nameBanner);
+      const bannerHTML = getNameBannerHTML(friend.nameBanner);
       const cardStyle = friend.nameBanner ? `
         cursor: pointer;
-        background: url('${chrome.runtime.getURL(`assets/name_banner/${friend.nameBanner}.png`)}') center/cover;
-        background-size: 100% 100%;
+        ${!isAnimated ? `background: url('${chrome.runtime.getURL(`assets/name_banner/${friend.nameBanner}.png`)}') center/cover; background-size: 100% 100%;` : 'position: relative; overflow: hidden;'}
       ` : 'cursor: pointer;';
       
       const content = `
+        ${bannerHTML}
         ${avatarContent}
-        <div class="friend-info">
+        <div class="friend-info" style="position: relative; z-index: 1;">
           <div class="friend-name" style="text-shadow: 0 2px 8px rgba(0,0,0,0.8), 0 0 4px rgba(0,0,0,0.6);">
             ${friend.displayName}
           </div>
@@ -144,11 +275,21 @@ async function loadFriends() {
             ${getActivityText(friend)}
           </div>
         </div>
-        <div class="friend-stats">
-          <div class="friend-stat" style="color: #ffffff; text-shadow: 0 2px 8px rgba(0,0,0,0.8), 0 0 4px rgba(0,0,0,0.6);">Level <strong style="color: #ffffff; text-shadow: 0 2px 8px rgba(0,0,0,0.8), 0 0 4px rgba(0,0,0,0.6);">${friend.level || 1}</strong></div>
-          <div class="friend-stat" style="color: #ffffff; text-shadow: 0 2px 8px rgba(0,0,0,0.8), 0 0 4px rgba(0,0,0,0.6);"><strong style="color: #ffffff; text-shadow: 0 2px 8px rgba(0,0,0,0.8), 0 0 4px rgba(0,0,0,0.6);">${friend.stats?.totalFocusTime || 0}</strong> min focused</div>
+        <div class="friend-stats" style="position: relative; z-index: 1; display: flex; flex-direction: column; gap: 6px; align-items: flex-end; margin-right: 30px;">
+          <div class="friend-stat" style="color: #ffffff; text-shadow: 0 0 12px rgba(0,0,0,1), 0 0 24px rgba(0,0,0,0.9), 0 2px 8px rgba(0,0,0,0.8); background: rgba(0,0,0,0.6); padding: 6px 12px; border-radius: 8px; backdrop-filter: blur(4px); font-size: 12px;">Level <strong style="color: #3b82f6; text-shadow: 0 0 12px rgba(59, 130, 246, 1), 0 0 24px rgba(59, 130, 246, 0.8); font-size: 14px;">${friend.level || 1}</strong></div>
+          <div class="friend-stat" style="color: #ffffff; text-shadow: 0 0 12px rgba(0,0,0,1), 0 0 24px rgba(0,0,0,0.9), 0 2px 8px rgba(0,0,0,0.8); background: rgba(0,0,0,0.6); padding: 6px 12px; border-radius: 8px; backdrop-filter: blur(4px); font-size: 12px;"><strong style="color: #10b981; text-shadow: 0 0 12px rgba(16, 185, 129, 1), 0 0 24px rgba(16, 185, 129, 0.8); font-size: 14px;">${friend.stats?.totalFocusTime || 0}</strong> min</div>
         </div>
-        <button class="btn-remove" data-id="${friend.userId}">Remove</button>
+        <button class="friend-menu-btn" data-id="${friend.userId}" data-name="${friend.displayName}">
+          <i class="fas fa-ellipsis-v"></i>
+        </button>
+        <div class="friend-menu hidden" data-id="${friend.userId}">
+          <div class="friend-menu-item nudge-option" data-id="${friend.userId}" data-name="${friend.displayName}">
+            <i class="fas fa-hand-point-right"></i> Nudge
+          </div>
+          <div class="friend-menu-item remove-option" data-id="${friend.userId}" data-name="${friend.displayName}">
+            <i class="fas fa-user-minus"></i> Remove
+          </div>
+        </div>
       `;
       
       return `
@@ -161,22 +302,72 @@ async function loadFriends() {
     // Add click listeners for profile viewing
     document.querySelectorAll('.friend-card').forEach(card => {
       card.addEventListener('click', (e) => {
-        if (!e.target.classList.contains('btn-remove')) {
+        if (!e.target.closest('.friend-menu-btn') && !e.target.closest('.friend-menu')) {
           viewProfile(card.dataset.username);
         }
       });
     });
     
-    // Add remove listeners
-    document.querySelectorAll('.btn-remove').forEach(btn => {
-      btn.addEventListener('click', async (e) => {
+    // Add three-dots menu listeners
+    document.querySelectorAll('.friend-menu-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
         e.stopPropagation();
-        try {
-          await API.removeFriend(btn.dataset.id);
-          loadFriends();
-        } catch (error) {
-          alert('Failed to remove friend');
+        const friendId = btn.dataset.id;
+        const menu = document.querySelector(`.friend-menu[data-id="${friendId}"]`);
+        
+        // Close all other menus
+        document.querySelectorAll('.friend-menu').forEach(m => {
+          if (m !== menu) m.classList.add('hidden');
+        });
+        
+        // Position menu relative to button with proper calculation
+        const rect = btn.getBoundingClientRect();
+        const menuHeight = 100; // Approximate menu height
+        const spaceBelow = window.innerHeight - rect.bottom;
+        
+        // Position below button if there's space, otherwise above
+        if (spaceBelow > menuHeight) {
+          menu.style.top = `${rect.bottom + 8}px`;
+          menu.style.bottom = 'auto';
+        } else {
+          menu.style.top = 'auto';
+          menu.style.bottom = `${window.innerHeight - rect.top + 8}px`;
         }
+        
+        menu.style.left = 'auto';
+        menu.style.right = `${window.innerWidth - rect.right}px`;
+        
+        // Toggle this menu
+        menu.classList.toggle('hidden');
+      });
+    });
+    
+    // Close menus when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.friend-menu') && !e.target.closest('.friend-menu-btn')) {
+        document.querySelectorAll('.friend-menu').forEach(m => m.classList.add('hidden'));
+      }
+    });
+    
+    // Add nudge option listeners
+    document.querySelectorAll('.nudge-option').forEach(option => {
+      option.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const friendId = option.dataset.id;
+        const friendName = option.dataset.name;
+        document.querySelector(`.friend-menu[data-id="${friendId}"]`).classList.add('hidden');
+        sendNudge(friendId, friendName);
+      });
+    });
+    
+    // Add remove option listeners with confirmation
+    document.querySelectorAll('.remove-option').forEach(option => {
+      option.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const friendId = option.dataset.id;
+        const friendName = option.dataset.name;
+        document.querySelector(`.friend-menu[data-id="${friendId}"]`).classList.add('hidden');
+        showRemoveConfirmation(friendId, friendName);
       });
     });
   } catch (error) {
@@ -201,9 +392,16 @@ function getActivityStatus(friend) {
   
   if (!isOnline) return 'offline';
   if (activity.focusActive || activity.status === 'focusing') return 'focusing';
-  if (activity.status === 'online' || activity.status === 'youtube') return 'online';
   
-  return 'offline';
+  // If user is online and not focusing, show them as online
+  return 'online';
+}
+
+// Helper function to clean video titles (remove notification counts)
+function cleanVideoTitle(title) {
+  if (!title) return title;
+  // Remove notification count like "(127) " from the beginning
+  return title.replace(/^\(\d+\)\s*/, '').trim();
 }
 
 function getActivityText(friend) {
@@ -219,53 +417,85 @@ function getActivityText(friend) {
   }
   
   if (activity.focusActive || activity.status === 'focusing') {
-    return '🎯 In focus session';
+    return '◉ In focus session';
   }
+  
+  // Privacy check: Don't show title for private URLs (Meet, Zoom, etc.)
+  const isPrivateUrl = activity.currentUrl && !isPublicURL(activity.currentUrl);
   
   // Enhanced activity display
-  if (activity.activityType && activity.videoTitle) {
+  if (activity.activityType && activity.videoTitle && !isPrivateUrl) {
     const icon = activity.videoThumbnail && typeof activity.videoThumbnail === 'string' && activity.videoThumbnail.length <= 2 
       ? activity.videoThumbnail 
-      : '📚';
-    return `${icon} ${activity.activityType}: ${activity.videoTitle.substring(0, 35)}${activity.videoTitle.length > 35 ? '...' : ''}`;
+      : '▶';
+    const cleanTitle = cleanVideoTitle(activity.videoTitle);
+    return `${icon} ${activity.activityType}: ${cleanTitle.substring(0, 35)}${cleanTitle.length > 35 ? '...' : ''}`;
   }
   
-  if (activity.status === 'studying' && activity.videoTitle) {
-    return `📚 ${activity.videoTitle.substring(0, 40)}${activity.videoTitle.length > 40 ? '...' : ''}`;
+  if (activity.status === 'studying' && activity.videoTitle && !isPrivateUrl) {
+    const cleanTitle = cleanVideoTitle(activity.videoTitle);
+    return `▶ ${cleanTitle.substring(0, 40)}${cleanTitle.length > 40 ? '...' : ''}`;
   }
   
-  if (activity.status === 'youtube' && activity.videoTitle) {
-    return `📺 ${activity.videoTitle.substring(0, 40)}${activity.videoTitle.length > 40 ? '...' : ''}`;
+  if (activity.status === 'youtube' && activity.videoTitle && !isPrivateUrl) {
+    const cleanTitle = cleanVideoTitle(activity.videoTitle);
+    return `▶ ${cleanTitle.substring(0, 40)}${cleanTitle.length > 40 ? '...' : ''}`;
   }
   
-  if (activity.status === 'youtube-shorts' && activity.videoTitle) {
-    return `📱 ${activity.videoTitle.substring(0, 40)}${activity.videoTitle.length > 40 ? '...' : ''}`;
+  if (activity.status === 'youtube-shorts' && activity.videoTitle && !isPrivateUrl) {
+    const cleanTitle = cleanVideoTitle(activity.videoTitle);
+    return `▶ ${cleanTitle.substring(0, 40)}${cleanTitle.length > 40 ? '...' : ''}`;
   }
   
-  if (activity.status === 'reading' && activity.videoTitle) {
-    return `📄 ${activity.videoTitle.substring(0, 40)}${activity.videoTitle.length > 40 ? '...' : ''}`;
+  if (activity.status === 'reading' && activity.videoTitle && !isPrivateUrl) {
+    const cleanTitle = cleanVideoTitle(activity.videoTitle);
+    return `◐ ${cleanTitle.substring(0, 40)}${cleanTitle.length > 40 ? '...' : ''}`;
   }
   
-  if (activity.status === 'searching' && activity.videoTitle) {
-    return `🔍 ${activity.videoTitle.substring(0, 40)}${activity.videoTitle.length > 40 ? '...' : ''}`;
+  if (activity.status === 'searching' && activity.videoTitle && !isPrivateUrl) {
+    const cleanTitle = cleanVideoTitle(activity.videoTitle);
+    return `◕ ${cleanTitle.substring(0, 40)}${cleanTitle.length > 40 ? '...' : ''}`;
   }
   
   if (activity.status === 'youtube') {
-    return '📺 Watching YouTube';
+    return '▶ Watching YouTube';
   }
   
   if (activity.status === 'studying') {
-    return '📚 Studying';
+    return '▶ Studying';
   }
   
   if (activity.status === 'social-media') {
-    return '📱 Scrolling Social Media';
+    return '⊕ Scrolling Social Media';
   }
   
   // Custom labels for common websites
   if (activity.currentUrl) {
     const url = activity.currentUrl || '';
     const lowerUrl = url.toLowerCase();
+    
+    // Privacy: Show only platform name for private meeting sites
+    if (lowerUrl.includes('meet.google.com')) {
+      return '📹 Google Meet';
+    }
+    if (lowerUrl.includes('zoom.us')) {
+      return '📹 Zoom';
+    }
+    if (lowerUrl.includes('teams.microsoft.com')) {
+      return '📹 Microsoft Teams';
+    }
+    if (lowerUrl.includes('webex.com')) {
+      return '📹 Webex';
+    }
+    if (lowerUrl.includes('whereby.com')) {
+      return '📹 Whereby';
+    }
+    if (lowerUrl.includes('discord.com/channels')) {
+      return '📹 Discord Call';
+    }
+    if (lowerUrl.includes('slack.com/call')) {
+      return '📹 Slack Call';
+    }
     
     // Google
     if (lowerUrl.includes('google.com')) {
@@ -499,7 +729,7 @@ async function loadLeaderboard() {
     if (!leaderboard || leaderboard.length === 0) {
       container.innerHTML = `
         <div class="empty-state">
-          <div class="empty-state-icon">🏆</div>
+          <div class="empty-state-icon"><i class="fas fa-trophy"></i></div>
           <p>No users yet. Be the first to compete!</p>
         </div>
       `;
@@ -510,13 +740,18 @@ async function loadLeaderboard() {
       const rank = index + 1;
       const rankClass = rank === 1 ? 'top1' : rank === 2 ? 'top2' : rank === 3 ? 'top3' : '';
       const isCurrentUser = currentUser && user.userId === currentUser.userId;
-      const rankIcon = rank === 1 ? '👑' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : '#' + rank;
+      const rankIcon = rank === 1 ? '1' : rank === 2 ? '2' : rank === 3 ? '3' : rank;
       
       let itemStyle = isCurrentUser ? 'border-color: #3b82f6; background: rgba(59, 130, 246, 0.05);' : '';
       
       // Apply name banner as card background
+      const isAnimated = isAnimatedBanner(user.nameBanner);
       if (user.nameBanner) {
-        itemStyle = `background: url('${chrome.runtime.getURL(`assets/name_banner/${user.nameBanner}.png`)}') center/cover; background-size: 100% 100%;${isCurrentUser ? ' border-color: #3b82f6;' : ''}`;
+        if (isAnimated) {
+          itemStyle = `position: relative; overflow: hidden;${isCurrentUser ? ' border-color: #3b82f6;' : ''}`;
+        } else {
+          itemStyle = `background: url('${chrome.runtime.getURL(`assets/name_banner/${user.nameBanner}.png`)}') center/cover; background-size: 100% 100%;${isCurrentUser ? ' border-color: #3b82f6;' : ''}`;
+        }
       }
       
       // Avatar decoration wrapper
@@ -538,19 +773,20 @@ async function loadLeaderboard() {
       ` : `<div class="friend-avatar">${user.avatar || '👤'}</div>`;
       
       const content = `
-        <div class="leaderboard-rank ${rankClass}">${rankIcon}</div>
-        ${avatarContent}
-        <div class="friend-info">
+        ${user.nameBanner && isAnimated ? getNameBannerHTML(user.nameBanner) : ''}
+        <div class="leaderboard-rank ${rankClass}" style="position: relative; z-index: 1;">${rankIcon}</div>
+        <div style="position: relative; z-index: 1;">${avatarContent}</div>
+        <div class="friend-info" style="position: relative; z-index: 1;">
           <div class="friend-name">
             ${user.displayName}
             ${isCurrentUser ? '<span style="color: #3b82f6; font-size: 11px; font-weight: 600;">(You)</span>' : ''}
           </div>
           <div class="friend-username">@${user.username}</div>
         </div>
-        <div class="friend-stats">
-          <div class="friend-stat" style="color: #ffffff; text-shadow: 0 2px 8px rgba(0,0,0,0.8), 0 0 4px rgba(0,0,0,0.6);">Lv <strong style="color: #ffffff; text-shadow: 0 2px 8px rgba(59, 130, 246, 0.8), 0 0 4px rgba(59, 130, 246, 0.6);">${user.level || 1}</strong></div>
-          <div class="friend-stat" style="color: #ffffff; text-shadow: 0 2px 8px rgba(0,0,0,0.8), 0 0 4px rgba(0,0,0,0.6);"><strong style="color: #fbbf24; text-shadow: 0 2px 8px rgba(0,0,0,0.8), 0 0 4px rgba(251, 191, 36, 0.6);">${user.points || 0}</strong> pts</div>
-          <div class="friend-stat" style="color: #ffffff; text-shadow: 0 2px 8px rgba(0,0,0,0.8), 0 0 4px rgba(0,0,0,0.6);"><strong style="color: #10b981; text-shadow: 0 2px 8px rgba(0,0,0,0.8), 0 0 4px rgba(16, 185, 129, 0.6);">${user.stats?.totalFocusTime || 0}</strong> min</div>
+        <div class="friend-stats" style="position: relative; z-index: 2;">
+          <div class="friend-stat" style="color: #ffffff; text-shadow: 0 0 12px rgba(0,0,0,1), 0 0 24px rgba(0,0,0,0.9), 0 2px 8px rgba(0,0,0,0.8); background: rgba(0,0,0,0.6); padding: 4px 10px; border-radius: 6px; backdrop-filter: blur(4px);">Lv <strong style="color: #ffffff; text-shadow: 0 0 12px rgba(59, 130, 246, 1), 0 0 24px rgba(59, 130, 246, 0.8);">${user.level || 1}</strong></div>
+          <div class="friend-stat" style="color: #ffffff; text-shadow: 0 0 12px rgba(0,0,0,1), 0 0 24px rgba(0,0,0,0.9), 0 2px 8px rgba(0,0,0,0.8); background: rgba(0,0,0,0.6); padding: 4px 10px; border-radius: 6px; backdrop-filter: blur(4px);"><strong style="color: #fbbf24; text-shadow: 0 0 12px rgba(251, 191, 36, 1), 0 0 24px rgba(251, 191, 36, 0.8);">${user.points || 0}</strong> pts</div>
+          <div class="friend-stat" style="color: #ffffff; text-shadow: 0 0 12px rgba(0,0,0,1), 0 0 24px rgba(0,0,0,0.9), 0 2px 8px rgba(0,0,0,0.8); background: rgba(0,0,0,0.6); padding: 4px 10px; border-radius: 6px; backdrop-filter: blur(4px);"><strong style="color: #10b981; text-shadow: 0 0 12px rgba(16, 185, 129, 1), 0 0 24px rgba(16, 185, 129, 0.8);">${user.stats?.totalFocusTime || 0}</strong> min</div>
         </div>
       `;
       
@@ -579,7 +815,7 @@ async function loadActivity() {
     if (!activity || activity.length === 0) {
       container.innerHTML = `
         <div class="empty-state">
-          <div class="empty-state-icon">📊</div>
+          <div class="empty-state-icon"><i class="fas fa-chart-line"></i></div>
           <p>No recent friend activity</p>
         </div>
       `;
@@ -600,10 +836,13 @@ async function loadActivity() {
     
     container.innerHTML = sortedActivity.map(friend => {
       const avatarDecoration = friend.avatarDecoration ? `<div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: url('${chrome.runtime.getURL(`assets/avatar/${friend.avatarDecoration}.png`)}') center/contain no-repeat; pointer-events: none; z-index: 10;"></div>` : '';
-      const nameBannerStyle = friend.nameBanner ? `background: url('${chrome.runtime.getURL(`assets/name_banner/${friend.nameBanner}.png`)}') center/cover; background-size: 100% 100%;` : '';
+      const isAnimated = isAnimatedBanner(friend.nameBanner);
+      const bannerHTML = getNameBannerHTML(friend.nameBanner);
+      const nameBannerStyle = friend.nameBanner ? (isAnimated ? 'position: relative; overflow: hidden;' : `background: url('${chrome.runtime.getURL(`assets/name_banner/${friend.nameBanner}.png`)}') center/cover; background-size: 100% 100%;`) : '';
       
       return `
       <div class="friend-card" style="${nameBannerStyle}">
+        ${bannerHTML}
         <div class="friend-avatar" style="position: relative;">
           ${friend.avatar || '👤'}
           ${avatarDecoration}
@@ -645,43 +884,62 @@ function getActivityTextFromData(activity) {
   if (!activity) return 'Offline';
   
   if (activity.status === 'focusing') {
-    return '🎯 In focus session';
+    return '<i class="fas fa-circle-notch fa-spin" style="color: #dc2626;"></i> In focus session';
   }
   
   // Enhanced activity display with activityType
   if (activity.activityType && activity.videoTitle) {
-    const icon = activity.videoThumbnail && typeof activity.videoThumbnail === 'string' && activity.videoThumbnail.length <= 2 
-      ? activity.videoThumbnail 
-      : '📚';
-    return `${icon} ${activity.activityType}: ${activity.videoTitle}`;
+    const cleanTitle = cleanVideoTitle(activity.videoTitle);
+    
+    // Special handling for Searching - videoTitle already contains "Searching: query"
+    if (activity.activityType === 'Searching') {
+      return `<i class="fas fa-search" style="color: #3b82f6;"></i> ${cleanTitle}`;
+    }
+    
+    // For other activities with activityType, use appropriate icons
+    let icon = '<i class="fas fa-play-circle" style="color: #ef4444;"></i>'; // Default for videos
+    if (activity.activityType.includes('Studying') || activity.activityType.includes('Reading')) {
+      icon = '<i class="fas fa-book-open" style="color: #10b981;"></i>';
+    } else if (activity.activityType.includes('Watching')) {
+      icon = '<i class="fas fa-play-circle" style="color: #ef4444;"></i>';
+    } else if (activity.activityType.includes('Browsing')) {
+      icon = '<i class="fas fa-globe" style="color: #8b5cf6;"></i>';
+    }
+    
+    return `${icon} ${activity.activityType}: ${cleanTitle}`;
   }
   
   if (activity.status === 'studying' && activity.videoTitle) {
-    return `📚 Studying: ${activity.videoTitle}`;
+    const cleanTitle = cleanVideoTitle(activity.videoTitle);
+    return `<i class="fas fa-book-open" style="color: #10b981;"></i> Studying: ${cleanTitle}`;
   }
   
   if (activity.status === 'youtube' && activity.videoTitle) {
-    return `📺 Watching: ${activity.videoTitle}`;
+    const cleanTitle = cleanVideoTitle(activity.videoTitle);
+    return `<i class="fas fa-play-circle" style="color: #ef4444;"></i> Watching: ${cleanTitle}`;
   }
   
   if (activity.status === 'youtube-shorts' && activity.videoTitle) {
-    return `📱 Watching Short: ${activity.videoTitle}`;
+    const cleanTitle = cleanVideoTitle(activity.videoTitle);
+    return `<i class="fas fa-mobile-alt" style="color: #ef4444;"></i> Watching Short: ${cleanTitle}`;
   }
   
   if (activity.status === 'reading' && activity.videoTitle) {
-    return `📄 Reading: ${activity.videoTitle}`;
+    const cleanTitle = cleanVideoTitle(activity.videoTitle);
+    return `<i class="fas fa-book-reader" style="color: #10b981;"></i> Reading: ${cleanTitle}`;
   }
   
   if (activity.status === 'searching' && activity.videoTitle) {
-    return `🔍 ${activity.videoTitle}`;
+    const cleanTitle = cleanVideoTitle(activity.videoTitle);
+    return `<i class="fas fa-search" style="color: #3b82f6;"></i> ${cleanTitle}`;
   }
   
   if (activity.status === 'studying') {
-    return '📚 Studying';
+    return '<i class="fas fa-book-open" style="color: #10b981;"></i> Studying';
   }
   
   if (activity.status === 'social-media') {
-    return '📱 Scrolling Social Media';
+    return '<i class="fas fa-share-alt" style="color: #8b5cf6;"></i> Scrolling Social Media';
   }
   
   // Custom labels for common websites
@@ -689,103 +947,126 @@ function getActivityTextFromData(activity) {
     const url = activity.currentUrl || '';
     const lowerUrl = url.toLowerCase();
     
+    // Privacy: Show only platform name for private meeting sites
+    if (lowerUrl.includes('meet.google.com')) {
+      return '<i class="fas fa-video" style="color: #10b981;"></i> Google Meet';
+    }
+    if (lowerUrl.includes('zoom.us')) {
+      return '<i class="fas fa-video" style="color: #3b82f6;"></i> Zoom';
+    }
+    if (lowerUrl.includes('teams.microsoft.com')) {
+      return '<i class="fas fa-video" style="color: #6264a7;"></i> Microsoft Teams';
+    }
+    if (lowerUrl.includes('webex.com')) {
+      return '<i class="fas fa-video" style="color: #10b981;"></i> Webex';
+    }
+    if (lowerUrl.includes('whereby.com')) {
+      return '<i class="fas fa-video" style="color: #3b82f6;"></i> Whereby';
+    }
+    if (lowerUrl.includes('discord.com/channels')) {
+      return '<i class="fab fa-discord" style="color: #5865f2;"></i> Discord Call';
+    }
+    if (lowerUrl.includes('slack.com/call')) {
+      return '<i class="fab fa-slack" style="color: #4a154b;"></i> Slack Call';
+    }
+    
     // Google
     if (lowerUrl.includes('google.com')) {
       if (lowerUrl.includes('/search')) {
-        return '🔍 Googling...';
+        return '<i class="fas fa-search" style="color: #3b82f6;"></i> Googling...';
       }
-      return '🔍 On Google';
+      return '<i class="fab fa-google" style="color: #4285f4;"></i> On Google';
     }
     
     // Social Media
     if (lowerUrl.includes('instagram.com')) {
-      if (lowerUrl.includes('/reel')) return '📸 Watching Reels';
-      if (lowerUrl.includes('/stories')) return '📸 Checking Stories';
-      return '📸 Scrolling Instagram';
+      if (lowerUrl.includes('/reel')) return '<i class="fab fa-instagram" style="color: #e4405f;"></i> Watching Reels';
+      if (lowerUrl.includes('/stories')) return '<i class="fab fa-instagram" style="color: #e4405f;"></i> Checking Stories';
+      return '<i class="fab fa-instagram" style="color: #e4405f;"></i> Scrolling Instagram';
     }
     
     if (lowerUrl.includes('facebook.com')) {
-      return '👥 On Facebook';
+      return '<i class="fab fa-facebook" style="color: #1877f2;"></i> On Facebook';
     }
     
     if (lowerUrl.includes('twitter.com') || lowerUrl.includes('x.com')) {
-      return '🐦 Scrolling X (Twitter)';
+      return '<i class="fab fa-twitter" style="color: #1da1f2;"></i> Scrolling X (Twitter)';
     }
     
     if (lowerUrl.includes('reddit.com')) {
-      return '🤖 Browsing Reddit';
+      return '<i class="fab fa-reddit" style="color: #ff4500;"></i> Browsing Reddit';
     }
     
     if (lowerUrl.includes('tiktok.com')) {
-      return '🎵 Watching TikTok';
+      return '<i class="fab fa-tiktok" style="color: #000000;"></i> Watching TikTok';
     }
     
     if (lowerUrl.includes('snapchat.com')) {
-      return '👻 On Snapchat';
+      return '<i class="fab fa-snapchat" style="color: #fffc00;"></i> On Snapchat';
     }
     
     if (lowerUrl.includes('linkedin.com')) {
-      return '💼 Networking on LinkedIn';
+      return '<i class="fab fa-linkedin" style="color: #0a66c2;"></i> Networking on LinkedIn';
     }
     
     if (lowerUrl.includes('pinterest.com')) {
-      return '📌 Pinning Ideas';
+      return '<i class="fab fa-pinterest" style="color: #e60023;"></i> Pinning Ideas';
     }
     
     // Entertainment
     if (lowerUrl.includes('netflix.com')) {
-      return '🎬 Watching Netflix';
+      return '<i class="fas fa-film" style="color: #e50914;"></i> Watching Netflix';
     }
     
     if (lowerUrl.includes('spotify.com')) {
-      return '🎵 Listening to Spotify';
+      return '<i class="fab fa-spotify" style="color: #1db954;"></i> Listening to Spotify';
     }
     
     if (lowerUrl.includes('twitch.tv')) {
-      return '🎮 Watching Twitch';
+      return '<i class="fab fa-twitch" style="color: #9146ff;"></i> Watching Twitch';
     }
     
     if (lowerUrl.includes('discord.com')) {
-      return '💬 Chatting on Discord';
+      return '<i class="fab fa-discord" style="color: #5865f2;"></i> Chatting on Discord';
     }
     
     // Shopping
     if (lowerUrl.includes('amazon.')) {
-      return '🛒 Shopping on Amazon';
+      return '<i class="fab fa-amazon" style="color: #ff9900;"></i> Shopping on Amazon';
     }
     
     if (lowerUrl.includes('flipkart.com')) {
-      return '🛒 Shopping on Flipkart';
+      return '<i class="fas fa-shopping-cart" style="color: #2874f0;"></i> Shopping on Flipkart';
     }
     
     // News & Info
     if (lowerUrl.includes('wikipedia.org')) {
-      return '📖 Reading Wikipedia';
+      return '<i class="fab fa-wikipedia-w" style="color: #000000;"></i> Reading Wikipedia';
     }
     
     if (lowerUrl.includes('github.com')) {
-      return '💻 Coding on GitHub';
+      return '<i class="fab fa-github" style="color: #ffffff;"></i> Coding on GitHub';
     }
     
     if (lowerUrl.includes('stackoverflow.com')) {
-      return '💡 Finding Solutions';
+      return '<i class="fab fa-stack-overflow" style="color: #f48024;"></i> Finding Solutions';
     }
     
     // Email
     if (lowerUrl.includes('gmail.com') || lowerUrl.includes('mail.google.com')) {
-      return '📧 Checking Email';
+      return '<i class="fas fa-envelope" style="color: #ea4335;"></i> Checking Email';
     }
     
     if (lowerUrl.includes('outlook.')) {
-      return '📧 Checking Outlook';
+      return '<i class="fas fa-envelope" style="color: #0078d4;"></i> Checking Outlook';
     }
     
     // Default - show domain
     const domain = url.match(/https?:\/\/([^\/]+)/)?.[1] || 'web';
-    return `🌐 ${domain}`;
+    return `<i class="fas fa-globe" style="color: #3b82f6;"></i> ${domain}`;
   }
   
-  return 'Online';
+  return '<i class="fas fa-circle" style="color: #10b981;"></i> Online';
 }
 
 // Profile Modal Functions
@@ -821,8 +1102,12 @@ async function viewProfile(username) {
     modalContent.style.boxShadow = '0 24px 80px rgba(0,0,0,0.8)';
     
     // Profile decoration overlay (on top of modal, not as border)
-    const profileDecoration = profile.profileDecoration ? `
-      <div style="
+    // Valid profile IDs: gradient-1, p2-p8 (exclude banner/avatar IDs)
+    const validProfileIds = ['gradient-1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8'];
+    const hasValidProfileDecoration = profile.profileDecoration && validProfileIds.includes(profile.profileDecoration);
+    
+    const profileDecoration = hasValidProfileDecoration ? `
+      <div id="profileDecorationOverlay" style="
         position: absolute;
         top: 0;
         left: 0;
@@ -835,6 +1120,8 @@ async function viewProfile(username) {
         pointer-events: none;
         z-index: 1000;
         border-radius: 15px;
+        opacity: 1;
+        transition: opacity 0.5s ease-in-out;
       "></div>
     ` : '';
     
@@ -967,8 +1254,13 @@ async function viewProfile(username) {
             </div>
           </div>
           
-          ${profile.activity.videoTitle ? `
+          ${profile.activity.videoTitle && isPublicURL(profile.activity.currentUrl) ? `
             ${(() => {
+              // Privacy check: only show details for public URLs
+              if (!isPublicURL(profile.activity.currentUrl)) {
+                return '';
+              }
+              
               // Dynamic detection based on thumbnail type
               const hasImageThumbnail = profile.activity.videoThumbnail && 
                                        typeof profile.activity.videoThumbnail === 'string' && 
@@ -1071,7 +1363,7 @@ async function viewProfile(username) {
             })()}
           ` : ''}
           
-          ${profile.activity.actionButton && profile.activity.currentUrl ? `
+          ${profile.activity.actionButton && profile.activity.currentUrl && isPublicURL(profile.activity.currentUrl) ? `
             <button class="activity-action-btn" data-url="${profile.activity.currentUrl}" style="width: 100%; margin-top: 12px; padding: 10px 16px; background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); border: 1px solid #60a5fa; border-radius: 8px; color: white; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; outline: none;">
               <i class="fas fa-external-link-alt"></i>
               ${profile.activity.actionButton}
@@ -1081,6 +1373,24 @@ async function viewProfile(username) {
       ` : ''}
       ${profileDecoration}
     `;
+    
+    // Profile decoration animation: 5s visible, 5s hidden, repeat
+    if (hasValidProfileDecoration) {
+      const decorationOverlay = document.getElementById('profileDecorationOverlay');
+      if (decorationOverlay) {
+        let isVisible = true;
+        
+        // Cycle every 5 seconds
+        setInterval(() => {
+          if (isVisible) {
+            decorationOverlay.style.opacity = '0';
+          } else {
+            decorationOverlay.style.opacity = '1';
+          }
+          isVisible = !isVisible;
+        }, 5000);
+      }
+    }
     
     // Add event listener for action button (CSP-compliant)
     setTimeout(() => {
@@ -1781,21 +2091,24 @@ function updateOnlineUsers() {
       "></div>
     ` : '';
     
-    const cardStyle = user.nameBanner ? `
+    const isAnimated = isAnimatedBanner(user.nameBanner);
+    const bannerHTML = getNameBannerHTML(user.nameBanner);
+    const cardStyle = user.nameBanner ? (isAnimated ? 'position: relative; overflow: hidden;' : `
       background: url('${chrome.runtime.getURL(`assets/name_banner/${user.nameBanner}.png`)}') center/cover;
       background-size: 100% 100%;
-    ` : '';
+    `) : '';
     
     return `
       <div class="online-user" style="${cardStyle}">
-        <div style="position: relative; width: 32px; height: 32px; flex-shrink: 0;">
+        ${bannerHTML}
+        <div style="position: relative; width: 32px; height: 32px; flex-shrink: 0; z-index: 1;">
           <div class="online-user-avatar" style="position: relative; z-index: 1;">${user.avatar || '👤'}</div>
           ${avatarDecoration}
         </div>
-        <div class="online-user-info">
+        <div class="online-user-info" style="position: relative; z-index: 1;">
           <div class="online-user-name" style="text-shadow: 0 2px 8px rgba(0,0,0,0.8), 0 0 4px rgba(0,0,0,0.6);">${user.displayName || user.username}</div>
         </div>
-        <div class="online-indicator-small"></div>
+        <div class="online-indicator-small" style="position: relative; z-index: 1;"></div>
       </div>
     `;
   }).join('');
@@ -1815,6 +2128,48 @@ function escapeHtml(text) {
 // ====================
 // SHOP FUNCTIONALITY
 // ====================
+
+// Helper function to compare version strings
+function compareVersions(v1, v2) {
+  // Ensure versions are strings and trim whitespace
+  v1 = String(v1 || '0.0.0').trim();
+  v2 = String(v2 || '0.0.0').trim();
+  
+  const parts1 = v1.split('.').map(Number);
+  const parts2 = v2.split('.').map(Number);
+  
+  for (let i = 0; i < Math.max(parts1.length, parts2.length); i++) {
+    const num1 = parts1[i] || 0;
+    const num2 = parts2[i] || 0;
+    
+    if (num1 > num2) return 1;
+    if (num1 < num2) return -1;
+  }
+  
+  return 0;
+}
+
+// Helper to check if banner is animated (.webm)
+function isAnimatedBanner(bannerId) {
+  if (!bannerId) return false;
+  const animatedBanners = ['asset', 'mb1', 'mb2', 'mb3', 'mb4', 'mb5', 'mb6', 'mb7'];
+  return animatedBanners.includes(bannerId);
+}
+
+// Helper to get name banner HTML (supports .webm and .png)
+function getNameBannerHTML(bannerId, additionalClass = '', additionalStyle = '') {
+  if (!bannerId) return '';
+  
+  const isAnimated = isAnimatedBanner(bannerId);
+  const extension = isAnimated ? '.webm' : '.png';
+  const url = chrome.runtime.getURL(`assets/name_banner/${bannerId}${extension}`);
+  
+  if (isAnimated) {
+    return `<video autoplay loop muted playsinline class="name-banner-video ${additionalClass}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; ${additionalStyle}" src="${url}"></video>`;
+  }
+  
+  return '';
+}
 
 // Shop items now loaded from backend
 let shopItems = null;
@@ -1889,25 +2244,50 @@ async function loadShopItems(category) {
     const isOwned = purchasedEffects.includes(item.id);
     const isEquipped = currentEquipped === item.id;
     
+    // Check if item requires newer version
+    const manifest = chrome.runtime.getManifest();
+    const currentVersion = manifest.version;
+    // Item is "coming soon" only if it requires a HIGHER version than current
+    // compareVersions returns: -1 if v1 < v2, 0 if equal, 1 if v1 > v2
+    // So we want to show coming soon if currentVersion < minVersion (returns -1)
+    const versionComparison = item.minVersion ? compareVersions(currentVersion, item.minVersion) : 1;
+    const isComingSoon = item.minVersion && versionComparison < 0;
+    
+    // Debug log for first item with minVersion
+    if (item.minVersion && item.id === 'av8') {
+      console.log(`[Shop Debug] Item: ${item.id}, Current: ${currentVersion}, Required: ${item.minVersion}, Comparison: ${versionComparison}, Coming Soon: ${isComingSoon}`);
+    }
+    
     let folderPath = '';
     if (category === 'avatar') folderPath = 'assets/avatar';
     else if (category === 'banner') folderPath = 'assets/name_banner';
     else if (category === 'profile') folderPath = 'assets/profile';
     
-    const imageUrl = chrome.runtime.getURL(`${folderPath}/${item.id}.png`);
+    // Check if banner is animated using the helper function
+    const isAnimated = category === 'banner' && isAnimatedBanner(item.id);
+    
+    // Use appropriate extension for banners (.webm for animated, .png for static)
+    const extension = isAnimated ? '.webm' : '.png';
+    const imageUrl = chrome.runtime.getURL(`${folderPath}/${item.id}${extension}`);
     
     return `
-      <div class="shop-item ${isOwned ? 'owned' : ''} ${isEquipped ? 'equipped' : ''}" data-item-id="${item.id}" data-category="${category}">
-        ${isEquipped ? '<div class="shop-item-status equipped">EQUIPPED</div>' : (isOwned ? '<div class="shop-item-status owned">OWNED</div>' : '')}
-        <div class="shop-item-image">
-          <img src="${imageUrl}" style="width: 100%; height: 100%; object-fit: ${category === 'banner' ? 'cover' : 'contain'};" />
+      <div class="shop-item ${isOwned ? 'owned' : ''} ${isEquipped ? 'equipped' : ''} ${isComingSoon ? 'coming-soon' : ''}" data-item-id="${item.id}" data-category="${category}">
+        ${isComingSoon ? '<div class="shop-item-status coming-soon">COMING SOON</div>' : (isEquipped ? '<div class="shop-item-status equipped">EQUIPPED</div>' : (isOwned ? '<div class="shop-item-status owned">OWNED</div>' : ''))}
+        <div class="shop-item-image" style="${isComingSoon ? 'opacity: 0.4; filter: blur(2px);' : ''}">
+          ${isAnimated ? 
+            `<video src="${imageUrl}" autoplay loop muted playsinline style="width: 100%; height: 100%; object-fit: cover;" ${isComingSoon ? 'poster="data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\'%3E%3C/svg%3E"' : ''}></video>` :
+            `<img src="${imageUrl}" style="width: 100%; height: 100%; object-fit: ${category === 'banner' ? 'cover' : 'contain'};" onerror="this.style.display='none'; this.parentElement.innerHTML='<div style=\'display:flex;align-items:center;justify-content:center;height:100%;color:#666;font-size:12px;\'>Coming Soon</div>'" />`
+          }
         </div>
         <div style="text-align: center; font-size: 13px; font-weight: 600; color: #ddd; margin-bottom: 4px;">${item.name}</div>
-        ${isEquipped ? 
-          '<div style="padding: 8px; background: #fbbf24; border-radius: 6px; font-weight: 600; font-size: 13px; color: #000; text-align: center;">EQUIPPED</div>' :
-          (isOwned ? 
-            '<button class="shop-item-equip-btn" style="width: 100%; padding: 8px; background: #3b82f6; border: none; border-radius: 6px; font-weight: 600; font-size: 13px; color: #fff; cursor: pointer;">EQUIP</button>' :
-            `<div class="shop-item-price"><i class="fas fa-coins"></i> ${item.price} Points</div>`
+        ${isComingSoon ? 
+          '<div style="padding: 8px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 6px; font-weight: 600; font-size: 11px; color: #fff; text-align: center;">UPDATE REQUIRED</div>' :
+          (isEquipped ? 
+            '<div style="padding: 8px; background: #fbbf24; border-radius: 6px; font-weight: 600; font-size: 13px; color: #000; text-align: center;">EQUIPPED</div>' :
+            (isOwned ? 
+              '<button class="shop-item-equip-btn" style="width: 100%; padding: 8px; background: #3b82f6; border: none; border-radius: 6px; font-weight: 600; font-size: 13px; color: #fff; cursor: pointer;">EQUIP</button>' :
+              `<div class="shop-item-price"><i class="fas fa-coins"></i> ${item.price} Points</div>`
+            )
           )
         }
       </div>
@@ -1920,18 +2300,20 @@ async function loadShopItems(category) {
       const itemId = itemEl.dataset.itemId;
       const category = itemEl.dataset.category;
       
+      // Prevent interaction with coming soon items
+      if (itemEl.classList.contains('coming-soon')) {
+        alert('⚠️ This item requires a newer version of the extension. Please update to access this item!');
+        return;
+      }
+      
+      // Handle equip button click
       if (e.target.classList.contains('shop-item-equip-btn')) {
         await equipItem(itemId, category);
-      } else if (!itemEl.classList.contains('owned') && !itemEl.classList.contains('equipped')) {
-        await purchaseItem(itemId, category);
+      } 
+      // For unowned/unequipped items, just preview (don't purchase immediately)
+      else {
+        previewItem(itemId, category);
       }
-    });
-    
-    // Preview on hover
-    itemEl.addEventListener('mouseenter', () => {
-      const itemId = itemEl.dataset.itemId;
-      const category = itemEl.dataset.category;
-      previewItem(itemId, category);
     });
   });
 }
@@ -2021,25 +2403,95 @@ async function equipItem(itemId, category) {
 }
 
 function previewItem(itemId, category) {
+  // Get item data
+  const items = shopItems[category];
+  const item = items?.find(i => i.id === itemId);
+  if (!item) return;
+  
+  // Check ownership
+  const isOwned = currentUserData?.purchasedEffects?.includes(itemId);
+  
+  // Update preview based on category
   if (category === 'avatar') {
     const decorationUrl = chrome.runtime.getURL(`assets/avatar/${itemId}.png`);
     document.getElementById('previewAvatarDecoration').style.background = `url('${decorationUrl}') center/contain no-repeat`;
     document.getElementById('previewAvatarDecoration').style.pointerEvents = 'none';
+    
+    // Show/hide purchase button
+    const purchaseBtn = document.getElementById('purchaseAvatarBtn');
+    if (isOwned) {
+      purchaseBtn.style.display = 'none';
+    } else {
+      purchaseBtn.style.display = 'block';
+      purchaseBtn.innerHTML = `<i class="fas fa-coins"></i> Purchase for ${item.price} Points`;
+      purchaseBtn.onclick = () => purchaseItem(itemId, category);
+    }
   } else if (category === 'banner') {
-    const bannerUrl = chrome.runtime.getURL(`assets/name_banner/${itemId}.png`);
-    document.getElementById('previewCard').style.background = `url('${bannerUrl}') center/cover`;
-    document.getElementById('previewCard').style.backgroundSize = '100% 100%';
+    const previewCard = document.getElementById('previewCard');
+    const isAnimated = isAnimatedBanner(itemId);
+    const extension = isAnimated ? '.webm' : '.png';
+    const bannerUrl = chrome.runtime.getURL(`assets/name_banner/${itemId}${extension}`);
+    
+    // Remove any existing video
+    const existingVideo = previewCard.querySelector('.preview-banner-video');
+    if (existingVideo) existingVideo.remove();
+    
+    if (isAnimated) {
+      previewCard.style.background = '';
+      previewCard.style.position = 'relative';
+      previewCard.style.overflow = 'hidden';
+      const video = document.createElement('video');
+      video.src = bannerUrl;
+      video.autoplay = true;
+      video.loop = true;
+      video.muted = true;
+      video.playsInline = true;
+      video.className = 'preview-banner-video';
+      video.style.cssText = 'position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0;';
+      previewCard.insertBefore(video, previewCard.firstChild);
+      
+      // Ensure text is visible above video
+      Array.from(previewCard.children).forEach(child => {
+        if (child !== video && !child.style.position) {
+          child.style.position = 'relative';
+          child.style.zIndex = '1';
+        }
+      });
+    } else {
+      previewCard.style.background = `url('${bannerUrl}') center/cover`;
+      previewCard.style.backgroundSize = '100% 100%';
+    }
     // Keep user info visible
     if (currentUserData) {
       document.getElementById('previewCardAvatar').textContent = currentUserData.avatar || '👤';
       document.getElementById('previewCardName').textContent = currentUserData.displayName || currentUserData.username || 'Your Name';
       document.getElementById('previewCardUsername').textContent = '@' + (currentUserData.username || 'username');
     }
+    
+    // Show/hide purchase button
+    const purchaseBtn = document.getElementById('purchaseBannerBtn');
+    if (isOwned) {
+      purchaseBtn.style.display = 'none';
+    } else {
+      purchaseBtn.style.display = 'block';
+      purchaseBtn.innerHTML = `<i class="fas fa-coins"></i> Purchase for ${item.price} Points`;
+      purchaseBtn.onclick = () => purchaseItem(itemId, category);
+    }
   } else if (category === 'profile') {
     const profileUrl = chrome.runtime.getURL(`assets/profile/${itemId}.png`);
     document.getElementById('previewProfile').style.background = `url('${profileUrl}') center/cover`;
     document.getElementById('previewProfile').style.backgroundSize = '100% 100%';
     document.getElementById('previewProfile').textContent = '';
+    
+    // Show/hide purchase button
+    const purchaseBtn = document.getElementById('purchaseProfileBtn');
+    if (isOwned) {
+      purchaseBtn.style.display = 'none';
+    } else {
+      purchaseBtn.style.display = 'block';
+      purchaseBtn.innerHTML = `<i class="fas fa-coins"></i> Purchase for ${item.price} Points`;
+      purchaseBtn.onclick = () => purchaseItem(itemId, category);
+    }
   }
 }
 
@@ -2061,9 +2513,40 @@ function updatePreview() {
   document.getElementById('previewCardUsername').textContent = '@' + (currentUserData.username || 'username');
   
   if (currentUserData.nameBanner) {
-    const bannerUrl = chrome.runtime.getURL(`assets/name_banner/${currentUserData.nameBanner}.png`);
-    document.getElementById('previewCard').style.background = `url('${bannerUrl}') center/cover`;
-    document.getElementById('previewCard').style.backgroundSize = '100% 100%';
+    const previewCard = document.getElementById('previewCard');
+    const isAnimated = isAnimatedBanner(currentUserData.nameBanner);
+    const extension = isAnimated ? '.webm' : '.png';
+    const bannerUrl = chrome.runtime.getURL(`assets/name_banner/${currentUserData.nameBanner}${extension}`);
+    
+    // Remove any existing video
+    const existingVideo = previewCard.querySelector('.preview-banner-video');
+    if (existingVideo) existingVideo.remove();
+    
+    if (isAnimated) {
+      previewCard.style.background = '';
+      previewCard.style.position = 'relative';
+      previewCard.style.overflow = 'hidden';
+      const video = document.createElement('video');
+      video.src = bannerUrl;
+      video.autoplay = true;
+      video.loop = true;
+      video.muted = true;
+      video.playsInline = true;
+      video.className = 'preview-banner-video';
+      video.style.cssText = 'position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0;';
+      previewCard.insertBefore(video, previewCard.firstChild);
+      
+      // Ensure text is visible above video
+      Array.from(previewCard.children).forEach(child => {
+        if (child !== video && !child.style.position) {
+          child.style.position = 'relative';
+          child.style.zIndex = '1';
+        }
+      });
+    } else {
+      previewCard.style.background = `url('${bannerUrl}') center/cover`;
+      previewCard.style.backgroundSize = '100% 100%';
+    }
   } else {
     document.getElementById('previewCard').style.background = '#141414';
   }
@@ -2078,6 +2561,362 @@ function updatePreview() {
     document.getElementById('previewProfile').style.background = '#141414';
     document.getElementById('previewProfile').textContent = 'Profile Frame';
   }
+}
+
+// Nudge Feature
+async function sendNudge(friendUserId, friendDisplayName) {
+  try {
+    const token = await API.getToken();
+    const response = await fetch(`${API_BASE_URL}/api/friends/nudge/${friendUserId}`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({})
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to send nudge');
+    }
+
+    showToast(`Nudge sent to ${friendDisplayName}! 👊`, 'success');
+  } catch (error) {
+    console.error('Send nudge error:', error);
+    showToast(error.message || 'Failed to send nudge', 'error');
+  }
+}
+
+// Check for new nudges
+async function checkNudges() {
+  try {
+    const token = await API.getToken();
+    const response = await fetch(`${API_BASE_URL}/api/friends/nudges`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    if (!response.ok) return;
+
+    const nudges = await response.json();
+
+    if (nudges && nudges.length > 0) {
+      nudges.forEach(nudge => {
+        showNudgeNotification(nudge);
+      });
+    }
+  } catch (error) {
+    console.error('Check nudges error:', error);
+  }
+}
+
+// Show nudge notification
+function showNudgeNotification(nudge) {
+  const notification = document.createElement('div');
+  notification.className = 'nudge-notification';
+  notification.style.cssText = `
+    position: fixed;
+    top: 24px;
+    right: 24px;
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%);
+    border: 2px solid transparent;
+    border-radius: 16px;
+    padding: 0;
+    box-shadow: 0 20px 60px rgba(139, 92, 246, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+    z-index: 10000;
+    min-width: 380px;
+    max-width: 420px;
+    animation: nudgeSlideIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+    cursor: pointer;
+    transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    overflow: hidden;
+    backdrop-filter: blur(10px);
+  `;
+
+  // Add animated gradient border effect
+  const borderGlow = document.createElement('div');
+  borderGlow.style.cssText = `
+    position: absolute;
+    inset: -2px;
+    background: linear-gradient(90deg, #6366f1, #8b5cf6, #a855f7, #8b5cf6, #6366f1);
+    background-size: 200% 100%;
+    border-radius: 16px;
+    z-index: -1;
+    animation: gradientShift 3s linear infinite;
+  `;
+  notification.appendChild(borderGlow);
+
+  // Add pulse animation overlay
+  const pulseOverlay = document.createElement('div');
+  pulseOverlay.style.cssText = `
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at top right, rgba(255, 255, 255, 0.2), transparent 60%);
+    animation: pulse 2s ease-in-out infinite;
+    pointer-events: none;
+  `;
+  notification.appendChild(pulseOverlay);
+
+  const content = document.createElement('div');
+  content.style.cssText = `
+    position: relative;
+    padding: 20px 24px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 14px;
+  `;
+
+  content.innerHTML = `
+    <div style="display: flex; align-items: start; gap: 16px;">
+      <div style="position: relative; flex-shrink: 0;">
+        <div style="font-size: 48px; filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.3));">${nudge.fromAvatar || '👤'}</div>
+        <div style="
+          position: absolute;
+          bottom: -4px;
+          right: -4px;
+          background: linear-gradient(135deg, #fbbf24, #f59e0b);
+          width: 24px;
+          height: 24px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-shadow: 0 4px 12px rgba(251, 191, 36, 0.5);
+          animation: nudgeBounce 0.6s ease-in-out infinite;
+        ">
+          <i class="fas fa-hand-point-right" style="color: white; font-size: 12px;"></i>
+        </div>
+      </div>
+      <div style="flex: 1; min-width: 0;">
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+          <div style="font-size: 16px; font-weight: 700; color: #ffffff; text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);">
+            ${nudge.fromDisplayName}
+          </div>
+          <div style="
+            background: rgba(255, 255, 255, 0.2);
+            padding: 2px 8px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            color: #ffffff;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+          ">
+            Nudge
+          </div>
+        </div>
+        <div style="
+          font-size: 15px;
+          color: rgba(255, 255, 255, 0.95);
+          line-height: 1.5;
+          text-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+          font-weight: 500;
+        ">
+          ${nudge.message}
+        </div>
+        <div style="
+          margin-top: 12px;
+          padding-top: 12px;
+          border-top: 1px solid rgba(255, 255, 255, 0.1);
+          font-size: 12px;
+          color: rgba(255, 255, 255, 0.7);
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        ">
+          <i class="fas fa-mouse-pointer" style="font-size: 10px;"></i>
+          <span>Click to start focusing</span>
+        </div>
+      </div>
+      <button class="nudge-close-btn" style="
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 8px;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: rgba(255, 255, 255, 0.8);
+        cursor: pointer;
+        font-size: 14px;
+        padding: 0;
+        transition: all 0.2s ease;
+        flex-shrink: 0;
+      ">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+  `;
+
+  notification.appendChild(content);
+
+  notification.onmouseenter = () => {
+    notification.style.transform = 'translateY(-4px) scale(1.02)';
+    notification.style.boxShadow = '0 24px 80px rgba(139, 92, 246, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.2) inset';
+  };
+
+  notification.onmouseleave = () => {
+    notification.style.transform = 'translateY(0) scale(1)';
+    notification.style.boxShadow = '0 20px 60px rgba(139, 92, 246, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.1) inset';
+  };
+
+  const closeBtn = notification.querySelector('.nudge-close-btn');
+  closeBtn.onmouseenter = () => {
+    closeBtn.style.background = 'rgba(255, 255, 255, 0.2)';
+    closeBtn.style.transform = 'scale(1.1)';
+  };
+  closeBtn.onmouseleave = () => {
+    closeBtn.style.background = 'rgba(255, 255, 255, 0.1)';
+    closeBtn.style.transform = 'scale(1)';
+  };
+  closeBtn.onclick = (e) => {
+    e.stopPropagation();
+    notification.style.animation = 'nudgeSlideOut 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)';
+    setTimeout(() => notification.remove(), 400);
+  };
+
+  notification.onclick = () => {
+    notification.style.animation = 'nudgeSlideOut 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)';
+    setTimeout(() => {
+      notification.remove();
+      window.location.href = 'popup.html';
+    }, 200);
+  };
+
+  document.body.appendChild(notification);
+
+  // Auto remove after 6 seconds
+  setTimeout(() => {
+    if (notification.parentElement) {
+      notification.style.animation = 'nudgeSlideOut 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)';
+      setTimeout(() => notification.remove(), 400);
+    }
+  }, 6000);
+}
+
+// Load friend suggestions
+async function loadFriendSuggestions() {
+  try {
+    const token = await API.getToken();
+    const response = await fetch(`${API_BASE_URL}/api/friends/suggestions`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to load suggestions');
+    }
+
+    const suggestions = await response.json();
+    displayFriendSuggestions(suggestions);
+
+    // Update badge
+    const badge = document.getElementById('suggestionsBadge');
+    if (suggestions.length > 0) {
+      badge.textContent = suggestions.length;
+      badge.style.display = 'inline';
+    } else {
+      badge.style.display = 'none';
+    }
+  } catch (error) {
+    console.error('Load suggestions error:', error);
+  }
+}
+
+// Display friend suggestions
+function displayFriendSuggestions(suggestions) {
+  const list = document.getElementById('suggestionsList');
+
+  if (!suggestions || suggestions.length === 0) {
+    list.innerHTML = `
+      <div style="text-align: center; padding: 48px 24px; color: #6b7280;">
+        <i class="fas fa-users" style="font-size: 48px; opacity: 0.3; margin-bottom: 16px;"></i>
+        <p style="font-size: 15px;">No suggestions available right now</p>
+        <p style="font-size: 13px; margin-top: 8px;">Connect with more friends to get suggestions!</p>
+      </div>
+    `;
+    return;
+  }
+
+  list.innerHTML = suggestions.map(user => {
+    const mutualText = user.mutualFriendsCount === 1
+      ? `1 mutual friend`
+      : `${user.mutualFriendsCount} mutual friends`;
+
+    return `
+      <div class="friend-card" style="animation: slideIn 0.4s ease-out; position: relative;">
+        <div style="display: flex; align-items: center; gap: 16px; flex: 1;">
+          <div style="position: relative;">
+            <div style="font-size: 48px;">${user.avatar || '👤'}</div>
+            ${user.avatarDecoration ? `
+              <div style="
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                width: 72px;
+                height: 72px;
+                background: url('${chrome.runtime.getURL(`assets/avatar/${user.avatarDecoration}.png`)}') center/contain no-repeat;
+                pointer-events: none;
+                z-index: 10;
+              "></div>
+            ` : ''}
+          </div>
+          <div style="flex: 1;">
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+              <div style="font-weight: 600; font-size: 15px; color: #e5e5e5;">${user.displayName}</div>
+              <div style="background: #3b82f6; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600;">
+                Lv ${user.level || 1}
+              </div>
+            </div>
+            <div style="color: #6b7280; font-size: 13px; margin-bottom: 6px;">@${user.username}</div>
+            <div style="display: flex; align-items: center; gap: 6px; color: #8b5cf6; font-size: 12px;">
+              <i class="fas fa-user-friends"></i>
+              <span>${mutualText}</span>
+            </div>
+          </div>
+          <div style="text-align: right;">
+            <div style="font-size: 13px; color: #6b7280; margin-bottom: 8px;">
+              ${user.points || 0} pts
+            </div>
+            <button class="add-friend-btn" onclick="addFriend('${user.username}')" style="
+              background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%);
+              border: none;
+              padding: 8px 16px;
+              border-radius: 8px;
+              color: white;
+              font-size: 13px;
+              font-weight: 600;
+              cursor: pointer;
+              transition: all 0.3s ease;
+              display: flex;
+              align-items: center;
+              gap: 6px;
+            " onmouseenter="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(59, 130, 246, 0.4)';" onmouseleave="this.style.transform='translateY(0)'; this.style.boxShadow='none';">
+              <i class="fas fa-user-plus"></i>
+              <span>Add Friend</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+// Check nudges every 2 minutes
+setInterval(checkNudges, 2 * 60 * 1000);
+checkNudges(); // Initial check
+
+// Add suggestions tab handling
+const suggestionsTab = document.querySelector('[data-tab="suggestions"]');
+if (suggestionsTab) {
+  suggestionsTab.addEventListener('click', () => {
+    loadFriendSuggestions();
+  });
 }
 
 // Cleanup on page unload
