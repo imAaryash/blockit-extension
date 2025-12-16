@@ -447,6 +447,134 @@
       color: #3b82f6;
     }
 
+    /* Heatmap Styles */
+    .heatmap-container {
+      display: flex;
+      gap: 3px;
+      flex-wrap: wrap;
+      align-items: flex-start;
+    }
+    
+    .heatmap-month {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    
+    .heatmap-month-label {
+      font-size: 11px;
+      color: #6b7280;
+      margin-bottom: 4px;
+      font-weight: 600;
+    }
+
+    .heatmap-month-grid {
+      display: flex;
+      gap: 3px;
+    }
+    
+    .heatmap-week {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    
+    .heatmap-day {
+      width: 12px;
+      height: 12px;
+      border-radius: 2px;
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      position: relative;
+    }
+
+    .heatmap-day-empty {
+      opacity: 0;
+      pointer-events: none;
+      cursor: default;
+    }
+    
+    .heatmap-day:not(.heatmap-day-empty):hover {
+      transform: scale(1.3);
+      z-index: 10;
+      border-color: #3b82f6;
+    }
+    
+    .heatmap-day[data-level="0"] {
+      background: #1a1a1a;
+    }
+    
+    .heatmap-day[data-level="1"] {
+      background: #0e4429;
+      border-color: #0e4429;
+    }
+    
+    .heatmap-day[data-level="2"] {
+      background: #006d32;
+      border-color: #006d32;
+    }
+    
+    .heatmap-day[data-level="3"] {
+      background: #26a641;
+      border-color: #26a641;
+    }
+    
+    .heatmap-day[data-level="4"] {
+      background: #39d353;
+      border-color: #39d353;
+    }
+    
+    .heatmap-tooltip {
+      position: absolute;
+      bottom: 100%;
+      left: 50%;
+      transform: translateX(-50%) translateY(-8px);
+      background: #1a1a1a;
+      color: #e5e5e5;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 11px;
+      white-space: nowrap;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.2s;
+      z-index: 100;
+      border: 1px solid #2a2a2a;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    }
+    
+    .heatmap-day:hover .heatmap-tooltip {
+      opacity: 1;
+    }
+    
+    .heatmap-legend {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 16px;
+      font-size: 11px;
+      color: #6b7280;
+      justify-content: flex-end;
+    }
+    
+    .heatmap-legend-label {
+      margin-right: 4px;
+    }
+    
+    .heatmap-legend-boxes {
+      display: flex;
+      gap: 3px;
+    }
+    
+    .heatmap-legend-box {
+      width: 12px;
+      height: 12px;
+      border-radius: 2px;
+      border: 1px solid #2a2a2a;
+    }
+
     .stat-card-subtitle {
       font-size: 13px;
       color: #6b7280;
@@ -555,10 +683,160 @@
       margin-bottom: 48px;
       animation: fadeInUp 0.6s ease-out 0.5s both;
       transition: all 0.3s ease;
+      position: relative;
     }
 
     .blocked-sites-section:hover {
       border-color: #2a2a2a;
+    }
+
+    .blocked-count-badge {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 14px;
+      color: #6b7280;
+    }
+
+    .btn-view-blocked {
+      padding: 8px 16px;
+      background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+      border: 1px solid #60a5fa;
+      border-radius: 8px;
+      color: white;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn-view-blocked:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+    }
+
+    .blocked-sites-popup {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 600px;
+      max-width: 90vw;
+      max-height: 80vh;
+      background: #0a0a0a;
+      border: 1px solid #3b82f6;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+      z-index: 10001;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .popup-backdrop {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.7);
+      z-index: 10000;
+      backdrop-filter: blur(4px);
+    }
+
+    .popup-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px 24px;
+      background: #111111;
+      border-bottom: 1px solid #1f1f1f;
+    }
+
+    .popup-header h3 {
+      font-size: 18px;
+      font-weight: 600;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .btn-close-popup {
+      width: 32px;
+      height: 32px;
+      background: #1f1f1f;
+      border: 1px solid #2a2a2a;
+      border-radius: 8px;
+      color: #6b7280;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .btn-close-popup:hover {
+      background: #ef4444;
+      border-color: #ef4444;
+      color: white;
+    }
+
+    .popup-permanent-sites {
+      padding: 24px;
+      background: #0a0a0a;
+      border-bottom: 1px solid #1f1f1f;
+    }
+
+    .permanent-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #fbbf24;
+      margin-bottom: 16px;
+    }
+
+    .permanent-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .site-badge {
+      padding: 6px 12px;
+      background: #1f1f1f;
+      border: 1px solid #2a2a2a;
+      border-radius: 6px;
+      font-size: 12px;
+      color: #e5e5e5;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .permanent-note {
+      font-size: 11px;
+      color: #6b7280;
+      font-style: italic;
+    }
+
+    .popup-custom-sites {
+      padding: 24px;
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    .custom-sites-label {
+      font-size: 14px;
+      font-weight: 600;
+      color: #3b82f6;
+      margin-bottom: 16px;
     }
 
     .section-header {
@@ -725,7 +1003,7 @@
     .site-item:hover {
       border-color: #3b82f6;
       background: #1f1f1f;
-      transform: translateX(4px);
+    
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
     }
 
@@ -958,10 +1236,29 @@
         <div class="stat-card-subtitle"><span id="totalSessions">0</span> sessions</div>
       </div>
       <div class="stat-card">
+        <div class="stat-card-title">Today's Focus Time</div>
+        <div class="stat-card-value" id="todayTime">0m</div>
+        <div class="stat-card-subtitle">Current day</div>
+      </div>
+      <div class="stat-card">
         <div class="stat-card-title">Sites Blocked</div>
         <div class="stat-card-value" id="blockedStat">0</div>
         <div class="stat-card-subtitle">All time</div>
       </div>
+    </div>
+
+    <!-- Focus Heatmap Calendar -->
+    <div class="badges-section" style="margin-bottom: 48px;">
+      <div class="section-header" style="margin-bottom: 24px;">
+        <div>
+          <div class="section-title">
+            <i class="fas fa-calendar-alt"></i>
+            Focus Heatmap
+          </div>
+          <div class="section-subtitle">Your focus activity over the last 90 days</div>
+        </div>
+      </div>
+      <div id="focusHeatmap" style="overflow-x: auto; padding: 12px; background: #0a0a0a; border-radius: 12px; border: 1px solid #1f1f1f;"></div>
     </div>
 
     <!-- Badges Section -->
@@ -981,64 +1278,75 @@
         <div>
           <div class="section-title">
             <i class="fas fa-ban"></i>
-            Custom Blocked Sites
+            Blocked Sites
           </div>
-          <div class="section-subtitle">Block distracting websites during focus sessions</div>
+          <div class="section-subtitle">Core social media sites are permanently blocked during focus</div>
         </div>
-        <div class="blocked-count" id="blockedCount">0 sites</div>
-      </div>
-      
-      <div class="add-site-card">
-        <i class="fas fa-plus add-site-icon"></i>
-        <input type="text" id="newSite" class="add-site-input" placeholder="Enter website (e.g., instagram.com, reddit.com)" />
-        <button class="btn-add-site" id="addSiteBtn">
-          <i class="fas fa-plus"></i>
-          <span>Add Site</span>
-        </button>
-      </div>
-      
-      <div class="blocked-sites-container" id="blockedSitesList">
-        <div class="empty-state">
-          <div class="empty-state-icon">
-            <i class="fas fa-shield-alt"></i>
-          </div>
-          <div class="empty-state-text">
-            No blocked sites yet.<br>Add websites above to block them during focus sessions.
-          </div>
+        <div class="blocked-count-badge">
+          <span id="blockedCount">0 sites</span>
+          <button class="btn-view-blocked" id="viewBlockedBtn">
+            <i class="fas fa-eye"></i> View & Manage
+          </button>
         </div>
       </div>
     </div>
 
-    <!-- Settings -->
+    <!-- Settings Link -->
     <div class="settings-section">
       <div class="section-title">
         <i class="fas fa-cog"></i>
         Settings
       </div>
-      <div class="settings-grid">
-        <div class="setting-item">
-          <div class="setting-label">
-            <h4>Daily Goal</h4>
-            <p>Set your daily focus time target (minutes)</p>
-          </div>
-          <div class="setting-input">
-            <input type="number" id="dailyGoalInput" min="15" step="15" value="120" />
-          </div>
-        </div>
-        <div class="setting-item">
-          <div class="setting-label">
-            <h4>Pomodoro Break Duration</h4>
-            <p>Break length in minutes</p>
-          </div>
-          <div class="setting-input">
-            <input type="number" id="pomodoroBreakInput" min="1" max="15" value="5" />
-          </div>
+      <p style="color: #6b7280; margin-bottom: 16px;">
+        Customize your focus goals, break duration, and profile avatar
+      </p>
+      <a href="settings.html" class="btn-primary" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none;">
+        <i class="fas fa-sliders-h"></i>
+        Open Settings
+      </a>
+    </div>
+  </div>
+
+  <!-- Blocked Sites Popup (at body level for proper z-index) -->
+  <div class="blocked-sites-popup" id="blockedPopup" style="display: none;">
+    <div class="popup-header">
+      <h3><i class="fas fa-ban"></i> Blocked Sites</h3>
+      <button class="btn-close-popup" id="closePopupBtn">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    
+    <div class="popup-permanent-sites">
+      <div class="permanent-header">
+        <i class="fas fa-lock"></i>
+        <span>Core Blocked Sites (Permanent)</span>
+      </div>
+      <div class="permanent-list">
+        <span class="site-badge">instagram.com</span>
+        <span class="site-badge">facebook.com</span>
+        <span class="site-badge">x.com</span>
+        <span class="site-badge">twitter.com</span>
+        <span class="site-badge">reddit.com</span>
+        <span class="site-badge">tiktok.com</span>
+        <span class="site-badge">snapchat.com</span>
+      </div>
+      <p class="permanent-note">These sites cannot be removed during focus sessions</p>
+    </div>
+    
+    <div class="popup-custom-sites">
+      <div class="add-site-card">
+        <input type="text" id="newSite" class="add-site-input" placeholder="Add custom site (e.g., youtube.com)" />
+        <button class="btn-add-site" id="addSiteBtn">
+          <i class="fas fa-plus"></i> Add
+        </button>
+      </div>
+      
+      <div class="custom-sites-label">Custom Blocked Sites</div>
+      <div class="blocked-sites-container" id="blockedSitesList">
+        <div class="empty-state">
+          <div class="empty-state-text">No custom sites added</div>
         </div>
       </div>
-      <button class="btn-primary" id="saveSettings">
-        <i class="fas fa-save"></i>
-        Save Settings
-      </button>
     </div>
   </div>
 
