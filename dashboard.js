@@ -34,10 +34,30 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 });
 
 async function loadDashboard() {
-  // Sync from MongoDB first to get latest data
-  await send({action: 'syncFromMongoDB'});
+  // Get local state first (prioritize local data)
+  const localState = await chrome.storage.local.get();
   
+  // Sync from MongoDB (but don't let it overwrite recent settings)
+  await send({action: 'syncFromMongoDB'}).catch(err => console.error('Sync failed:', err));
+  
+  // Get state (merge with local)
   const state = await send({action: 'getState'});
+  
+  // Check if it's a new day and reset todayFocusTime if needed (IST timezone)
+  const now = new Date();
+  const istOffset = 5.5 * 60 * 60 * 1000; // IST = UTC+5:30
+  const istTime = new Date(now.getTime() + istOffset);
+  const todayDateString = istTime.toISOString().substring(0, 10); // YYYY-MM-DD in IST
+  const storedDate = state.todayDate || '';
+  
+  // Reset if it's a new day
+  if (storedDate !== todayDateString) {
+    await chrome.storage.local.set({ 
+      todayFocusTime: 0, 
+      todayDate: todayDateString 
+    });
+    state.todayFocusTime = 0;
+  }
   
   // Update stats
   const currentLevel = state.level || 1;
@@ -60,14 +80,174 @@ async function loadDashboard() {
   const hours = Math.floor(totalMin / 60);
   const mins = totalMin % 60;
   document.getElementById('totalTime').textContent = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+  
+  // Today's focused time (use state.todayFocusTime, not stats.todayFocusTime)
+  const todayMin = state.todayFocusTime || 0;
+  const todayHours = Math.floor(todayMin / 60);
+  const todayMins = todayMin % 60;
+  const todayTimeElement = document.getElementById('todayTime');
+  if (todayTimeElement) {
+    todayTimeElement.textContent = todayHours > 0 ? `${todayHours}h ${todayMins}m` : `${todayMins}m`;
+  }
+  
   document.getElementById('totalSessions').textContent = state.stats?.sessionsCompleted || 0;
   document.getElementById('blockedStat').textContent = state.stats?.blockedCount || 0;
   
   // Load badges
   loadBadges(state.badges || []);
   
+  // Load focus heatmap
+  await loadFocusHeatmap();
+  
   // Load blocked sites
   loadBlockedSites(state.blockedKeywords || []);
+}
+
+// Generate Focus Heatmap (GitHub style)
+async function loadFocusHeatmap() {
+  const container = document.getElementById('focusHeatmap');
+  
+  // Get focus history from chrome storage
+  const result = await chrome.storage.local.get('focusHistory');
+  const focusHistory = result.focusHistory || {};
+  
+  console.log('Focus History Data:', focusHistory); // Debug log
+  
+  // Generate last 90 days using IST timezone (to match background.js)
+  const now = new Date();
+  const istOffset = 5.5 * 60 * 60 * 1000; // IST = UTC+5:30
+  const istTime = new Date(now.getTime() + istOffset);
+  const days = 90;
+  const heatmapData = [];
+  
+  for (let i = days - 1; i >= 0; i--) {
+    const date = new Date(istTime.getTime());
+    date.setDate(date.getDate() - i);
+    const dateStr = date.toISOString().split('T')[0]; // YYYY-MM-DD in IST
+    const minutes = focusHistory[dateStr] || 0;
+    
+    heatmapData.push({
+      date: dateStr,
+      minutes: minutes,
+      level: getHeatLevel(minutes),
+      dayOfWeek: new Date(dateStr + 'T12:00:00').getDay() // 0=Sunday, 6=Saturday
+    });
+  }
+  
+  console.log('Heatmap Data Generated:', heatmapData.filter(d => d.minutes > 0)); // Debug log
+  
+  // Group by weeks (Sunday to Saturday)
+  const weeks = [];
+  let currentWeek = [];
+  
+  heatmapData.forEach((day, index) => {
+    // Add empty days at the start of first week to align properly
+    if (index === 0 && day.dayOfWeek !== 0) {
+      for (let i = 0; i < day.dayOfWeek; i++) {
+        currentWeek.push(null); // placeholder for empty days
+      }
+    }
+    
+    currentWeek.push(day);
+    
+    // Complete week on Saturday or at end
+    if (day.dayOfWeek === 6 || index === heatmapData.length - 1) {
+      // Fill remaining days if needed
+      while (currentWeek.length < 7) {
+        currentWeek.push(null);
+      }
+      weeks.push([...currentWeek]);
+      currentWeek = [];
+    }
+  });
+  
+  // Group weeks by month
+  const months = [];
+  let currentMonth = null;
+  let monthWeeks = [];
+  
+  weeks.forEach(week => {
+    // Find the first non-null day in the week to determine month
+    const firstDay = week.find(d => d !== null);
+    if (!firstDay) return;
+    
+    const monthName = new Date(firstDay.date + 'T12:00:00').toLocaleString('default', { month: 'short' });
+    
+    if (monthName !== currentMonth) {
+      if (monthWeeks.length > 0) {
+        months.push({ name: currentMonth, weeks: monthWeeks });
+      }
+      currentMonth = monthName;
+      monthWeeks = [];
+    }
+    
+    monthWeeks.push(week);
+  });
+  
+  // Add last month
+  if (monthWeeks.length > 0) {
+    months.push({ name: currentMonth, weeks: monthWeeks });
+  }
+  
+  // Render heatmap
+  let html = '<div class="heatmap-container">';
+  
+  months.forEach(month => {
+    html += `
+      <div class="heatmap-month">
+        <div class="heatmap-month-label">${month.name}</div>
+        <div class="heatmap-month-grid">
+    `;
+    
+    month.weeks.forEach(week => {
+      html += '<div class="heatmap-week">';
+      week.forEach(day => {
+        if (day === null) {
+          // Empty placeholder
+          html += '<div class="heatmap-day heatmap-day-empty"></div>';
+        } else {
+          const date = new Date(day.date + 'T12:00:00');
+          const tooltip = `${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}: ${day.minutes} min`;
+          html += `
+            <div class="heatmap-day" data-level="${day.level}" data-date="${day.date}" title="${tooltip}">
+              <div class="heatmap-tooltip">${tooltip}</div>
+            </div>
+          `;
+        }
+      });
+      html += '</div>';
+    });
+    
+    html += `
+        </div>
+      </div>
+    `;
+  });
+  
+  html += `
+    </div>
+    <div class="heatmap-legend">
+      <span class="heatmap-legend-label">Less</span>
+      <div class="heatmap-legend-boxes">
+        <div class="heatmap-legend-box" style="background: #1a1a1a; border-color: #2a2a2a;"></div>
+        <div class="heatmap-legend-box" style="background: #0e4429; border-color: #0e4429;"></div>
+        <div class="heatmap-legend-box" style="background: #006d32; border-color: #006d32;"></div>
+        <div class="heatmap-legend-box" style="background: #26a641; border-color: #26a641;"></div>
+        <div class="heatmap-legend-box" style="background: #39d353; border-color: #39d353;"></div>
+      </div>
+      <span class="heatmap-legend-label">More</span>
+    </div>
+  `;
+  
+  container.innerHTML = html;
+}
+
+function getHeatLevel(minutes) {
+  if (minutes === 0) return 0;
+  if (minutes < 30) return 1;
+  if (minutes < 60) return 2;
+  if (minutes < 120) return 3;
+  return 4;
 }
 
 async function checkLevelUp() {
@@ -264,17 +444,17 @@ function loadBlockedSites(sites) {
   const countBadge = document.getElementById('blockedCount');
   container.innerHTML = '';
   
+  // Core permanent sites that are always blocked
+  const permanentSites = 7;
+  const totalSites = permanentSites + sites.length;
+  
   // Update count badge
-  countBadge.textContent = `${sites.length} ${sites.length === 1 ? 'site' : 'sites'}`;
+  countBadge.textContent = `${totalSites} ${totalSites === 1 ? 'site' : 'sites'}`;
   
   if (sites.length === 0) {
     container.innerHTML = `
       <div class="empty-state">
-        <div class="empty-state-icon"><i class="fas fa-shield-alt"></i></div>
-        <div class="empty-state-text">
-          No blocked sites yet.<br>
-          Add websites above to block them during focus sessions.
-        </div>
+        <div class="empty-state-text">No custom sites added</div>
       </div>
     `;
     return;
@@ -305,6 +485,29 @@ function loadBlockedSites(sites) {
   });
 }
 
+// Blocked sites popup handlers
+document.getElementById('viewBlockedBtn')?.addEventListener('click', () => {
+  // Create and show backdrop
+  const backdrop = document.createElement('div');
+  backdrop.className = 'popup-backdrop';
+  backdrop.id = 'popupBackdrop';
+  backdrop.addEventListener('click', closeBlockedPopup);
+  document.body.appendChild(backdrop);
+  
+  // Show popup
+  document.getElementById('blockedPopup').style.display = 'flex';
+});
+
+document.getElementById('closePopupBtn')?.addEventListener('click', closeBlockedPopup);
+
+function closeBlockedPopup() {
+  document.getElementById('blockedPopup').style.display = 'none';
+  const backdrop = document.getElementById('popupBackdrop');
+  if (backdrop) {
+    backdrop.remove();
+  }
+}
+
 // Add site button
 document.getElementById('addSiteBtn').addEventListener('click', async () => {
   const site = document.getElementById('newSite').value.trim();
@@ -313,15 +516,6 @@ document.getElementById('addSiteBtn').addEventListener('click', async () => {
     document.getElementById('newSite').value = '';
     loadDashboard();
   }
-});
-
-// Save settings
-document.getElementById('saveSettings').addEventListener('click', async () => {
-  const dailyGoal = Number(document.getElementById('dailyGoalInput').value) || 120;
-  const pomodoroBreakDuration = Number(document.getElementById('pomodoroBreakInput').value) || 5;
-  
-  await send({action: 'updateSettings', settings: {dailyGoal, pomodoroBreakDuration}});
-  alert('Settings saved!');
 });
 
 // Check for updates button
