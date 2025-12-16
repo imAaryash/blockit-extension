@@ -1,70 +1,364 @@
-let updateInterval = null;
+// Popup with real data integration
+const API_BASE_URL = 'https://focus-backend-g1zg.onrender.com';
 
-// Quick buttons
-document.querySelectorAll('.btn-quick').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.getElementById('duration').value = btn.dataset.duration;
-  });
+let selectedDuration = 25;
+let focusActive = false;
+let remainingTime = 0;
+let timerInterval = null;
+let countdownInterval = null;
+
+document.addEventListener('DOMContentLoaded', async () => {
+  await loadPopupData();
+  
+  // Refresh friends list every 10 seconds
+  setInterval(async () => {
+    const state = await chrome.storage.local.get(['authToken', 'friendsData']);
+    await loadFriends(state);
+  }, 10000);
 });
 
-// Preset selector
-document.getElementById('preset').addEventListener('change', (e) => {
-  const presets = {
-    deepWork: 90,
-    study: 45,
-    quickFocus: 15
-  };
-  if (e.target.value && presets[e.target.value]) {
-    document.getElementById('duration').value = presets[e.target.value];
+// Listen for session end from background script
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.action === 'sessionEnded') {
+    // Session ended by alarm
+    endFocusSession();
+  }
+  return true;
+});
+
+// Listen for storage changes to update daily goal progress in real-time
+chrome.storage.onChanged.addListener(async (changes, namespace) => {
+  if (namespace === 'local') {
+    if (changes.todayFocusTime || changes.dailyGoal) {
+      const state = await chrome.storage.local.get(['todayFocusTime', 'dailyGoal', 'goalAchievedToday']);
+      const todayMin = state.todayFocusTime || 0;
+      const dailyGoal = state.dailyGoal || 120;
+      updateDailyGoalProgress(todayMin, dailyGoal, state.goalAchievedToday);
+      
+      // Also update the Today stat
+      const hours = Math.floor(todayMin / 60);
+      const mins = todayMin % 60;
+      const todayText = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+      document.getElementById('todayDisplay1').textContent = todayText;
+    }
   }
 });
 
-// View stats button
-document.getElementById('viewStats').addEventListener('click', () => {
-  chrome.runtime.openOptionsPage();
-});
+// Load real data
+async function loadPopupData() {
+  try {
+    const state = await chrome.storage.local.get([
+      'level', 'streak', 'todayFocusTime', 'focusActive', 'sessionEnd',
+      'friendsData', 'authToken', 'user', 'points', 'sessionStart', 'selectedDuration', 'todayDate',
+      'dailyGoal', 'goalAchievedToday'
+    ]);
+    
+    // Load saved duration or default to 25
+    selectedDuration = state.selectedDuration || 25;
+    
+    // Check if it's a new day and reset todayFocusTime if needed (IST timezone)
+    const now = new Date();
+    const istOffset = 5.5 * 60 * 60 * 1000; // IST = UTC+5:30
+    const istTime = new Date(now.getTime() + istOffset);
+    const todayDateString = istTime.toISOString().substring(0, 10); // YYYY-MM-DD in IST
+    
+    let todayMin = state.todayFocusTime || 0;
+    const storedDate = state.todayDate || '';
+    
+    // Reset if it's a new day
+    if (storedDate !== todayDateString) {
+      todayMin = 0;
+      await chrome.storage.local.set({ 
+        todayFocusTime: 0, 
+        todayDate: todayDateString,
+        goalAchievedToday: false
+      });
+    }
+    
+    // Update stats
+    const level = state.level || 1;
+    const streak = state.streak?.current || 0;
+    
+    // Format today's time
+    const hours = Math.floor(todayMin / 60);
+    const mins = todayMin % 60;
+    const todayText = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+    
+    document.getElementById('levelDisplay1').textContent = level;
+    document.getElementById('streakDisplay1').textContent = streak || '0';
+    document.getElementById('todayDisplay1').textContent = todayText;
+    
+    // Update daily goal progress
+    const dailyGoal = state.dailyGoal || 120; // Default 2 hours
+    updateDailyGoalProgress(todayMin, dailyGoal, state.goalAchievedToday);
+    
+    // Update timer display
+    focusActive = state.focusActive || false;
+    const sessionEnd = state.sessionEnd || 0;
+    
+    // If session has expired, clear it immediately
+    if (focusActive && sessionEnd > 0 && sessionEnd <= Date.now()) {
+      await chrome.storage.local.set({
+        focusActive: false,
+        sessionEnd: 0,
+        sessionStart: 0
+      });
+      focusActive = false;
+    }
+    
+    if (focusActive && sessionEnd > Date.now()) {
+      remainingTime = sessionEnd - Date.now();
+      const totalDuration = sessionEnd - state.sessionStart;
+      
+      document.getElementById('statusDisplay1').textContent = 'Focusing';
+      document.getElementById('startBtn1').style.display = 'none';
+      document.querySelector('.popup1 .custom-timer').style.opacity = '0.5';
+      document.querySelector('.popup1 .custom-timer').style.pointerEvents = 'none';
+      document.getElementById('customMinutes1').disabled = true;
+      document.getElementById('quickActions1').classList.add('hidden');
+      
+      // Set initial circle state
+      const remainingSeconds = Math.floor(remainingTime / 1000);
+      const totalSeconds = Math.floor(totalDuration / 1000);
+      updateProgressCircle(remainingSeconds, totalSeconds, false);
+      
+      startTimerUpdate();
+    } else {
+      const minutes = selectedDuration;
+      document.getElementById('timerDisplay1').textContent = formatTime(minutes * 60);
+      document.getElementById('statusDisplay1').textContent = 'Ready';
+      document.getElementById('customMinutes1').value = minutes;
+      
+      // Initialize circle to empty (ready state)
+      updateProgressCircle(0, 1, false);
+    }
+    
+    // Load friends
+    await loadFriends(state);
+    
+    // Setup event listeners
+    setupEventListeners();
+    
+  } catch (error) {
+    console.error('Error loading data:', error);
+  }
+}
 
-// View friends button
-document.getElementById('viewFriends').addEventListener('click', () => {
-  chrome.tabs.create({url: chrome.runtime.getURL('social.html')});
-});
-
-let countdownInterval = null;
-let countdownStartTime = null;
-
-document.getElementById('start').addEventListener('click', async () => {
-  const duration = Number(document.getElementById('duration').value) || 25;
-  const passcode = document.getElementById('passcode').value || null;
-  const preset = document.getElementById('preset').value || null;
-  const pomodoroEnabled = document.getElementById('pomodoroToggle').checked;
+// Load friends list with activity
+async function loadFriends(state) {
+  const friendsList = document.getElementById('friendsList1');
+  const onlineCount = document.getElementById('onlineCount1');
   
-  // Update pomodoro setting
-  await send({action: 'updateSettings', settings: {pomodoroEnabled}});
-  
-  // Show countdown screen
-  showCountdownScreen(duration, passcode, preset);
-});
+  try {
+    const token = state.authToken;
+    if (!token) {
+      friendsList.innerHTML = '<div class="no-friends">Login to see friends</div>';
+      onlineCount.textContent = '0 online';
+      return;
+    }
+    
+    // Fetch friends from API
+    const response = await fetch(`${API_BASE_URL}/api/friends/activity`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    
+    if (!response.ok) throw new Error('Failed to fetch friends');
+    
+    const friends = await response.json();
+    
+    if (!friends || friends.length === 0) {
+      friendsList.innerHTML = '<div class="no-friends">No friends yet<br><small style="font-size: 10px; color: #4b5563;">Add friends in Social tab</small></div>';
+      onlineCount.textContent = '0 online';
+      return;
+    }
+    
+    // Filter online friends (active within last 5 minutes)
+    const activeFriends = friends.filter(f => {
+      const lastUpdated = f.activity?.lastUpdated;
+      return lastUpdated && (Date.now() - new Date(lastUpdated).getTime() < 5 * 60 * 1000);
+    });
+    
+    onlineCount.textContent = `${activeFriends.length} online`;
+    
+    if (activeFriends.length === 0) {
+      friendsList.innerHTML = '<div class="no-friends">No friends online</div>';
+      return;
+    }
+    
+    // Display friends with activity and avatar decorations
+    friendsList.innerHTML = activeFriends.slice(0, 4).map(friend => {
+      const activity = friend.activity || {};
+      const isFocusing = activity.focusActive;
+      const avatar = friend.avatar || friend.displayName?.[0] || friend.username?.[0] || '👤';
+      
+      // Avatar decoration overlay
+      const avatarDecoration = friend.avatarDecoration ? 
+        `<div class="friend-avatar-decoration" style="background-image: url('${chrome.runtime.getURL(`assets/avatar/${friend.avatarDecoration}.png`)}')"></div>` : '';
+      
+      // Name banner support (both static and animated)
+      const nameBanner = friend.nameBanner;
+      let nameBannerHTML = '';
+      if (nameBanner) {
+        const animatedBanners = ['asset', 'mb1', 'mb2', 'mb3', 'mb4', 'mb5', 'mb6', 'mb7'];
+        const isAnimated = animatedBanners.includes(nameBanner);
+        const extension = isAnimated ? '.webm' : '.png';
+        const url = chrome.runtime.getURL(`assets/name_banner/${nameBanner}${extension}`);
+        
+        if (isAnimated) {
+          nameBannerHTML = `<video autoplay loop muted playsinline class="friend-name-banner" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; border-radius: 14px;" src="${url}"></video>`;
+        } else {
+          nameBannerHTML = `<div class="friend-name-banner" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-image: url('${url}'); background-size: cover; background-position: center; z-index: 0; border-radius: 14px;"></div>`;
+        }
+      }
+      
+      // Determine status class (focusing=red, online=green, idle=dimmed green)
+      let statusClass = 'online';
+      let activityIcon = '◉';
+      let activityText = 'Online';
+      
+      if (isFocusing) {
+        statusClass = 'focusing';
+        activityIcon = '◉';
+        activityText = 'Focusing';
+        
+        // Add specific activity if available
+        if (activity.videoTitle) {
+          activityIcon = '▶';
+          activityText = `${activity.videoTitle.substring(0, 22)}${activity.videoTitle.length > 22 ? '...' : ''}`;
+        } else if (activity.activityDetails) {
+          activityIcon = '◉';
+          activityText = `${activity.activityDetails.substring(0, 22)}${activity.activityDetails.length > 22 ? '...' : ''}`;
+        }
+      } else if (activity.videoTitle) {
+        activityIcon = '▶';
+        activityText = `${activity.videoTitle.substring(0, 22)}${activity.videoTitle.length > 22 ? '...' : ''}`;
+      } else if (activity.currentUrl) {
+        try {
+          const domain = new URL(activity.currentUrl).hostname.replace('www.', '');
+          activityIcon = '⊕';
+          activityText = domain;
+        } catch {
+          activityIcon = '⊕';
+          activityText = 'Browsing';
+        }
+      } else if (activity.status === 'idle') {
+        statusClass = 'idle';
+        activityIcon = '○';
+        activityText = 'Idle';
+      }
+      
+      return `
+        <div class="friend-item" data-username="${friend.username}" style="position: relative; overflow: hidden;">
+          ${nameBannerHTML}
+          <div style="position: relative; z-index: 1; display: flex; align-items: center; gap: 12px; padding: 12px;">
+            <div class="friend-avatar ${statusClass}">
+              ${avatar}
+              ${avatarDecoration}
+            </div>
+            <div class="friend-info">
+              <div class="friend-name">${friend.displayName || friend.username}</div>
+              <div class="friend-activity ${statusClass}">
+                <span class="activity-icon">${activityIcon}</span>
+                <span>${activityText}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+    
+    // Add click handlers to open social page (only if not focusing)
+    document.querySelectorAll('.popup1 .friend-item').forEach(item => {
+      item.addEventListener('click', () => {
+        // Don't open social page if in focus mode
+        if (!focusActive) {
+          chrome.tabs.create({ url: chrome.runtime.getURL('social.html') });
+        }
+      });
+    });
+    
+  } catch (error) {
+    console.error('Error loading friends:', error);
+    friendsList.innerHTML = '<div class="no-friends">Unable to load friends</div>';
+    onlineCount.textContent = '0 online';
+  }
+}
 
-function showCountdownScreen(duration, passcode, preset) {
-  // Hide setup controls
-  document.getElementById('setupControls').style.display = 'none';
-  document.getElementById('statsOverview').style.display = 'none';
-  document.getElementById('goalProgress').style.display = 'none';
-  document.getElementById('friendsWidget').style.display = 'none';
+// Setup event listeners
+function setupEventListeners() {
+  // Custom timer input - update on change
+  const customInput = document.getElementById('customMinutes1');
+  
+  function updateDuration() {
+    if (focusActive) return;
+    
+    const minutes = parseInt(customInput.value);
+    
+    if (isNaN(minutes) || minutes < 1 || minutes > 480) {
+      customInput.style.borderColor = '#dc2626';
+      customInput.value = selectedDuration;
+      setTimeout(() => customInput.style.borderColor = '#2a2a2a', 1000);
+      return;
+    }
+    
+    selectedDuration = minutes;
+    document.getElementById('timerDisplay1').textContent = formatTime(minutes * 60);
+    customInput.style.borderColor = '#22c55e';
+    setTimeout(() => customInput.style.borderColor = '#2a2a2a', 500);
+    
+    // Save to storage
+    chrome.storage.local.set({ selectedDuration: minutes });
+  }
+  
+  customInput.addEventListener('change', updateDuration);
+  customInput.addEventListener('blur', updateDuration);
+  customInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+      customInput.blur();
+    }
+  });
+  
+  // Start button - show countdown first
+  const startBtn = document.getElementById('startBtn1');
+  startBtn.addEventListener('click', () => {
+    if (!focusActive) {
+      showCountdownScreen();
+    }
+  });
+  
+  // Cancel countdown button
+  document.getElementById('cancelCountdown').addEventListener('click', () => {
+    cancelCountdown();
+  });
+  
+  // Quick action buttons
+  document.getElementById('socialBtn1').addEventListener('click', () => {
+    chrome.tabs.create({ url: chrome.runtime.getURL('social.html') });
+  });
+  
+  document.getElementById('dashboardBtn1').addEventListener('click', () => {
+    chrome.tabs.create({ url: chrome.runtime.getURL('dashboard.html') });
+  });
+}
+
+// Show countdown screen (5 seconds)
+function showCountdownScreen() {
+  // Hide main content
+  document.getElementById('mainContent').style.display = 'none';
   
   // Show countdown screen
   const countdownScreen = document.getElementById('countdownScreen');
-  countdownScreen.style.display = 'flex';
+  countdownScreen.classList.add('active');
   
   let secondsLeft = 5;
   const countdownNumber = document.getElementById('countdownNumber');
   const countdownBar = document.getElementById('countdownBar');
   
-  // Set initial bar width
+  // Set initial state
+  countdownNumber.textContent = secondsLeft;
   countdownBar.style.width = '100%';
   
   // Start countdown
-  countdownStartTime = Date.now();
   countdownInterval = setInterval(() => {
     secondsLeft--;
     countdownNumber.textContent = secondsLeft;
@@ -78,31 +372,12 @@ function showCountdownScreen(duration, passcode, preset) {
       countdownInterval = null;
       
       // Start the actual focus session
-      startFocusSession(duration, passcode, preset);
+      startFocusSession();
     }
   }, 1000);
 }
 
-async function startFocusSession(duration, passcode, preset) {
-  // Hide countdown screen
-  document.getElementById('countdownScreen').style.display = 'none';
-  
-  // Start the session
-  const resp = await send({action:'startSession', durationMin: duration, passcode, preset});
-  if (resp && resp.end) {
-    // Show timer immediately
-    showTimer();
-    updateTimer();
-    startTimerUpdate();
-  } else {
-    // If session failed to start, show setup controls
-    document.getElementById('setupControls').style.display = 'block';
-    document.getElementById('statsOverview').style.display = 'flex';
-    document.getElementById('goalProgress').style.display = 'block';
-    document.getElementById('friendsWidget').style.display = 'block';
-  }
-}
-
+// Cancel countdown
 function cancelCountdown() {
   if (countdownInterval) {
     clearInterval(countdownInterval);
@@ -110,370 +385,204 @@ function cancelCountdown() {
   }
   
   // Hide countdown screen
-  document.getElementById('countdownScreen').style.display = 'none';
+  document.getElementById('countdownScreen').classList.remove('active');
   
-  // Show setup controls again
-  document.getElementById('setupControls').style.display = 'block';
-  document.getElementById('statsOverview').style.display = 'flex';
-  document.getElementById('goalProgress').style.display = 'block';
-  document.getElementById('friendsWidget').style.display = 'block';
+  // Show main content
+  document.getElementById('mainContent').style.display = 'block';
+}
+
+// Start focus session (called after countdown)
+async function startFocusSession() {
+  // Hide countdown screen
+  document.getElementById('countdownScreen').classList.remove('active');
   
-  // Reset countdown
-  document.getElementById('countdownNumber').textContent = '5';
-  document.getElementById('countdownBar').style.width = '100%';
-}
-
-document.getElementById('cancelCountdown').addEventListener('click', cancelCountdown);
-
-document.getElementById('emergency').addEventListener('click', async () => {
-  const resp = await send({action:'emergencyBreak'});
-  if (resp.ok) {
-    setStatus('2-minute break granted');
-    updateTimer();
-  } else alert('Emergency break already used');
-});
-
-async function send(msg){
-  return new Promise((res)=> chrome.runtime.sendMessage(msg, res));
-}
-
-function setStatus(t){ 
-  document.getElementById('status').textContent = t; 
-}
-
-function showTimer() {
-  document.getElementById('timerDisplay').classList.add('active');
-  document.getElementById('setupControls').style.display = 'none';
-  document.getElementById('activeControls').style.display = 'block';
-  document.getElementById('statsOverview').style.display = 'flex';
-  document.getElementById('goalProgress').style.display = 'block';
-  document.getElementById('friendsWidget').style.display = 'block';
-}
-
-function hideTimer() {
-  document.getElementById('timerDisplay').classList.remove('active');
-  document.getElementById('setupControls').style.display = 'block';
-  document.getElementById('activeControls').style.display = 'none';
-  document.getElementById('statsOverview').style.display = 'flex';
-  document.getElementById('goalProgress').style.display = 'block';
-  document.getElementById('friendsWidget').style.display = 'block';
-}
-
-async function updateTimer() {
-  const s = await send({action:'getState'});
-  // Update stats display
-  updateStatsDisplay(s);
+  // Show main content
+  document.getElementById('mainContent').style.display = 'block';
   
-  const timerDisplay = document.getElementById('timerDisplay');
-  const timerProgress = document.querySelector('.timer-progress');
-  
-  // Check if on break
-  if (s && s.onBreak && s.breakEnd) {
-    const now = Date.now();
-    const remaining = Math.max(0, s.breakEnd - now);
-    const totalDuration = s.breakDuration || (5 * 60 * 1000);
+  try {
+    const durationMin = selectedDuration;
+    const endTime = Date.now() + (durationMin * 60 * 1000);
     
-    if (remaining > 0) {
-      showTimer();
-      
-      // Change to green for break
-      timerDisplay.classList.add('break-mode');
-      timerProgress.style.stroke = '#4ade80'; // Green color
-      
-      const minutes = Math.floor(remaining / 60000);
-      const seconds = Math.floor((remaining % 60000) / 1000);
-      document.querySelector('.timer-time').textContent = 
-        `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-      
-      // Update circle progress
-      const progress = remaining / totalDuration;
-      const circumference = 2 * Math.PI * 90;
-      const offset = circumference * (1 - progress);
-      timerProgress.style.strokeDashoffset = offset;
-      
-      setStatus('On Break 🎉');
-    } else {
-      hideTimer();
-      timerDisplay.classList.remove('break-mode');
-      timerProgress.style.stroke = '#4a9eff';
-      setStatus('Idle');
-    }
-  } else if (s && s.focusActive && s.sessionEnd) {
-    const now = Date.now();
-    const remaining = Math.max(0, s.sessionEnd - now);
-    const totalDuration = s.sessionDuration || (25 * 60 * 1000);
+    await chrome.storage.local.set({
+      focusActive: true,
+      sessionEnd: endTime,
+      sessionStart: Date.now(),
+      emergencyUsed: false,
+      sessionBlockedCount: 0
+    });
     
-    if (remaining > 0) {
-      showTimer();
-      
-      // Reset to blue for focus
-      timerDisplay.classList.remove('break-mode');
-      timerProgress.style.stroke = '#4a9eff';
-      
-      const minutes = Math.floor(remaining / 60000);
-      const seconds = Math.floor((remaining % 60000) / 1000);
-      document.querySelector('.timer-time').textContent = 
-        `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-      
-      // Update circle progress - circle empties as time runs out
-      const progress = remaining / totalDuration;
-      const circumference = 2 * Math.PI * 90;
-      const offset = circumference * (1 - progress);
-      timerProgress.style.strokeDashoffset = offset;
-      
-      setStatus('Focus active');
-    } else {
-      hideTimer();
-      timerDisplay.classList.remove('break-mode');
-      timerProgress.style.stroke = '#4a9eff';
-      setStatus('Idle');
+    chrome.alarms.create('focus-end', { when: endTime });
+    
+    focusActive = true;
+    remainingTime = durationMin * 60 * 1000;
+    
+    document.getElementById('statusDisplay1').textContent = 'Focusing';
+    document.getElementById('startBtn1').style.display = 'none';
+    document.querySelector('.popup1 .custom-timer').style.opacity = '0.5';
+    document.querySelector('.popup1 .custom-timer').style.pointerEvents = 'none';
+    document.getElementById('customMinutes1').disabled = true;
+    document.getElementById('quickActions1').classList.add('hidden');
+    
+    // Initialize circle to full
+    const totalSeconds = durationMin * 60;
+    updateProgressCircle(totalSeconds, totalSeconds, false);
+    
+    startTimerUpdate();
+    
+    // Notify background script
+    chrome.runtime.sendMessage({ action: 'focusStarted', duration: durationMin });
+    
+  } catch (error) {
+    console.error('Error starting focus:', error);
+  }
+}
+
+// Update timer display with circle animation
+function startTimerUpdate() {
+  if (timerInterval) clearInterval(timerInterval);
+  
+  const totalDuration = selectedDuration * 60 * 1000;
+  
+  timerInterval = setInterval(() => {
+    remainingTime -= 1000;
+    
+    if (remainingTime <= 0) {
+      endFocusSession();
+      return;
     }
-  } else {
-    hideTimer();
-    timerDisplay.classList.remove('break-mode');
-    timerProgress.style.stroke = '#4a9eff';
-    setStatus('Idle');
-  }
+    
+    const seconds = Math.floor(remainingTime / 1000);
+    const totalSeconds = Math.floor(totalDuration / 1000);
+    
+    document.getElementById('timerDisplay1').textContent = formatTime(seconds);
+    updateProgressCircle(seconds, totalSeconds, false);
+  }, 1000);
 }
 
-function updateStatsDisplay(state) {
-  // Update level
-  document.getElementById('levelDisplay').textContent = state.level || 1;
-  
-  // Update streak
-  const streak = state.streak?.current || 0;
-  document.getElementById('streakDisplay').textContent = streak > 0 ? `${streak}🔥` : '0';
-  
-  // Update today's time
-  const todayMin = state.todayFocusTime || 0;
-  const hours = Math.floor(todayMin / 60);
-  const mins = todayMin % 60;
-  const todayText = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
-  document.getElementById('todayDisplay').textContent = todayText;
-  
-  // Update daily goal progress
-  const goal = state.dailyGoal || 120;
-  const progress = Math.min(100, (todayMin / goal) * 100);
-  const goalFill = document.getElementById('goalFill');
-  goalFill.style.width = `${progress}%`;
-  document.getElementById('goalText').textContent = `${todayMin}/${goal} min daily goal`;
-  
-  // Check if goal just completed
-  if (progress >= 100 && !state.goalCompletedToday) {
-    showGoalCelebration();
-    chrome.storage.local.set({ goalCompletedToday: true });
-  } else if (progress < 100 && state.goalCompletedToday) {
-    // Reset for new day
-    chrome.storage.local.set({ goalCompletedToday: false });
-  }
-}
-
-function showGoalCelebration() {
-  // Create celebration overlay
-  const overlay = document.createElement('div');
-  overlay.className = 'goal-celebration-overlay';
-  overlay.innerHTML = `
-    <div class="goal-celebration-content">
-      <div class="goal-tada">🎉</div>
-      <h2 class="goal-message">Daily Goal Achieved!</h2>
-      <p class="goal-submessage">Amazing work! You're crushing it! 🔥</p>
-    </div>
-  `;
-  
-  // Create confetti
-  for (let i = 0; i < 50; i++) {
-    const confetti = document.createElement('div');
-    confetti.className = 'confetti';
-    confetti.style.left = Math.random() * 100 + '%';
-    confetti.style.animationDelay = Math.random() * 3 + 's';
-    confetti.style.backgroundColor = ['#4a9eff', '#22c55e', '#fb7185', '#fbbf24', '#a78bfa'][Math.floor(Math.random() * 5)];
-    overlay.appendChild(confetti);
+// End focus session and reset UI
+async function endFocusSession() {
+  if (timerInterval) {
+    clearInterval(timerInterval);
+    timerInterval = null;
   }
   
-  document.body.appendChild(overlay);
+  focusActive = false;
+  remainingTime = 0;
   
-  // Play notification
-  chrome.notifications.create({
-    type: 'basic',
-    iconUrl: 'icons/icon48.png',
-    title: '🎉 Daily Goal Achieved!',
-    message: 'Congratulations! You\'ve completed your daily focus goal!',
-    requireInteraction: true
+  // Clear storage to ensure session is ended
+  await chrome.storage.local.set({
+    focusActive: false,
+    sessionEnd: 0,
+    sessionStart: 0
   });
   
-  // Remove overlay after animation
+  // Reset UI
+  document.getElementById('statusDisplay1').textContent = 'Ready';
+  document.getElementById('timerDisplay1').textContent = formatTime(selectedDuration * 60);
+  document.getElementById('startBtn1').style.display = 'block';
+  document.querySelector('.popup1 .custom-timer').style.opacity = '1';
+  document.querySelector('.popup1 .custom-timer').style.pointerEvents = 'auto';
+  document.getElementById('customMinutes1').disabled = false;
+  document.getElementById('quickActions1').classList.remove('hidden');
+  
+  // Reset circle to empty
+  updateProgressCircle(0, 1, false);
+}
+
+// Update daily goal progress
+function updateDailyGoalProgress(currentMinutes, goalMinutes, alreadyAchieved) {
+  const percentage = Math.min((currentMinutes / goalMinutes) * 100, 100);
+  const isAchieved = currentMinutes >= goalMinutes;
+  
+  // Update time display
+  const currentHours = Math.floor(currentMinutes / 60);
+  const currentMins = currentMinutes % 60;
+  const currentText = currentHours > 0 ? `${currentHours}h ${currentMins}m` : `${currentMins}m`;
+  
+  const goalHours = Math.floor(goalMinutes / 60);
+  const goalMins = goalMinutes % 60;
+  const goalText = goalHours > 0 ? `${goalHours}h ${goalMins}m` : `${goalMinutes}m`;
+  
+  document.getElementById('goalCurrentTime').textContent = currentText;
+  document.getElementById('goalTargetTime').textContent = goalText;
+  
+  // Update progress bar
+  const progressBar = document.getElementById('goalProgressBar');
+  progressBar.style.width = percentage + '%';
+  
+  // Update percentage text
+  const percentageEl = document.getElementById('goalPercentage');
+  percentageEl.textContent = Math.round(percentage) + '% Complete';
+  
+  // Update styling based on achievement
+  const section = document.getElementById('dailyGoalSection');
+  if (isAchieved) {
+    progressBar.classList.add('goal-reached');
+    percentageEl.classList.add('achieved');
+    section.classList.add('goal-achieved');
+    percentageEl.textContent = '🎉 Goal Achieved!';
+    
+    // Trigger celebration only once per day
+    if (!alreadyAchieved) {
+      triggerCelebration();
+      chrome.storage.local.set({ goalAchievedToday: true });
+    }
+  } else {
+    progressBar.classList.remove('goal-reached');
+    percentageEl.classList.remove('achieved');
+    section.classList.remove('goal-achieved');
+  }
+}
+
+// Trigger celebration confetti effect
+function triggerCelebration() {
+  // Create confetti container
+  const confettiContainer = document.createElement('div');
+  confettiContainer.className = 'confetti';
+  document.body.appendChild(confettiContainer);
+  
+  // Create 50 confetti pieces
+  const colors = ['#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
+  
+  for (let i = 0; i < 50; i++) {
+    const confetti = document.createElement('div');
+    confetti.className = 'confetti-piece';
+    confetti.style.left = Math.random() * 100 + '%';
+    confetti.style.background = colors[Math.floor(Math.random() * colors.length)];
+    confetti.style.animationDelay = Math.random() * 0.5 + 's';
+    confetti.style.animationDuration = (Math.random() * 2 + 2) + 's';
+    confettiContainer.appendChild(confetti);
+  }
+  
+  // Remove confetti after animation
   setTimeout(() => {
-    overlay.classList.add('fade-out');
-    setTimeout(() => overlay.remove(), 500);
+    confettiContainer.remove();
   }, 4000);
 }
 
-function startTimerUpdate() {
-  stopTimerUpdate();
-  updateInterval = setInterval(updateTimer, 1000);
+// Format time (seconds to MM:SS)
+function formatTime(seconds) {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 }
 
-function stopTimerUpdate() {
-  if (updateInterval) {
-    clearInterval(updateInterval);
-    updateInterval = null;
-  }
-}
-
-// Load friends activity
-async function loadFriendsWidget() {
-  const friendsList = document.getElementById('friendsList');
-  const onlineCount = document.getElementById('onlineCount');
+// Update progress circle
+function updateProgressCircle(remainingSeconds, totalSeconds, isBreak = false) {
+  const circle = document.getElementById('progressCircle1');
+  if (!circle) return;
   
-  try {
-    const activity = await API.getFriendsActivity();
-    
-    if (!activity || activity.length === 0) {
-      friendsList.innerHTML = '<div class="friends-empty">No friends online<br><small>Add friends to see their activity</small></div>';
-      onlineCount.textContent = '0';
-      onlineCount.style.background = '#666';
-      return;
-    }
-    
-    // Filter only online friends
-    const onlineFriends = activity.filter(friend => {
-      const lastUpdated = friend.activity?.lastUpdated;
-      return lastUpdated && (Date.now() - new Date(lastUpdated).getTime() < 5 * 60 * 1000);
-    });
-    
-    if (onlineFriends.length === 0) {
-      friendsList.innerHTML = '<div class="friends-empty">No friends online</div>';
-      onlineCount.textContent = '0';
-      onlineCount.style.background = '#666';
-      return;
-    }
-    
-    onlineCount.textContent = onlineFriends.length;
-    onlineCount.style.background = '#22c55e';
-    
-    friendsList.innerHTML = onlineFriends.slice(0, 3).map(friend => {
-      const activity = friend.activity || {};
-      let statusText = 'Online';
-      let statusColor = '#22c55e';
-      
-      if (activity.focusActive) {
-        statusText = '🎯 Focusing';
-        statusColor = '#dc2626';
-        if (activity.videoTitle) {
-          statusText += ` • ${activity.videoTitle.substring(0, 15)}...`;
-        }
-      } else if (activity.videoTitle) {
-        statusText = `📺 ${activity.videoTitle.substring(0, 20)}...`;
-      } else if (activity.currentUrl) {
-        const domain = activity.currentUrl.match(/https?:\/\/([^\/]+)/)?.[1] || 'web';
-        statusText = `🌐 ${domain}`;
-      }
-      
-      return `
-        <div class="friend-item" onclick="chrome.tabs.create({url: chrome.runtime.getURL('social.html')})">
-          <div class="friend-avatar-small" style="position: relative;">
-            ${friend.avatar || '👤'}
-            <div style="position: absolute; bottom: 0; right: 0; width: 10px; height: 10px; background: ${statusColor}; border: 2px solid #1a1a1a; border-radius: 50%;"></div>
-          </div>
-          <div class="friend-details">
-            <div class="friend-name-small">${friend.displayName}</div>
-            <div class="friend-status-small">${statusText}</div>
-          </div>
-        </div>
-      `;
-    }).join('');
-    
-    // Add click handlers to friend items
-    document.querySelectorAll('.friend-item[data-action="open-social"]').forEach(item => {
-      item.addEventListener('click', () => {
-        chrome.tabs.create({url: chrome.runtime.getURL('social.html')});
-      });
-    });
-    
-    // Add click handlers to friend items
-    document.querySelectorAll('.friend-item[data-action="open-social"]').forEach(item => {
-      item.addEventListener('click', () => {
-        chrome.tabs.create({url: chrome.runtime.getURL('social.html')});
-      });
-    });
-    
-  } catch (error) {
-    console.error('Failed to load friends:', error);
-    friendsList.innerHTML = '<div class="friends-empty">Failed to load</div>';
-    onlineCount.textContent = '0';
-    onlineCount.style.background = '#666';
-  }
-}
-
-// Check for updates and show banner
-async function checkUpdateBanner() {
-  const data = await chrome.storage.local.get(['updateAvailable', 'latestVersion', 'releaseUrl']);
+  const circumference = 2 * Math.PI * 80; // radius is 80
+  const progress = remainingSeconds / totalSeconds;
+  // Circle should start full (0 offset) and end empty (full offset)
+  const offset = circumference * (1 - progress);
   
-  if (data.updateAvailable) {
-    const banner = document.getElementById('updateBanner');
-    const versionSpan = document.getElementById('updateVersion');
-    
-    if (banner && versionSpan) {
-      versionSpan.textContent = `v${data.latestVersion}`;
-      banner.style.display = 'flex';
-    }
-  }
-}
-
-const viewUpdateBtn = document.getElementById('viewUpdateBtn');
-if (viewUpdateBtn) {
-  viewUpdateBtn.addEventListener('click', async () => {
-    // Trigger download via background script
-    chrome.runtime.sendMessage({action: 'downloadUpdate'});
-  });
-}
-
-// Check and reset daily stats if it's a new day
-async function checkDailyReset() {
-  const state = await send({action: 'getState'});
+  circle.style.strokeDashoffset = offset;
   
-  // Get today's date in IST (YYYY-MM-DD format) - IST is UTC+5:30
-  const now = new Date();
-  const istOffset = 5.5 * 60 * 60 * 1000; // 5 hours 30 minutes in milliseconds
-  const istTime = new Date(now.getTime() + istOffset);
-  const todayDateString = istTime.toISOString().substring(0, 10);
-  
-  const storedDate = state.todayDate || '';
-  
-  // If it's a new day, reset daily stats
-  if (storedDate !== todayDateString) {
-    console.log('[DailyReset] New day detected! Resetting daily stats (IST)');
-    console.log('[DailyReset] Stored date:', storedDate, 'Today (IST):', todayDateString);
-    
-    await send({
-      action: 'updateSettings',
-      settings: {
-        todayFocusTime: 0,
-        todayDate: todayDateString,
-        goalCompletedToday: false
-      }
-    });
-  }
-}
-
-// Initial state check
-checkDailyReset(); // Check for daily reset first
-updateTimer();
-startTimerUpdate(); // Start interval immediately to keep timer running
-checkUpdateBanner(); // Check for available updates
-
-// Check if user is registered
-send({action: 'getState'}).then(state => {
-  if (!state.user) {
-    // Not registered, show registration
-    window.location.href = 'register.html';
+  // Change color for break mode (green), default is red for focus
+  if (isBreak) {
+    circle.classList.add('break');
   } else {
-    // Load friends if registered
-    loadFriendsWidget();
-    // Refresh friends every 30 seconds
-    setInterval(loadFriendsWidget, 30000);
+    circle.classList.remove('break');
   }
-});
-
-// Cleanup on popup close
-window.addEventListener('unload', stopTimerUpdate);
+}
