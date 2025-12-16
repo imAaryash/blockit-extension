@@ -176,6 +176,29 @@
       <a href="dashboard.html" class="dashboard-link">View Full Dashboard →</a>
     </div>
 
+    <!-- Focus Settings -->
+    <div class="section">
+      <div class="section-title"><i class="fas fa-sliders-h"></i> Focus Settings</div>
+      
+      <div class="input-group" style="margin-bottom: 20px;">
+        <label for="dailyGoalSetting">
+          <i class="fas fa-bullseye"></i> Daily Focus Goal (minutes)
+        </label>
+        <input type="number" id="dailyGoalSetting" min="15" step="15" value="120" 
+               style="width: 100%; padding: 12px; background: #0a0a0a; border: 1px solid #2a2a2a; border-radius: 6px; color: #fff; font-size: 14px;" />
+        <div class="hint">How many minutes do you want to focus each day? (Default: 120 = 2 hours)</div>
+      </div>
+
+      <div class="input-group">
+        <label for="pomodoroBreakSetting">
+          <i class="fas fa-coffee"></i> Pomodoro Break Duration (minutes)
+        </label>
+        <input type="number" id="pomodoroBreakSetting" min="1" max="15" value="5" 
+               style="width: 100%; padding: 12px; background: #0a0a0a; border: 1px solid #2a2a2a; border-radius: 6px; color: #fff; font-size: 14px;" />
+        <div class="hint">Break time after each focus session (Default: 5 minutes)</div>
+      </div>
+    </div>
+
     <!-- Allowed Sites -->
     <div class="section">
       <div class="section-title">✅ Allowed Sites</div>
@@ -190,17 +213,83 @@
       <div class="hint">Additional sites to block during focus sessions (one per line)</div>
     </div>
 
-    <!-- Passcode -->
-    <div class="section">
-      <div class="section-title">🔒 Security</div>
-      <div class="input-group">
-        <label>Default Passcode</label>
-        <input id="passcode" type="password" placeholder="Optional passcode to end sessions early" />
+    <!-- Profile Emoji -->
+    <div class=\"section\">
+      <div class=\"section-title\">😀 Profile Emoji</div>
+      <div class=\"input-group\">
+        <label>Choose Your Avatar</label>
+        <div id=\"emojiPreview\" style=\"font-size: 48px; text-align: center; padding: 16px; background: #0a0a0a; border: 2px solid #2a2a2a; border-radius: 12px; margin-bottom: 16px;\">👤</div>
+        <div id=\"emojiPicker\" class=\"emoji-picker\">
+          <!-- Will be populated by JS -->
+        </div>
       </div>
     </div>
 
-    <button id="save" class="save-button">Save Settings</button>
+    <!-- Passcode -->
+    <div class=\"section\">
+      <div class=\"section-title\">🔒 Security</div>
+      <div class=\"input-group\">
+        <label>Default Passcode</label>
+        <input id=\"passcode\" type=\"password\" placeholder=\"Optional passcode to end sessions early\" />
+      </div>
+    </div>
+
+    <button id=\"save\" class=\"save-button\">Save Settings</button>
   </div>
+
+  <style>
+    .emoji-picker {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(48px, 1fr));
+      gap: 8px;
+      padding: 12px;
+      background: #0a0a0a;
+      border: 1px solid #2a2a2a;
+      border-radius: 8px;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+
+    .emoji-option {
+      font-size: 32px;
+      padding: 8px;
+      background: #1a1a1a;
+      border: 2px solid #2a2a2a;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: center;
+    }
+
+    .emoji-option:hover {
+      background: #2a2a2a;
+      border-color: #4a9eff;
+      transform: scale(1.1);
+    }
+
+    .emoji-option.selected {
+      border-color: #4a9eff;
+      background: rgba(74, 158, 255, 0.2);
+    }
+
+    .emoji-picker::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    .emoji-picker::-webkit-scrollbar-track {
+      background: #0a0a0a;
+      border-radius: 4px;
+    }
+
+    .emoji-picker::-webkit-scrollbar-thumb {
+      background: #2a2a2a;
+      border-radius: 4px;
+    }
+
+    .emoji-picker::-webkit-scrollbar-thumb:hover {
+      background: #3a3a3a;
+    }
+  </style>
 
   <script src="options.js"></script>
 </body>
