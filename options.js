@@ -3,6 +3,20 @@ async function send(msg) {
   return new Promise((res) => chrome.runtime.sendMessage(msg, res));
 }
 
+// Available emoji list (same as backend)
+const AVAILABLE_EMOJIS = [
+  '👤', '😀', '😎', '🤓', '😇', '🥳', '🤩', '😴', 
+  '🤯', '🥶', '🥵', '😈', '👻', '👽', '🤖', '💀',
+  '🐶', '🐱', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼',
+  '🐨', '🐯', '🦁', '🐮', '🐷', '🐸', '🐵', '🙈',
+  '🙉', '🙊', '🦄', '🐲', '🦖', '🦕', '🐉', '🌟',
+  '⭐', '💫', '✨', '🔥', '💧', '⚡', '🌈', '🎮',
+  '🎯', '🎨', '🎭', '🎪', '🎬', '🎤', '🎧', '🎵',
+  '🎸', '🎹', '🥁', '🎺', '🎻', '🎲', '🎰', '🏆',
+  '🥇', '🥈', '🥉', '🏅', '🎖️', '👑', '💎', '💍',
+  '🔮', '🧿', '📿', '🛡️', '⚔️', '🏹', '🔱', '⚓'
+];
+
 async function loadSettings() {
   const state = await send({action: 'getState'});
   
@@ -27,6 +41,34 @@ async function loadSettings() {
   document.getElementById('statTime').textContent = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
   document.getElementById('statSessions').textContent = sessions;
   document.getElementById('statBlocked').textContent = blocked;
+  
+  // Load emoji picker
+  loadEmojiPicker(state.avatar || '👤');
+}
+
+function loadEmojiPicker(currentEmoji) {
+  const picker = document.getElementById('emojiPicker');
+  const preview = document.getElementById('emojiPreview');
+  
+  // Set current emoji in preview
+  preview.textContent = currentEmoji;
+  
+  // Create emoji options
+  picker.innerHTML = AVAILABLE_EMOJIS.map(emoji => `
+    <div class="emoji-option ${emoji === currentEmoji ? 'selected' : ''}" data-emoji="${emoji}">${emoji}</div>
+  `).join('');
+  
+  // Add click handlers
+  document.querySelectorAll('.emoji-option').forEach(option => {
+    option.addEventListener('click', () => {
+      // Update selection
+      document.querySelectorAll('.emoji-option').forEach(o => o.classList.remove('selected'));
+      option.classList.add('selected');
+      
+      // Update preview
+      preview.textContent = option.dataset.emoji;
+    });
+  });
 }
 
 // Save button
@@ -48,6 +90,30 @@ document.getElementById('save').addEventListener('click', async () => {
   const passcode = document.getElementById('passcode').value.trim();
   if (passcode) {
     await send({action: 'setPasscode', passcode});
+  }
+  
+  // Save selected emoji
+  const selectedEmoji = document.querySelector('.emoji-option.selected');
+  if (selectedEmoji) {
+    const emoji = selectedEmoji.dataset.emoji;
+    await chrome.storage.local.set({ avatar: emoji });
+    
+    // Update backend if user is logged in
+    const token = (await chrome.storage.local.get('authToken'))?.authToken;
+    if (token) {
+      try {
+        await fetch('https://focus-backend-g1zg.onrender.com/api/users/profile', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ avatar: emoji })
+        });
+      } catch (error) {
+        console.error('Failed to update avatar on backend:', error);
+      }
+    }
   }
   
   saveBtn.textContent = '✓ Saved!';
