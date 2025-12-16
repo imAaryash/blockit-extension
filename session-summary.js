@@ -1,10 +1,54 @@
+// Smooth number rolling animation with easing
+function animateNumber(element, start, end, duration, delay = 0) {
+  setTimeout(() => {
+    const startTime = performance.now();
+    const range = end - start;
+    
+    // Easing function (ease-out-cubic)
+    const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
+    
+    function update(currentTime) {
+      const elapsed = currentTime - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const easedProgress = easeOutCubic(progress);
+      
+      const current = start + (range * easedProgress);
+      element.textContent = Math.floor(current).toLocaleString();
+      
+      if (progress < 1) {
+        requestAnimationFrame(update);
+      } else {
+        element.textContent = end.toLocaleString();
+      }
+    }
+    
+    requestAnimationFrame(update);
+  }, delay);
+}
+
+// Calculate level from points
+function calculateLevel(points) {
+  let level = 1;
+  let totalXpNeeded = 0;
+  let xpForNextLevel = 100;
+  
+  while (points >= totalXpNeeded + xpForNextLevel) {
+    totalXpNeeded += xpForNextLevel;
+    level++;
+    xpForNextLevel = level * 100;
+  }
+  
+  return { level, totalXpNeeded, xpForNextLevel };
+}
+
 // Load and display session summary
 async function loadSessionSummary() {
   console.log('[SessionSummary] Loading session summary...');
-  const result = await chrome.storage.local.get(['sessionSummary']);
+  const result = await chrome.storage.local.get(['sessionSummary', 'points', 'sessionPointsEarned']);
   const summary = result.sessionSummary;
 
   console.log('[SessionSummary] Summary data:', summary);
+  console.log('[SessionSummary] Current points:', result.points);
 
   if (!summary) {
     console.log('[SessionSummary] No session summary found');
@@ -17,12 +61,71 @@ async function loadSessionSummary() {
   const durationText = minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
   document.getElementById('sessionDuration').textContent = durationText;
 
+  // Show warning if points weren't earned
+  if (summary.earnedPoints === false) {
+    document.getElementById('pointsWarning').style.display = 'block';
+    document.getElementById('minDuration').textContent = summary.minimumDuration || 5;
+    document.getElementById('summarySubtitle').textContent = 'Session completed, but too short for rewards';
+  } else {
+    document.getElementById('summarySubtitle').textContent = 'Great work! Here\'s what you accomplished';
+    
+    // Show points section with animation
+    const pointsSection = document.getElementById('pointsSection');
+    const currentPoints = result.points || 0;
+    const pointsEarned = result.sessionPointsEarned || 0;
+    const previousPoints = currentPoints - pointsEarned;
+    
+    console.log('[Points] Previous:', previousPoints, 'Earned:', pointsEarned, 'Current:', currentPoints);
+    
+    if (pointsEarned > 0) {
+      pointsSection.style.display = 'block';
+      
+      // Calculate level info
+      const levelInfo = calculateLevel(currentPoints);
+      
+      // Calculate progress to next level
+      const xpIntoCurrentLevel = currentPoints - levelInfo.totalXpNeeded;
+      const progressPercent = Math.floor((xpIntoCurrentLevel / levelInfo.xpForNextLevel) * 100);
+      const xpToNext = levelInfo.xpForNextLevel - xpIntoCurrentLevel;
+      
+      // Set static values
+      document.getElementById('earnedPointsBadge').textContent = pointsEarned.toLocaleString();
+      document.getElementById('previousPointsText').textContent = previousPoints.toLocaleString();
+      document.getElementById('levelStat').textContent = `Level ${levelInfo.level}`;
+      document.getElementById('toNextStat').textContent = xpToNext.toLocaleString();
+      
+      // Set initial main number to previous points
+      document.getElementById('mainPoints').textContent = previousPoints.toLocaleString();
+      document.getElementById('progressStat').textContent = '0%';
+      
+      // Animate main number from previous to current total
+      setTimeout(() => {
+        animateNumber(document.getElementById('mainPoints'), previousPoints, currentPoints, 2000, 0);
+        
+        // Animate progress percentage
+        setTimeout(() => {
+          const progressStatEl = document.getElementById('progressStat');
+          let currentPercent = 0;
+          const percentInterval = setInterval(() => {
+            currentPercent += 2;
+            if (currentPercent >= progressPercent) {
+              currentPercent = progressPercent;
+              clearInterval(percentInterval);
+            }
+            progressStatEl.textContent = currentPercent + '%';
+          }, 20);
+        }, 500);
+      }, 300);
+    }
+  }
+
   // Display stats
   const uniqueSites = new Set(summary.activities.map(a => a.domain)).size;
   document.getElementById('totalSites').textContent = uniqueSites;
   document.getElementById('totalTabs').textContent = summary.activities.length;
 
   // Calculate productivity score (fewer switches = better)
+  // Note: Study resources are already filtered out in background.js, so this only counts distractions
   const score = Math.max(0, 100 - (summary.activities.length * 2));
   document.getElementById('productivityScore').textContent = score + '%';
 

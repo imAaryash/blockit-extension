@@ -6,12 +6,22 @@ const API_BASE_URL = 'https://focus-backend-g1zg.onrender.com';
 // Import update checker
 importScripts('update-checker.js');
 
+// Core social media sites that are ALWAYS blocked during focus mode (cannot be removed)
+const PERMANENT_BLOCKED_SITES = [
+  "instagram.com",
+  "facebook.com",
+  "x.com",
+  "twitter.com",
+  "reddit.com",
+  "tiktok.com",
+  "snapchat.com"
+];
+
 const DEFAULTS = {
   allowed: ["https://www.youtube.com/","https://youtube.com/","https://www.google.com/"],
   blockedKeywords: [
-    "instagram.com", "whatsapp.com", "x.com", "twitter.com", "tiktok.com",
-    "facebook.com", "reddit.com", "github.com", "quora.com", "pinterest.com",
-    "edxtratech.com", "edxtra.tech", "linkedin.com", "snapchat.com",
+    "whatsapp.com", "github.com", "quora.com", "pinterest.com",
+    "edxtratech.com", "edxtra.tech", "linkedin.com",
     "netflix.com", "discord.com", "twitch.tv", "9gag.com", "imgur.com"
   ],
   stats: {blockedCount: 0, attempts: 0, totalFocusTime: 0, sessionsCompleted: 0},
@@ -76,7 +86,16 @@ async function enforceTab(tab) {
     return; // Allow all YouTube tabs
   }
 
-  // Blocked keywords check
+  // Check permanent blocked sites first (always blocked during focus)
+  for (const site of PERMANENT_BLOCKED_SITES) {
+    if (url.includes(site) || hostname.includes(site)) {
+      await chrome.tabs.update(tab.id, {url: chrome.runtime.getURL('blocked.html')});
+      await incrementStat('blockedCount');
+      return;
+    }
+  }
+  
+  // Blocked keywords check (custom user-added sites)
   for (const kw of state.blockedKeywords || []) {
     if (!kw) continue;
     if (url.includes(kw) || hostname.includes(kw)) {
@@ -154,6 +173,53 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
   } catch (e) { /* ignore */ }
 });
 
+// Whitelist of educational/study domains that should not count as distractions
+const STUDY_DOMAINS = [
+  'web.getmarks.app',
+  'getmarks.app',
+  'docs.google.com',
+  'drive.google.com',
+  'classroom.google.com',
+  'scholar.google.com',
+  'notion.so',
+  'notion.com',
+  'github.com',
+  'stackoverflow.com',
+  'stackexchange.com',
+  'coursera.org',
+  'udemy.com',
+  'khanacademy.org',
+  'edx.org',
+  'brilliant.org',
+  'leetcode.com',
+  'hackerrank.com',
+  'codecademy.com',
+  'freecodecamp.org',
+  'w3schools.com',
+  'mdn.mozilla.org',
+  'wikipedia.org',
+  'wolframalpha.com',
+  'desmos.com',
+  'geogebra.org',
+  'quizlet.com',
+  'anki.com',
+  'brainly.com',
+  'chegg.com',
+  'studyblue.com',
+  'grammarly.com',
+  'overleaf.com',
+  'latex.org',
+  'arxiv.org',
+  'researchgate.net',
+  'medium.com',
+  'dev.to'
+];
+
+// Check if a domain is a study/educational resource
+function isStudyResource(domain) {
+  return STUDY_DOMAINS.some(studyDomain => domain.includes(studyDomain));
+}
+
 // Track browsing activity during focus session
 async function trackBrowsingActivity(tab) {
   if (!tab || !tab.url) return;
@@ -173,6 +239,12 @@ async function trackBrowsingActivity(tab) {
     const url = new URL(tab.url);
     domain = url.hostname.replace('www.', '');
     
+    // Skip study resources - they shouldn't count as distractions
+    if (isStudyResource(domain)) {
+      console.log('[Activity] Skipping study resource:', domain, '(not counted as distraction)');
+      return;
+    }
+    
     // Set icon based on domain
     if (domain.includes('youtube')) icon = '📺';
     else if (domain.includes('github')) icon = '💻';
@@ -185,7 +257,7 @@ async function trackBrowsingActivity(tab) {
     return;
   }
   
-  // Add activity
+  // Add activity (only non-study sites reach here)
   activities.push({
     domain: domain,
     title: tab.title || domain,
@@ -341,23 +413,24 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
     // Clear session activities
     await chrome.storage.local.remove('sessionActivities');
     
-    // Check minimum session duration (30 minutes = 1800000 ms)
-    const minimumDuration = 30 * 60 * 1000; // 30 minutes
-    if (actualDuration < minimumDuration) {
-      console.log('[SessionEnd] Session too short to record:', Math.floor(actualDuration / 60000), 'minutes');
-      // Show notification that session was too short
-      chrome.notifications.create({
-        type: 'basic',
-        iconUrl: 'icons/icon48.png',
-        title: '⏱️ Session Too Short',
-        message: `Session must be at least 30 minutes to be recorded. You focused for ${Math.floor(actualDuration / 60000)} minutes.`
-      });
+    // Check minimum session duration (5 minutes = 300000 ms)
+    const minimumDuration = 5 * 60 * 1000; // 5 minutes
+    const earnedPoints = actualDuration >= minimumDuration;
+    
+    if (!earnedPoints) {
+      console.log('[SessionEnd] Session too short for points:', Math.floor(actualDuration / 60000), 'minutes');
     } else {
+      console.log('[SessionEnd] Updating stats for', Math.floor(actualDuration / 60000), 'minute session');
       // Update stats using ACTUAL elapsed time
       await updateSessionStats(actualDuration);
     }
     
     await chrome.storage.local.set({focusActive:false, sessionEnd: 0, emergencyUsed: false, sessionBlockedCount: 0});
+    
+    // Notify popup to update UI
+    chrome.runtime.sendMessage({ action: 'sessionEnded' }).catch(() => {
+      // Popup might not be open, that's okay
+    });
     
     // Update activity back to online
     try {
@@ -390,7 +463,18 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
       console.error('[SessionEnd] Error updating activity:', error);
     }
     
-    // Open session summary popup
+    // Update session summary with points earned status
+    await chrome.storage.local.set({
+      sessionSummary: {
+        duration: durationSeconds,
+        activities: activities,
+        completedAt: Date.now(),
+        earnedPoints: earnedPoints,
+        minimumDuration: minimumDuration / 60000 // Store in minutes
+      }
+    });
+    
+    // Open session summary popup AFTER stats are updated
     console.log('[SessionEnd] Opening session summary popup with', activities.length, 'activities');
     chrome.windows.create({
       url: chrome.runtime.getURL('session-summary.html'),
@@ -479,8 +563,11 @@ async function updateSessionStats(durationMs) {
   }
   todayTime += durationMin;
   
-  // Update streak with IST-based date comparison (using same istOffset and todayDateString)
-  const lastDate = state.streak?.lastSessionDate; // Format: YYYY-MM-DD
+  // Update streak with IST-based date comparison (Duolingo-style)
+  let lastDate = state.streak?.lastSessionDate;
+  
+  // Migrate old date format to new format
+  lastDate = normalizeDateToISO(lastDate);
   
   // Get yesterday in IST (reuse istTime calculated above)
   const yesterdayIST = new Date(istTime.getTime() - (24 * 60 * 60 * 1000));
@@ -489,43 +576,36 @@ async function updateSessionStats(durationMs) {
   let currentStreak = state.streak?.current || 0;
   let longestStreak = state.streak?.longest || 0;
   
-  console.log('[Streak Debug] Last session date:', lastDate);
-  console.log('[Streak Debug] Today (IST):', todayDateString);
-  console.log('[Streak Debug] Yesterday (IST):', yesterdayDateString);
-  console.log('[Streak Debug] Current streak before update:', currentStreak);
+  console.log('[Streak] Last session date (normalized):', lastDate);
+  console.log('[Streak] Today (IST):', todayDateString);
+  console.log('[Streak] Yesterday (IST):', yesterdayDateString);
+  console.log('[Streak] Current streak before update:', currentStreak);
   
-  // Maintain streak logic using UTC dates (prevents timezone issues)
+  // Duolingo-style streak logic:
+  // - Only increment on FIRST session of each day
+  // - If last session was yesterday, continue streak (+1)
+  // - If last session was today, keep current streak (no increment)
+  // - If last session was before yesterday, streak was already broken by checkStreakOnLogin()
+  
   if (!lastDate) {
     // First session ever
     currentStreak = 1;
-    console.log('[Streak] First session ever, streak = 1');
+    console.log('[Streak] 🎉 First session ever! Streak started at 1');
   } else if (lastDate === todayDateString) {
-    // Already completed a session today, keep current streak (don't increment)
-    console.log('[Streak] Already completed a session today, keeping streak at', currentStreak);
+    // Already completed a session today - keep current streak (don't increment)
+    console.log('[Streak] ✅ Already completed session today, maintaining streak at', currentStreak);
   } else if (lastDate === yesterdayDateString) {
-    // Continued streak from yesterday
+    // This is the FIRST session of today, and last session was yesterday - continue streak!
     currentStreak++;
-    console.log('[Streak] Continued from yesterday! New streak:', currentStreak);
+    console.log('[Streak] 🔥 First session of the day! Continued from yesterday. New streak:', currentStreak);
+  } else if (lastDate > todayDateString) {
+    // Clock issue - last date is in the future somehow
+    console.log('[Streak] ⚠️ Clock issue detected (last date in future), keeping streak at', currentStreak);
   } else {
-    // Calculate if more than 1 day gap (streak broken)
-    const lastDateObj = new Date(lastDate + 'T00:00:00Z'); // Parse as base date
-    const lastDateIST = new Date(lastDateObj.getTime() + istOffset);
-    const daysDiff = Math.floor((istTime - lastDateIST) / (1000 * 60 * 60 * 24));
-    
-    console.log('[Streak] Days since last session:', daysDiff);
-    
-    if (daysDiff === 1) {
-      // Should be caught by yesterday check, but safety net
-      currentStreak++;
-      console.log('[Streak] Edge case - continued, new streak:', currentStreak);
-    } else if (daysDiff > 1) {
-      // Streak broken, start over
-      console.log('[Streak] Broken! Last:', lastDate, 'Today:', todayDateString, 'Days gap:', daysDiff, '- Resetting to 1');
-      currentStreak = 1;
-    } else {
-      // daysDiff === 0 means same day (already handled above) or negative (clock issue)
-      console.log('[Streak] Same day or clock issue, keeping streak at', currentStreak);
-    }
+    // Last session was before yesterday (2+ days ago)
+    // Streak should have been broken by checkStreakOnLogin(), but handle it here as safety net
+    console.log('[Streak] ❌ Last session was', lastDate, '(before yesterday). Starting new streak at 1');
+    currentStreak = 1;
   }
   
   // Always update longest if current is higher
@@ -566,7 +646,7 @@ async function updateSessionStats(durationMs) {
   const currentBadges = state.badges || [];
   const updatedBadges = await checkBadges(currentBadges, newTotalTime, newSessions, currentStreak, newLevel);
   
-  // Save everything
+  // Save everything including points earned for this session
   await chrome.storage.local.set({
     stats: {
       ...state.stats,
@@ -582,8 +662,38 @@ async function updateSessionStats(durationMs) {
     level: newLevel,
     badges: updatedBadges,
     todayFocusTime: todayTime,
-    todayDate: todayDateString // Store as YYYY-MM-DD in IST
+    todayDate: todayDateString, // Store as YYYY-MM-DD in IST
+    sessionPointsEarned: pointsEarned // Store points earned this session for summary display
   });
+  
+  // Update focus history for heatmap
+  const historyResult = await chrome.storage.local.get('focusHistory');
+  const focusHistory = historyResult.focusHistory || {};
+  focusHistory[todayDateString] = todayTime;
+  await chrome.storage.local.set({ focusHistory });
+  
+  // Update study group stats if user has active groups
+  const groupResult = await chrome.storage.local.get('activeGroupIds');
+  const activeGroupIds = groupResult.activeGroupIds || [];
+  if (activeGroupIds.length > 0 && durationMin > 0) {
+    const token = (await chrome.storage.local.get('authToken'))?.authToken;
+    if (token) {
+      for (const groupId of activeGroupIds) {
+        try {
+          await fetch(`${API_BASE_URL}/api/groups/${groupId}/stats`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ focusTime: durationMin })
+          });
+        } catch (error) {
+          console.error('Failed to update group stats:', error);
+        }
+      }
+    }
+  }
   
   // Sync to MongoDB
   try {
@@ -973,6 +1083,12 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       }
       sendResponse({ok:true});
     } else if (msg.action === 'removeCustomBlock') {
+      // Prevent removal of permanent blocked sites
+      if (PERMANENT_BLOCKED_SITES.includes(msg.site)) {
+        sendResponse({ok: false, error: 'Cannot remove core social media sites'});
+        return;
+      }
+      
       const s = await getState();
       const blocked = (s.blockedKeywords || []).filter(b => b !== msg.site);
       await chrome.storage.local.set({blockedKeywords: blocked});
@@ -1054,12 +1170,142 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   return true;
 });
 
+// Helper function to normalize date format (handles both old and new formats)
+function normalizeDateToISO(dateStr) {
+  if (!dateStr) return null;
+  
+  // If already in YYYY-MM-DD format, return as is
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+    return dateStr;
+  }
+  
+  // If in old format like "Tue Dec 09 2025", convert to YYYY-MM-DD
+  try {
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) {
+      console.log('[Date Migration] Invalid date:', dateStr);
+      return null;
+    }
+    const normalized = date.toISOString().substring(0, 10);
+    console.log('[Date Migration] Converted old format:', dateStr, '→', normalized);
+    return normalized;
+  } catch (error) {
+    console.error('[Date Migration] Error converting date:', dateStr, error);
+    return null;
+  }
+}
+
+// Check if streak should be broken (user missed yesterday)
+// This function fetches streak from MongoDB and checks if it should be broken
+async function checkStreakOnLogin() {
+  try {
+    const token = (await chrome.storage.local.get('authToken'))?.authToken;
+    if (!token) {
+      console.log('[Streak Check] No auth token, skipping');
+      return;
+    }
+    
+    // Fetch user data from MongoDB
+    const response = await fetch(`${API_BASE_URL}/api/auth/profile`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    
+    if (!response.ok) {
+      console.log('[Streak Check] Failed to fetch profile');
+      return;
+    }
+    
+    const userData = await response.json();
+    let lastSessionDate = userData.streak?.lastSessionDate;
+    
+    // Migrate old date format to new format
+    lastSessionDate = normalizeDateToISO(lastSessionDate);
+    
+    if (!lastSessionDate) {
+      console.log('[Streak Check] No previous sessions');
+      return;
+    }
+    
+    // Get yesterday and today in IST
+    const now = new Date();
+    const istOffset = 5.5 * 60 * 60 * 1000;
+    const istTime = new Date(now.getTime() + istOffset);
+    const yesterdayIST = new Date(istTime.getTime() - (24 * 60 * 60 * 1000));
+    const yesterdayDateString = yesterdayIST.toISOString().substring(0, 10);
+    const todayDateString = istTime.toISOString().substring(0, 10);
+    
+    console.log('[Streak Check] MongoDB last session:', lastSessionDate);
+    console.log('[Streak Check] Yesterday (IST):', yesterdayDateString);
+    console.log('[Streak Check] Today (IST):', todayDateString);
+    console.log('[Streak Check] Current streak:', userData.streak?.current);
+    
+    // If last session was before yesterday (more than 1 day ago), break the streak
+    if (lastSessionDate < yesterdayDateString && lastSessionDate !== todayDateString) {
+      const currentStreak = userData.streak?.current || 0;
+      console.log('[Streak Check] ❌ Streak broken! Last session was', lastSessionDate, '(missed yesterday). Resetting from', currentStreak, 'to 0');
+      
+      // Update MongoDB first
+      const updateResponse = await fetch(`${API_BASE_URL}/api/users/stats`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          streak: {
+            current: 0,
+            longest: userData.streak?.longest || 0,
+            lastSessionDate: lastSessionDate // Keep last date
+          }
+        })
+      });
+      
+      if (updateResponse.ok) {
+        console.log('[Streak Check] ✅ Synced broken streak to MongoDB');
+        
+        // Update local storage to match
+        await chrome.storage.local.set({
+          streak: {
+            current: 0,
+            longest: userData.streak?.longest || 0,
+            lastSessionDate: lastSessionDate
+          }
+        });
+        console.log('[Streak Check] ✅ Updated local storage');
+      }
+    } else {
+      console.log('[Streak Check] ✅ Streak is safe! Last session:', lastSessionDate, 'Current streak:', userData.streak?.current);
+      
+      // Update local storage with MongoDB data
+      await chrome.storage.local.set({
+        streak: {
+          current: userData.streak?.current || 0,
+          longest: userData.streak?.longest || 0,
+          lastSessionDate: lastSessionDate
+        }
+      });
+    }
+  } catch (error) {
+    console.error('[Streak Check] Error:', error);
+  }
+}
+
+// Handle browser startup/restart - check for stuck focus sessions and streak
+chrome.runtime.onStartup.addListener(async () => {
+  console.log('[Startup] Browser started, checking for stuck focus sessions...');
+  await handleStuckSession();
+  // checkStreakOnLogin will be called after MongoDB sync in onInstalled
+});
+
 // Initialize defaults on installed
 chrome.runtime.onInstalled.addListener(async () => {
   const s = await chrome.storage.local.get();
   await chrome.storage.local.set(Object.assign({}, DEFAULTS, s));
   
-  // Load data from MongoDB if user is logged in
+  // Check for stuck sessions on extension install/update
+  await handleStuckSession();
+  
+  // Load data from MongoDB if user is logged in (includes streak check)
   try {
     const token = s.authToken;
     if (token) {
@@ -1071,7 +1317,10 @@ chrome.runtime.onInstalled.addListener(async () => {
       
       if (response.ok) {
         const userData = await response.json();
-        console.log('Syncing data from MongoDB:', userData);
+        console.log('[Init] Syncing data from MongoDB:', userData.username);
+        
+        // Normalize lastSessionDate to new format
+        const normalizedLastSessionDate = normalizeDateToISO(userData.streak?.lastSessionDate);
         
         // Update local storage with MongoDB data
         await chrome.storage.local.set({
@@ -1092,18 +1341,137 @@ chrome.runtime.onInstalled.addListener(async () => {
           streak: {
             current: userData.streak?.current || 0,
             longest: userData.streak?.longest || 0,
-            lastSessionDate: userData.streak?.lastUpdate
+            lastSessionDate: normalizedLastSessionDate
           },
           dailyGoal: userData.settings?.dailyGoal || 120,
           pomodoroBreakDuration: userData.settings?.breakTime || 5
         });
-        console.log('Data synced from MongoDB successfully');
+        console.log('[Init] ✅ Data synced from MongoDB (date normalized)');
+        
+        // Now check streak AFTER syncing from MongoDB
+        await checkStreakOnLogin();
       }
     }
   } catch (error) {
-    console.error('Failed to load data from MongoDB:', error);
+    console.error('[Init] Failed to load data from MongoDB:', error);
   }
 });
+
+// Handle stuck focus sessions (browser closed during focus)
+async function handleStuckSession() {
+  try {
+    const state = await getState();
+    const now = Date.now();
+    
+    // Check if there was an active focus session
+    if (state.focusActive && state.sessionStart && state.sessionEnd) {
+      console.log('[StuckSession] Found active session from previous browser session');
+      console.log('[StuckSession] Session started:', new Date(state.sessionStart).toISOString());
+      console.log('[StuckSession] Session was supposed to end:', new Date(state.sessionEnd).toISOString());
+      
+      // Calculate how long the user actually focused before closing
+      const actualDuration = state.sessionEnd - state.sessionStart; // Original planned duration
+      const sessionDurationMin = Math.floor(actualDuration / 60000);
+      
+      console.log('[StuckSession] Session was:', sessionDurationMin, 'minutes');
+      
+      // If session was at least 5 minutes, award points
+      const minimumDuration = 5 * 60 * 1000; // 5 minutes
+      if (actualDuration >= minimumDuration) {
+        console.log('[StuckSession] Session met minimum duration, awarding points...');
+        
+        // Award points for the completed portion
+        await updateSessionStats(actualDuration);
+        
+        // Create session summary
+        const activities = state.sessionActivities || [];
+        await chrome.storage.local.set({
+          sessionSummary: {
+            duration: Math.floor(actualDuration / 1000),
+            activities: activities,
+            completedAt: now,
+            earnedPoints: true,
+            recovered: true // Flag to indicate this was a recovered session
+          }
+        });
+        
+        console.log('[StuckSession] Points awarded for recovered session');
+        
+        // Show notification about recovered session
+        chrome.notifications.create({
+          type: 'basic',
+          iconUrl: 'icons/icon48.png',
+          title: '🔄 Session Recovered!',
+          message: `We saved your ${sessionDurationMin} minute focus session and awarded your points!`,
+          requireInteraction: true
+        });
+      } else {
+        console.log('[StuckSession] Session was too short, no points awarded');
+      }
+      
+      // Reset focus state
+      await chrome.storage.local.set({
+        focusActive: false,
+        sessionEnd: 0,
+        sessionStart: 0,
+        emergencyUsed: false,
+        sessionBlockedCount: 0,
+        onBreak: false,
+        breakEnd: 0
+      });
+      
+      // Clear any pending alarms
+      await chrome.alarms.clearAll();
+      
+      // Update activity status back to online
+      try {
+        const token = state.authToken;
+        if (token) {
+          await chrome.storage.local.set({ 
+            activity: {
+              status: 'online',
+              focusActive: false,
+              currentUrl: null
+            }
+          });
+          
+          await fetch(`${API_BASE_URL}/api/users/activity`, {
+            method: 'PUT',
+            headers: { 
+              'Content-Type': 'application/json', 
+              'Authorization': `Bearer ${token}` 
+            },
+            body: JSON.stringify({ 
+              activity: {
+                status: 'online',
+                focusActive: false,
+                currentUrl: null
+              }
+            })
+          });
+        }
+      } catch (error) {
+        console.error('[StuckSession] Error updating activity:', error);
+      }
+      
+      console.log('[StuckSession] Focus state reset, user can now start new sessions');
+    } else {
+      console.log('[StuckSession] No stuck session found');
+    }
+  } catch (error) {
+    console.error('[StuckSession] Error handling stuck session:', error);
+    // Always reset to ensure user isn't stuck
+    await chrome.storage.local.set({
+      focusActive: false,
+      sessionEnd: 0,
+      sessionStart: 0,
+      emergencyUsed: false,
+      sessionBlockedCount: 0,
+      onBreak: false,
+      breakEnd: 0
+    });
+  }
+}
 
 // Sync data from MongoDB on startup
 async function syncFromMongoDB() {
@@ -1204,7 +1572,7 @@ function getDetailedActivity(url, title, focusActive) {
   if (url.includes('web.getmarks.app')) {
     activity.status = focusActive ? 'focusing' : 'studying';
     activity.videoChannel = 'GetMarks';
-    activity.videoThumbnail = '📚';
+    activity.videoThumbnail = '▶';
     
     if (url.includes('/formula-cards/')) {
       activity.activityType = 'Reading Formulas';
@@ -1228,7 +1596,7 @@ function getDetailedActivity(url, title, focusActive) {
   else if (url.includes('byjus.com')) {
     activity.status = focusActive ? 'focusing' : 'studying';
     activity.videoChannel = "BYJU'S";
-    activity.videoThumbnail = '🎓';
+    activity.videoThumbnail = '▶';
     activity.activityType = 'Online Class';
     activity.videoTitle = title ? title.replace(" - BYJU'S", '') : "BYJU'S Learning";
     activity.actionButton = 'Continue Learning';
@@ -1238,7 +1606,7 @@ function getDetailedActivity(url, title, focusActive) {
   else if (url.includes('vedantu.com')) {
     activity.status = focusActive ? 'focusing' : 'studying';
     activity.videoChannel = 'Vedantu';
-    activity.videoThumbnail = '👨‍🏫';
+    activity.videoThumbnail = '▶';
     
     if (url.includes('/live-class')) {
       activity.activityType = 'Live Class';
@@ -1258,7 +1626,7 @@ function getDetailedActivity(url, title, focusActive) {
   else if (url.includes('pw.live') || url.includes('physicswallah.')) {
     activity.status = focusActive ? 'focusing' : 'studying';
     activity.videoChannel = 'Physics Wallah';
-    activity.videoThumbnail = '📖';
+    activity.videoThumbnail = '▶';
     
     if (url.includes('/watch') || url.includes('/lecture')) {
       activity.activityType = 'Watching Lecture';
@@ -1278,7 +1646,7 @@ function getDetailedActivity(url, title, focusActive) {
   else if (url.includes('doubtnut.com')) {
     activity.status = focusActive ? 'focusing' : 'studying';
     activity.videoChannel = 'Doubtnut';
-    activity.videoThumbnail = '❓';
+    activity.videoThumbnail = '◕';
     
     if (url.includes('/question')) {
       activity.activityType = 'Solving Question';
@@ -1294,7 +1662,7 @@ function getDetailedActivity(url, title, focusActive) {
   else if (url.includes('unacademy.com')) {
     activity.status = focusActive ? 'focusing' : 'studying';
     activity.videoChannel = 'Unacademy';
-    activity.videoThumbnail = '🎯';
+    activity.videoThumbnail = '▶';
     
     if (url.includes('/lesson')) {
       activity.activityType = 'Watching Lesson';
@@ -1314,7 +1682,7 @@ function getDetailedActivity(url, title, focusActive) {
   else if (url.includes('khanacademy.org')) {
     activity.status = focusActive ? 'focusing' : 'studying';
     activity.videoChannel = 'Khan Academy';
-    activity.videoThumbnail = '🌳';
+    activity.videoThumbnail = '▶';
     
     if (url.includes('/video/')) {
       activity.activityType = 'Watching Tutorial';
@@ -1339,8 +1707,13 @@ function getDetailedActivity(url, title, focusActive) {
     
     if (videoId && title) {
       activity.status = focusActive ? 'focusing' : 'youtube';
-      activity.videoTitle = title.replace(' - YouTube', '');
-      activity.videoThumbnail = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+      activity.videoTitle = cleanVideoTitle(title.replace(' - YouTube', ''));
+      // Only use image thumbnail if NOT in focus mode to avoid sticking
+      if (!focusActive) {
+        activity.videoThumbnail = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+      } else {
+        activity.videoThumbnail = '▶';
+      }
       activity.activityType = 'Watching Video';
       activity.actionButton = 'Watch Again';
     }
@@ -1350,14 +1723,17 @@ function getDetailedActivity(url, title, focusActive) {
   else if (url.includes('youtube.com/shorts/')) {
     activity.status = focusActive ? 'focusing' : 'youtube-shorts';
     activity.videoChannel = 'YouTube Shorts';
-    activity.videoThumbnail = '📱';
+    activity.videoThumbnail = '▶';
     
     const shortId = url.split('/shorts/')[1]?.split('?')[0];
     if (shortId && title) {
-      activity.videoTitle = title.replace(' - YouTube', '').replace('#Shorts', '').trim();
+      activity.videoTitle = cleanVideoTitle(title.replace(' - YouTube', '').replace('#Shorts', '').trim());
       activity.activityType = 'Watching Short';
       activity.actionButton = 'Watch Again';
-      activity.videoThumbnail = `https://i.ytimg.com/vi/${shortId}/hqdefault.jpg`;
+      // Only use image thumbnail if NOT in focus mode to avoid sticking
+      if (!focusActive) {
+        activity.videoThumbnail = `https://i.ytimg.com/vi/${shortId}/hqdefault.jpg`;
+      }
     } else {
       activity.videoTitle = 'Watching Shorts';
     }
@@ -1367,7 +1743,7 @@ function getDetailedActivity(url, title, focusActive) {
   else if (url.includes('google.com/search')) {
     activity.status = focusActive ? 'focusing' : 'searching';
     activity.videoChannel = 'Google';
-    activity.videoThumbnail = '🔍';
+    activity.videoThumbnail = '◕';
     activity.activityType = 'Searching';
     
     try {
@@ -1388,7 +1764,7 @@ function getDetailedActivity(url, title, focusActive) {
   else if (url.includes('instagram.com')) {
     activity.status = focusActive ? 'focusing' : 'social-media';
     activity.videoChannel = 'Instagram';
-    activity.videoThumbnail = '📷';
+    activity.videoThumbnail = '⊕';
     
     if (url.includes('/reel/')) {
       activity.activityType = 'Watching Reel';
@@ -1411,7 +1787,7 @@ function getDetailedActivity(url, title, focusActive) {
       
       activity.status = focusActive ? 'focusing' : 'reading';
       activity.videoTitle = pdfName;
-      activity.videoThumbnail = '📄';
+      activity.videoThumbnail = '◐';
       activity.videoChannel = 'PDF Reader';
       activity.activityType = 'Reading Document';
       activity.actionButton = 'Open PDF';

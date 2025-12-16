@@ -66,6 +66,71 @@
       text-transform: uppercase;
       letter-spacing: 1px;
     }
+    
+    .quote-container {
+      background: linear-gradient(135deg, #1a1a1a 0%, #0a0a0a 100%);
+      border: 1px solid #2a2a2a;
+      border-radius: 16px;
+      padding: 24px;
+      margin: 32px 0;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .quote-container::before {
+      content: '"';
+      position: absolute;
+      top: -10px;
+      left: 20px;
+      font-size: 80px;
+      color: #1a1a1a;
+      font-family: Georgia, serif;
+    }
+    
+    .quote-text {
+      font-size: 18px;
+      line-height: 1.6;
+      color: #e5e5e5;
+      font-style: italic;
+      margin-bottom: 16px;
+      position: relative;
+      z-index: 1;
+    }
+    
+    .quote-author {
+      font-size: 14px;
+      color: #888;
+      font-weight: 600;
+    }
+    
+    .stats-row {
+      display: flex;
+      justify-content: space-around;
+      gap: 16px;
+      margin-top: 32px;
+      padding: 20px;
+      background: #1a1a1a;
+      border-radius: 12px;
+      border: 1px solid #2a2a2a;
+    }
+    
+    .stat {
+      text-align: center;
+    }
+    
+    .stat-value {
+      font-size: 24px;
+      font-weight: 700;
+      color: #3b82f6;
+      margin-bottom: 4px;
+    }
+    
+    .stat-label {
+      font-size: 12px;
+      color: #666;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
   </style>
 </head>
 <body>
@@ -73,8 +138,31 @@
     <div class="icon">🔒</div>
     <h1>Site Blocked</h1>
     <p>This page has been blocked by Focus Mode.</p>
+    
+    <div class="quote-container">
+      <div class="quote-text" id="quoteText">Loading...</div>
+      <div class="quote-author" id="quoteAuthor">— Anonymous</div>
+    </div>
+    
+    <div class="stats-row">
+      <div class="stat">
+        <div class="stat-value" id="todayFocus">0m</div>
+        <div class="stat-label">Today</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value" id="currentStreak">0</div>
+        <div class="stat-label">Streak</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value" id="totalTime">0h</div>
+        <div class="stat-label">Total</div>
+      </div>
+    </div>
+    
     <div class="divider"></div>
     <div class="footer">Stay Focused</div>
   </div>
+  
+  <script src="blocked.js"></script>
 </body>
 </html>

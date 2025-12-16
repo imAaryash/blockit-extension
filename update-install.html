@@ -3,57 +3,78 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Update Installation Guide</title>
+  <title>Update Installation — Focus Mode</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
   <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: linear-gradient(135deg, #1e1e1e 0%, #2d2d2d 100%);
-      color: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0a0a0a;
+      color: #e5e7eb;
       margin: 0;
       padding: 40px 20px;
       min-height: 100vh;
     }
 
     .container {
-      max-width: 800px;
+      max-width: 900px;
       margin: 0 auto;
     }
 
     .header {
       text-align: center;
-      margin-bottom: 50px;
+      margin-bottom: 60px;
+      padding: 40px 20px;
+      background: #111111;
+      border: 1px solid #1f1f1f;
+      border-radius: 16px;
     }
 
     .success-icon {
-      font-size: 80px;
-      margin-bottom: 20px;
-      animation: bounce 1s ease-in-out;
+      width: 80px;
+      height: 80px;
+      margin: 0 auto 24px;
+      background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 40px;
+      animation: pulse 2s ease-in-out infinite;
     }
 
-    @keyframes bounce {
-      0%, 100% { transform: translateY(0); }
-      50% { transform: translateY(-20px); }
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4); }
+      50% { transform: scale(1.05); box-shadow: 0 0 0 20px rgba(59, 130, 246, 0); }
     }
 
     h1 {
-      font-size: 36px;
-      margin-bottom: 10px;
-      color: #4a9eff;
+      font-size: 32px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      color: #ffffff;
+      letter-spacing: -0.5px;
     }
 
     .subtitle {
-      font-size: 18px;
-      color: #a0a0a0;
+      font-size: 16px;
+      color: #6b7280;
+      margin-bottom: 20px;
     }
 
     .version-badge {
       display: inline-block;
-      background: linear-gradient(135deg, #4a9eff 0%, #357abd 100%);
-      padding: 8px 20px;
-      border-radius: 20px;
-      font-size: 14px;
+      background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+      padding: 10px 24px;
+      border-radius: 24px;
+      font-size: 13px;
       font-weight: 600;
-      margin-top: 10px;
+      letter-spacing: 0.5px;
     }
 
     .steps {
@@ -61,81 +82,108 @@
     }
 
     .step {
-      background: rgba(255, 255, 255, 0.05);
-      border-left: 4px solid #4a9eff;
-      padding: 25px;
-      margin-bottom: 20px;
-      border-radius: 8px;
+      background: #111111;
+      border: 1px solid #1f1f1f;
+      border-left: 3px solid #3b82f6;
+      padding: 28px 32px;
+      margin-bottom: 16px;
+      border-radius: 12px;
       transition: all 0.3s ease;
     }
 
     .step:hover {
-      background: rgba(255, 255, 255, 0.08);
-      transform: translateX(5px);
+      background: #141414;
+      border-left-width: 4px;
     }
 
     .step-number {
       display: inline-block;
-      width: 32px;
-      height: 32px;
-      background: #4a9eff;
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
       color: #fff;
       border-radius: 50%;
       text-align: center;
-      line-height: 32px;
+      line-height: 36px;
       font-weight: 700;
-      margin-right: 15px;
-      font-size: 16px;
+      margin-right: 16px;
+      font-size: 15px;
     }
 
     .step-title {
-      font-size: 20px;
+      font-size: 18px;
       font-weight: 600;
-      margin-bottom: 10px;
+      margin-bottom: 12px;
       display: flex;
       align-items: center;
+      color: #ffffff;
     }
 
     .step-content {
-      margin-left: 47px;
-      color: #c0c0c0;
-      line-height: 1.6;
+      margin-left: 52px;
+      color: #9ca3af;
+      line-height: 1.7;
+      font-size: 15px;
     }
 
     .step-content code {
-      background: rgba(255, 255, 255, 0.1);
-      padding: 2px 8px;
-      border-radius: 4px;
+      background: #0a0a0a;
+      padding: 4px 10px;
+      border-radius: 6px;
       font-family: 'Courier New', monospace;
-      color: #4a9eff;
+      color: #3b82f6;
+      border: 1px solid #1f1f1f;
+      font-size: 13px;
     }
 
     .note {
-      background: rgba(251, 113, 133, 0.1);
-      border-left: 4px solid #fb7185;
-      padding: 15px;
-      border-radius: 8px;
-      margin: 20px 0;
+      background: rgba(239, 68, 68, 0.05);
+      border: 1px solid rgba(239, 68, 68, 0.2);
+      border-left: 3px solid #ef4444;
+      padding: 20px 24px;
+      border-radius: 12px;
+      margin: 24px 0;
     }
 
     .note-title {
       font-weight: 600;
-      color: #fb7185;
-      margin-bottom: 8px;
+      color: #ef4444;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 15px;
+    }
+
+    .note-content {
+      color: #9ca3af;
+      line-height: 1.6;
+      font-size: 14px;
     }
 
     .tip {
-      background: rgba(34, 197, 94, 0.1);
-      border-left: 4px solid #22c55e;
-      padding: 15px;
-      border-radius: 8px;
-      margin: 20px 0;
+      background: rgba(34, 197, 94, 0.05);
+      border: 1px solid rgba(34, 197, 94, 0.2);
+      border-left: 3px solid #22c55e;
+      padding: 20px 24px;
+      border-radius: 12px;
+      margin: 24px 0;
     }
 
     .tip-title {
       font-weight: 600;
       color: #22c55e;
-      margin-bottom: 8px;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 15px;
+    }
+
+    .tip-content {
+      color: #9ca3af;
+      line-height: 1.6;
+      font-size: 14px;
     }
 
     .button-group {
@@ -146,60 +194,140 @@
     }
 
     .btn {
-      padding: 15px 30px;
+      padding: 14px 28px;
       border-radius: 10px;
-      font-size: 16px;
+      font-size: 14px;
       font-weight: 600;
       cursor: pointer;
-      transition: all 0.3s ease;
+      transition: all 0.2s ease;
       border: none;
       text-decoration: none;
-      display: inline-block;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
     }
 
     .btn-primary {
-      background: linear-gradient(135deg, #4a9eff 0%, #357abd 100%);
+      background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
       color: white;
     }
 
     .btn-primary:hover {
       transform: translateY(-2px);
-      box-shadow: 0 5px 20px rgba(74, 158, 255, 0.4);
+      box-shadow: 0 8px 24px rgba(59, 130, 246, 0.3);
     }
 
     .btn-secondary {
-      background: rgba(255, 255, 255, 0.1);
-      color: white;
-      border: 2px solid rgba(255, 255, 255, 0.2);
+      background: #111111;
+      color: #e5e7eb;
+      border: 1px solid #2a2a2a;
     }
 
     .btn-secondary:hover {
-      background: rgba(255, 255, 255, 0.15);
+      background: #1f1f1f;
+      border-color: #3b82f6;
     }
 
     .download-location {
-      background: rgba(255, 255, 255, 0.05);
-      padding: 15px;
-      border-radius: 8px;
-      margin: 20px 0;
+      background: #111111;
+      border: 1px solid #1f1f1f;
+      padding: 20px;
+      border-radius: 12px;
+      margin: 24px 0;
       font-family: 'Courier New', monospace;
-      color: #4a9eff;
+      color: #3b82f6;
       text-align: center;
+    }
+
+    .whats-new {
+      background: #111111;
+      border: 1px solid #1f1f1f;
+      border-radius: 12px;
+      padding: 28px;
+      margin: 32px 0;
+    }
+
+    .whats-new h2 {
+      font-size: 20px;
+      font-weight: 600;
+      color: #ffffff;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .feature-list {
+      list-style: none;
+      padding: 0;
+    }
+
+    .feature-list li {
+      padding: 12px 0;
+      border-bottom: 1px solid #1f1f1f;
+      color: #9ca3af;
+      font-size: 14px;
+      line-height: 1.6;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    .feature-list li:last-child {
+      border-bottom: none;
+    }
+
+    .feature-icon {
+      color: #3b82f6;
+      font-size: 16px;
+      flex-shrink: 0;
+      margin-top: 2px;
     }
   </style>
 </head>
 <body>
   <div class="container">
     <div class="header">
-      <div class="success-icon">📦</div>
-      <h1>Update Downloaded Successfully!</h1>
-      <p class="subtitle">Your extension update is ready to install</p>
-      <div class="version-badge" id="versionBadge">Version 1.2.0</div>
+      <div class="success-icon">
+        <i class="fas fa-check"></i>
+      </div>
+      <h1>Update Ready to Install</h1>
+      <p class="subtitle">Focus Mode — Social Productivity</p>
+      <div class="version-badge" id="versionBadge">Version 2.4.0</div>
+    </div>
+
+    <div class="whats-new">
+      <h2><i class="fas fa-sparkles"></i> What's New in v2.4.0</h2>
+      <ul class="feature-list">
+        <li>
+          <i class="fas fa-stopwatch feature-icon"></i>
+          <span><strong>5-Second Countdown:</strong> New minimalist countdown before focus sessions start with cancel option</span>
+        </li>
+        <li>
+          <i class="fas fa-shopping-cart feature-icon"></i>
+          <span><strong>Enhanced Shop Experience:</strong> Preview effects before purchasing with dedicated purchase buttons</span>
+        </li>
+        <li>
+          <i class="fas fa-palette feature-icon"></i>
+          <span><strong>New Decorations:</strong> 8 new avatar frames, 7 animated banners, and 5 profile effects</span>
+        </li>
+        <li>
+          <i class="fas fa-circle-notch feature-icon"></i>
+          <span><strong>Improved Timer:</strong> Smooth progress ring animation with proper session end handling</span>
+        </li>
+        <li>
+          <i class="fas fa-bug feature-icon"></i>
+          <span><strong>Bug Fixes:</strong> Fixed stuck focus mode, session recovery, and stats display issues</span>
+        </li>
+      </ul>
     </div>
 
     <div class="download-location">
-      <strong>📁 Download Location:</strong> Your Downloads folder
-      <div style="margin-top: 5px; font-size: 14px;" id="filename">focus-extension-v1.2.0.zip</div>
+      <div style="margin-bottom: 8px; font-size: 15px; color: #9ca3af;">
+        <i class="fas fa-folder"></i> Download Location
+      </div>
+      <div style="font-size: 16px; font-weight: 600;">Your Downloads folder</div>
+      <div style="margin-top: 8px; font-size: 13px; opacity: 0.8;" id="filename">focus-extension-v2.4.0.zip</div>
     </div>
 
     <div class="steps">
@@ -220,10 +348,11 @@
           Open Chrome Extensions
         </div>
         <div class="step-content">
-          Type <code>chrome://extensions/</code> in your address bar and press Enter.
-          Or click the button below:
-          <div style="margin-top: 10px;">
-            <button class="btn btn-primary" id="openExtensionsBtn">Open chrome://extensions/</button>
+          Type <code>chrome://extensions/</code> in your address bar and press Enter, or click the button below:
+          <div style="margin-top: 14px;">
+            <button class="btn btn-primary" id="openExtensionsBtn">
+              <i class="fas fa-external-link-alt"></i> Open Extensions Page
+            </button>
           </div>
         </div>
       </div>
@@ -231,52 +360,64 @@
       <div class="step">
         <div class="step-title">
           <span class="step-number">3</span>
-          Remove Old Version
+          Remove Current Version
         </div>
         <div class="step-content">
-          Find the current "Focus Mode" extension and click the <strong>Remove</strong> button.
-          Don't worry - your data is saved and will be restored!
+          Locate "Focus Mode — Social Productivity" in your extensions list and click <strong>Remove</strong>.
+          Your progress, stats, and login data are stored separately and will be preserved.
         </div>
       </div>
 
       <div class="step">
         <div class="step-title">
           <span class="step-number">4</span>
-          Load New Version
+          Install Updated Version
         </div>
         <div class="step-content">
-          Make sure <strong>Developer mode</strong> is enabled (toggle in top-right).
-          Click <strong>Load unpacked</strong> and select the extracted folder from Step 1.
+          Enable <strong>Developer mode</strong> using the toggle switch in the top-right corner.
+          Click <strong>Load unpacked</strong> and navigate to the extracted folder from Step 1. Select the folder and click "Select Folder".
         </div>
       </div>
 
       <div class="step">
         <div class="step-title">
           <span class="step-number">5</span>
-          Verify Installation
+          Verify & Enjoy
         </div>
         <div class="step-content">
-          Check that the version number matches the update. Click the extension icon to open it 
-          and verify everything works correctly. All your data should be preserved!
+          Confirm the version shows <strong>2.4.0</strong> in the extension card. 
+          Click the extension icon to launch and explore the new features. Your data, stats, and friends are automatically restored!
         </div>
       </div>
     </div>
 
     <div class="tip">
-      <div class="tip-title">💡 Pro Tip</div>
-      <div>You can keep the same folder by replacing files in your current extension directory. 
-      Just delete the old files, copy new ones, and click the refresh icon on chrome://extensions/</div>
+      <div class="tip-title">
+        <i class="fas fa-lightbulb"></i> Quick Update Method
+      </div>
+      <div class="tip-content">
+        Already familiar with the process? Replace files in your existing extension folder, 
+        then click the <strong>refresh</strong> icon <i class="fas fa-sync-alt" style="font-size: 12px;"></i> on chrome://extensions/ to reload instantly.
+      </div>
     </div>
 
     <div class="note">
-      <div class="note-title">⚠️ Important</div>
-      <div>Your settings, stats, and login information are stored separately and will be preserved 
-      after the update. No data will be lost!</div>
+      <div class="note-title">
+        <i class="fas fa-shield-alt"></i> Data Safety
+      </div>
+      <div class="note-content">
+        All your progress, stats, friends, purchased effects, and login credentials are stored in Chrome's secure storage.
+        Updates never affect your data — everything will be exactly as you left it.
+      </div>
     </div>
 
     <div class="button-group">
-      <button class="btn btn-primary" id="openDownloadsBtn">Open Downloads Folder</button>
-      <button class="btn btn-secondary" id="closeBtn">Close This Tab</button>
+      <button class="btn btn-primary" id="openDownloadsBtn">
+        <i class="fas fa-folder-open"></i> Open Downloads
+      </button>
+      <button class="btn btn-secondary" id="closeBtn">
+        <i class="fas fa-times"></i> Close Tab
+      </button>
     </div>
   </div>
 
@@ -284,10 +425,9 @@
     // Load version info
     (async () => {
       const data = await chrome.storage.local.get(['latestVersion']);
-      if (data.latestVersion) {
-        document.getElementById('versionBadge').textContent = `Version ${data.latestVersion}`;
-        document.getElementById('filename').textContent = `focus-extension-v${data.latestVersion}.zip`;
-      }
+      const version = data.latestVersion || '2.4.0';
+      document.getElementById('versionBadge').textContent = `Version ${version}`;
+      document.getElementById('filename').textContent = `focus-extension-v${version}.zip`;
     })();
 
     // Open Downloads folder

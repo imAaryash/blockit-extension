@@ -187,6 +187,104 @@
       color: #555;
       font-size: 13px;
     }
+
+    .points-section {
+      background: #111111;
+      border: 1px solid #1f1f1f;
+      border-radius: 24px;
+      padding: 48px 40px;
+      margin-bottom: 32px;
+      text-align: center;
+    }
+
+    .points-label {
+      font-size: 10px;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      font-weight: 600;
+      margin-bottom: 32px;
+    }
+
+    .points-main-number {
+      font-size: 96px;
+      font-weight: 200;
+      color: #ffffff;
+      line-height: 1;
+      margin-bottom: 16px;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -4px;
+    }
+
+    .points-earned-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      color: white;
+      padding: 8px 20px;
+      border-radius: 20px;
+      font-size: 14px;
+      font-weight: 600;
+      margin: 24px 0;
+      box-shadow: 0 0 20px rgba(16, 185, 129, 0.3);
+    }
+
+    .points-previous {
+      font-size: 13px;
+      color: #6b7280;
+      margin-top: 16px;
+    }
+
+    .points-previous span {
+      color: #9ca3af;
+      font-weight: 500;
+    }
+
+    .points-divider {
+      height: 1px;
+      background: linear-gradient(90deg, transparent, #2a2a2a, transparent);
+      margin: 32px 0;
+    }
+
+    .points-stats {
+      display: flex;
+      justify-content: space-around;
+      padding-top: 8px;
+    }
+
+    .points-stat {
+      text-align: center;
+    }
+
+    .points-stat-value {
+      font-size: 24px;
+      font-weight: 600;
+      color: #ffffff;
+      margin-bottom: 4px;
+    }
+
+    .points-stat-label {
+      font-size: 11px;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .points-section {
+      animation: slideIn 0.5s ease-out;
+    }
   </style>
 </head>
 <body>
@@ -195,7 +293,40 @@
       <div class="success-icon">🎯</div>
       <h1 class="summary-title">Focus Session Complete!</h1>
       <div class="summary-duration" id="sessionDuration">--</div>
-      <p class="summary-subtitle">Great work! Here's what you accomplished</p>
+      <p class="summary-subtitle" id="summarySubtitle">Great work! Here's what you accomplished</p>
+      <div id="pointsWarning" style="display: none; background: #2a1a00; border: 1px solid #4a3000; padding: 12px; border-radius: 6px; margin-top: 12px; font-size: 12px; color: #ffa500;">
+        ⚠️ Session was too short. Complete at least <span id="minDuration">5</span> minutes to earn points.
+      </div>
+    </div>
+
+    <div class="points-section" id="pointsSection" style="display: none;">
+      <div class="points-label">Total Experience</div>
+      <div class="points-main-number" id="mainPoints">0</div>
+      <div class="points-earned-badge">
+        <span>+</span>
+        <span id="earnedPointsBadge">0</span>
+        <span>XP Earned</span>
+      </div>
+      <div class="points-previous">
+        Previous: <span id="previousPointsText">0</span>
+      </div>
+      
+      <div class="points-divider"></div>
+      
+      <div class="points-stats">
+        <div class="points-stat">
+          <div class="points-stat-value" id="levelStat">Level 1</div>
+          <div class="points-stat-label">Current</div>
+        </div>
+        <div class="points-stat">
+          <div class="points-stat-value" id="progressStat">0%</div>
+          <div class="points-stat-label">Progress</div>
+        </div>
+        <div class="points-stat">
+          <div class="points-stat-value" id="toNextStat">100</div>
+          <div class="points-stat-label">To Next</div>
+        </div>
+      </div>
     </div>
 
     <div class="stats-grid">
