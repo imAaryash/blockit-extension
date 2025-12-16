@@ -1552,6 +1552,13 @@ chrome.alarms.create('activity-heartbeat', { periodInMinutes: 1 });
 sendActivityHeartbeat();
 
 // Activity heartbeat function
+// Helper function to clean video titles (remove notification counts)
+function cleanVideoTitle(title) {
+  if (!title) return title;
+  // Remove notification count like "(127) " from the beginning
+  return title.replace(/^\(\d+\)\s*/, '').trim();
+}
+
 // Enhanced activity detection function
 function getDetailedActivity(url, title, focusActive) {
   const activity = {
