@@ -4,22 +4,51 @@ const API_BASE_URL = 'https://focus-backend-g1zg.onrender.com';
 // Logout handler
 async function handleLogout() {
   try {
-    const token = await chrome.storage.local.get('token');
-    if (token.token) {
-      // Call logout endpoint to invalidate session
+    console.log('[Logout] Starting logout process - syncing data first...');
+    
+    // STEP 1: Sync all current data to MongoDB BEFORE clearing
+    const authToken = (await chrome.storage.local.get('authToken'))?.authToken;
+    const currentState = await chrome.storage.local.get(['stats', 'points', 'level', 'badges', 'streak', 'focusHistory']);
+    
+    if (authToken) {
+      try {
+        // Sync final state to MongoDB
+        await fetch(`${API_BASE_URL}/api/users/stats`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authToken}`
+          },
+          body: JSON.stringify({
+            stats: currentState.stats,
+            streak: currentState.streak,
+            badges: currentState.badges,
+            points: currentState.points,
+            level: currentState.level,
+            focusHistory: currentState.focusHistory || {}
+          })
+        });
+        console.log('[Logout] ✅ Data synced to MongoDB before logout');
+      } catch (syncError) {
+        console.error('[Logout] Failed to sync before logout:', syncError);
+        // Continue with logout even if sync fails
+      }
+      
+      // STEP 2: Call logout endpoint to invalidate session
       await fetch(`${API_BASE_URL}/api/auth/logout`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token.token}`,
+          'Authorization': `Bearer ${authToken}`,
           'Content-Type': 'application/json'
         }
       }).catch(() => {}); // Ignore errors
     }
     
-    // Clear all local storage
+    // STEP 3: Clear all local storage
     await chrome.storage.local.clear();
+    console.log('[Logout] Local storage cleared');
     
-    // Redirect to login
+    // STEP 4: Redirect to login
     window.location.href = 'login.html';
   } catch (error) {
     console.error('Logout error:', error);

@@ -542,6 +542,35 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
   }
 });
 
+// Helper function to sync current state to MongoDB (Global scope)
+async function syncCurrentStateToMongoDB() {
+  try {
+    const token = (await chrome.storage.local.get('authToken'))?.authToken;
+    if (!token) return;
+    
+    const currentState = await chrome.storage.local.get(['stats', 'points', 'level', 'badges', 'streak', 'focusHistory']);
+    
+    await fetch(`${API_BASE_URL}/api/users/stats`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        stats: currentState.stats,
+        streak: currentState.streak,
+        badges: currentState.badges || [], // Send full badge objects
+        points: currentState.points,
+        level: currentState.level,
+        focusHistory: currentState.focusHistory || {}
+      })
+    });
+    console.log('[Sync] ✅ Current state synced to MongoDB');
+  } catch (error) {
+    console.error('[Sync] Failed to sync current state:', error);
+  }
+}
+
 // Update session stats and gamification
 async function updateSessionStats(durationMs) {
   const state = await getState();
@@ -736,7 +765,7 @@ async function updateSessionStats(durationMs) {
     }
   }
   
-  // Sync to MongoDB
+  // Sync to MongoDB after session completion
   try {
     const token = (await chrome.storage.local.get('authToken'))?.authToken;
     if (token) {
@@ -759,11 +788,11 @@ async function updateSessionStats(durationMs) {
           },
           points: newPoints,
           level: newLevel,
-          badges: updatedBadges.filter(b => b && b.id).map(b => b.id),
+          badges: updatedBadges, // Send full badge objects, not just IDs
           focusHistory: state.focusHistory || {}
         })
       });
-      console.log('Stats synced to MongoDB');
+      console.log('[Sync] Stats and badges synced to MongoDB');
     }
   } catch (error) {
     console.error('Failed to sync stats to MongoDB:', error);
@@ -788,8 +817,8 @@ async function updateSessionStats(durationMs) {
 }
 
 async function checkBadges(badges, totalTime, sessions, streak, level) {
-  // Filter out any null/undefined badges first
-  const validBadges = (badges || []).filter(b => b && b.id);
+  // Ensure badges is always an array and filter out invalid entries
+  const validBadges = Array.isArray(badges) ? badges.filter(b => b && b.id) : [];
   
   const newBadges = [
     // Session-based achievements
@@ -825,11 +854,13 @@ async function checkBadges(badges, totalTime, sessions, streak, level) {
   console.log('[Badges] Checking badges - Sessions:', sessions, 'Time:', totalTime, 'Streak:', streak, 'Level:', level);
   console.log('[Badges] Current badges:', validBadges.map(b => b.id).join(', '));
   
+  let hasNewBadges = false;
   for (const badge of newBadges) {
     if (badge.condition && !validBadges.find(b => b.id === badge.id)) {
       console.log('[Badge] ✅ Unlocked:', badge.name, badge.desc);
       const newBadge = {id: badge.id, name: badge.name, desc: badge.desc, earnedAt: Date.now()};
       validBadges.push(newBadge);
+      hasNewBadges = true;
       
       // Show system notification
       chrome.notifications.create({
@@ -850,7 +881,10 @@ async function checkBadges(badges, totalTime, sessions, streak, level) {
     }
   }
   
-  console.log('[Badges] Total earned:', validBadges.length, 'Badge IDs:', validBadges.map(b => b.id));
+  if (hasNewBadges) {
+    console.log('[Badges] ✨ New badges unlocked! Total earned:', validBadges.length);
+  }
+  console.log('[Badges] Final badge count:', validBadges.length, 'Badge IDs:', validBadges.map(b => b.id).join(', '));
   return validBadges;
 }
 
@@ -1210,6 +1244,12 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       // Get fresh activity for friends (simulate - in real app would fetch from server)
       const friendsList = friends.map(userId => friendsData[userId]).filter(Boolean);
       sendResponse({friends: friendsList});
+    } else if (msg.action === 'checkBadges') {
+      console.log('[Badge Check] Manual badge check triggered');
+      const state = await getState();
+      const newBadges = await checkBadges(state.stats || {}, state.streak || {}, state.level || 1);
+      console.log('[Badge Check] Badges earned:', newBadges.length);
+      sendResponse({badges: newBadges, success: true});
     } else if (msg.action === 'userRegistered') {
       // Handle user registration/login notification
       console.log('[Background] User registered/logged in:', msg.user?.username);
@@ -1661,18 +1701,16 @@ async function syncFromMongoDB() {
         console.log('[Sync] Data from MongoDB:', userData);
         console.log('[Sync] Current local stats:', currentState.stats);
         
-        // ONLY sync from MongoDB if local data is empty or MongoDB has more data
-        // This prevents MongoDB from overwriting accurate local stats
+        // MongoDB is the SINGLE SOURCE OF TRUTH
+        // Always use MongoDB data, never let local override it
         const mongoTotalTime = userData.stats?.totalFocusTime || 0;
-        const localTotalTime = currentState.stats?.totalFocusTime || 0;
+        const mongoSessions = userData.stats?.sessionsCompleted || 0;
+        const mongoPoints = userData.points || 0;
+        const mongoLevel = userData.level || 1;
         
-        // Only update if MongoDB has more time (user might have focused on another device)
-        // OR if local is empty (fresh install)
-        const shouldUpdateStats = localTotalTime === 0 || mongoTotalTime > localTotalTime;
+        console.log('[Sync] Loading from MongoDB - Time:', mongoTotalTime, 'Sessions:', mongoSessions, 'Points:', mongoPoints, 'Level:', mongoLevel);
         
-        console.log('[Sync] MongoDB time:', mongoTotalTime, 'Local time:', localTotalTime, 'Should update:', shouldUpdateStats);
-        
-        // Always update user profile, points, level, badges
+        // ALWAYS use MongoDB data - it's the authoritative source
         const updateData = {
           user: {
             userId: userData.userId,
@@ -1680,33 +1718,25 @@ async function syncFromMongoDB() {
             displayName: userData.displayName,
             avatar: userData.avatar
           },
-          points: userData.points || 0,
-          level: userData.level || 1,
+          points: mongoPoints,
+          level: mongoLevel,
           badges: userData.badges || [],
-          focusHistory: userData.focusHistory ? Object.fromEntries(userData.focusHistory) : (currentState.focusHistory || {}),
-          dailyGoal: userData.settings?.dailyGoal || currentState.dailyGoal || 120,
-          pomodoroBreakDuration: userData.settings?.breakTime || currentState.pomodoroBreakDuration || 5
-        };
-        
-        // Only overwrite stats if MongoDB has newer/more data
-        if (shouldUpdateStats) {
-          updateData.points = userData.points || 0;
-          updateData.level = userData.level || 1;
-          updateData.badges = userData.badges || [];
-          updateData.stats = {
+          focusHistory: userData.focusHistory ? Object.fromEntries(userData.focusHistory) : {},
+          dailyGoal: userData.settings?.dailyGoal || 120,
+          pomodoroBreakDuration: userData.settings?.breakTime || 5,
+          stats: {
             totalFocusTime: mongoTotalTime,
-            sessionsCompleted: userData.stats?.sessionsCompleted || 0,
+            sessionsCompleted: mongoSessions,
             blockedCount: userData.stats?.sitesBlocked || 0
-          };
-          updateData.streak = {
+          },
+          streak: {
             current: userData.streak?.current || 0,
             longest: userData.streak?.longest || 0,
             lastSessionDate: userData.streak?.lastSessionDate || null
-          };
-          console.log('[Sync] ✅ Updated stats from MongoDB');
-        } else {
-          console.log('[Sync] ⚠️ Skipped stats update - local data is more recent');
-        }
+          }
+        };
+        
+        console.log('[Sync] ✅ Loaded all data from MongoDB (authoritative source)');
         
         await chrome.storage.local.set(updateData);
       }
@@ -1718,6 +1748,16 @@ async function syncFromMongoDB() {
 
 // Note: syncFromMongoDB() is now only called manually or on login
 // Not on startup to prevent overwriting accurate local data
+
+// Setup periodic auto-save to MongoDB every 5 minutes
+chrome.alarms.create('auto-save-mongodb', { periodInMinutes: 5 });
+
+chrome.alarms.onAlarm.addListener(async (alarm) => {
+  if (alarm.name === 'auto-save-mongodb') {
+    console.log('[AutoSave] Running periodic save to MongoDB...');
+    await syncCurrentStateToMongoDB();
+  }
+});
 
 // Setup heartbeat alarm for activity updates
 chrome.alarms.create('activity-heartbeat', { periodInMinutes: 1 });
@@ -2051,8 +2091,74 @@ async function sendActivityHeartbeat() {
     } else {
       const errorText = await response.text();
       console.error('[Heartbeat] ❌ Failed:', response.status, errorText);
+      
+      // Check for device conflict
+      if (response.status === 401) {
+        try {
+          const errorData = JSON.parse(errorText);
+          if (errorData.code === 'DEVICE_CONFLICT') {
+            console.error('[Heartbeat] 🚨 Device conflict detected!');
+            await handleDeviceConflict(errorData.message);
+          }
+        } catch (e) {
+          // Not JSON or can't parse
+        }
+      }
     }
   } catch (error) {
     console.error('[Heartbeat] Error:', error);
+  }
+}
+
+// Handle device conflict (logged in from another device)
+async function handleDeviceConflict(message) {
+  console.log('[DeviceConflict] Handling logout from another device');
+  
+  // Try to sync data to MongoDB before clearing (best effort)
+  try {
+    const authToken = (await chrome.storage.local.get('authToken'))?.authToken;
+    const currentState = await chrome.storage.local.get(['stats', 'points', 'level', 'badges', 'streak', 'focusHistory']);
+    
+    if (authToken && currentState.stats) {
+      await fetch(`${API_BASE_URL}/api/users/stats`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`
+        },
+        body: JSON.stringify({
+          stats: currentState.stats,
+          streak: currentState.streak,
+          badges: currentState.badges,
+          points: currentState.points,
+          level: currentState.level,
+          focusHistory: currentState.focusHistory || {}
+        })
+      });
+      console.log('[DeviceConflict] ✅ Synced data before device conflict logout');
+    }
+  } catch (error) {
+    console.error('[DeviceConflict] Failed to sync before logout:', error);
+  }
+  
+  // Show notification
+  chrome.notifications.create({
+    type: 'basic',
+    iconUrl: 'icons/icon48.png',
+    title: '🔒 Logged Out',
+    message: message || 'You have been logged in from another device. Please log in again.',
+    priority: 2,
+    requireInteraction: true
+  });
+
+  // Clear all data
+  await chrome.storage.local.clear();
+
+  // Redirect all extension pages to login
+  const tabs = await chrome.tabs.query({});
+  for (const tab of tabs) {
+    if (tab.url && tab.url.includes('chrome-extension://')) {
+      chrome.tabs.update(tab.id, { url: 'login.html' });
+    }
   }
 }

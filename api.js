@@ -46,6 +46,11 @@ class API {
       console.log('API Response data:', data);
 
       if (!response.ok) {
+        // Check for device conflict (logged in on another device)
+        if (response.status === 401 && data.code === 'DEVICE_CONFLICT') {
+          console.error('🚨 Device conflict detected - user logged in elsewhere');
+          await this.handleDeviceConflict(data.message);
+        }
         throw new Error(data.error || 'API request failed');
       }
 
@@ -54,6 +59,30 @@ class API {
       console.error('API Error:', error);
       throw error;
     }
+  }
+
+  static async handleDeviceConflict(message) {
+    // Show notification to user
+    chrome.notifications.create({
+      type: 'basic',
+      iconUrl: 'icons/icon48.png',
+      title: '🔒 Logged Out',
+      message: message || 'You have been logged in from another device.',
+      priority: 2,
+      requireInteraction: true
+    });
+
+    // Clear all auth data
+    await chrome.storage.local.clear();
+
+    // Redirect to login if on extension pages
+    chrome.tabs.query({}, (tabs) => {
+      tabs.forEach(tab => {
+        if (tab.url && tab.url.includes('chrome-extension://')) {
+          chrome.tabs.update(tab.id, { url: 'login.html' });
+        }
+      });
+    });
   }
 
   static async getToken() {

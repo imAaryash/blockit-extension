@@ -274,7 +274,7 @@ async function loadFriends() {
           ${bannerHTML}
           <div style="position: relative; z-index: 1; display: flex; align-items: center; gap: 14px; flex: 1;">
             ${avatarContent}
-            <div class="friend-info">
+            <div class="friend-info" style="flex: 1;">
               <div class="friend-name" style="text-shadow: 0 2px 8px rgba(0,0,0,0.8), 0 0 4px rgba(0,0,0,0.6);">
                 ${friend.displayName}
               </div>
@@ -283,11 +283,11 @@ async function loadFriends() {
                 <span class="activity-indicator ${getActivityStatus(friend)}"></span>
                 ${getActivityText(friend)}
               </div>
+              <div style="display: flex; gap: 8px; margin-top: 8px;">
+                <div class="friend-stat" style="color: #ffffff; text-shadow: 0 0 12px rgba(0,0,0,1), 0 0 24px rgba(0,0,0,0.9), 0 2px 8px rgba(0,0,0,0.8); background: rgba(0,0,0,0.6); padding: 4px 10px; border-radius: 6px; backdrop-filter: blur(4px); font-size: 11px;">Lv <strong style="color: #3b82f6; text-shadow: 0 0 12px rgba(59, 130, 246, 1), 0 0 24px rgba(59, 130, 246, 0.8);">${friend.level || 1}</strong></div>
+                <div class="friend-stat" style="color: #ffffff; text-shadow: 0 0 12px rgba(0,0,0,1), 0 0 24px rgba(0,0,0,0.9), 0 2px 8px rgba(0,0,0,0.8); background: rgba(0,0,0,0.6); padding: 4px 10px; border-radius: 6px; backdrop-filter: blur(4px); font-size: 11px;"><strong style="color: #10b981; text-shadow: 0 0 12px rgba(16, 185, 129, 1), 0 0 24px rgba(16, 185, 129, 0.8);">${friend.stats?.totalFocusTime || 0}</strong> min</div>
+              </div>
             </div>
-          </div>
-          <div class="friend-stats" style="position: relative; z-index: 1; display: flex; flex-direction: column; gap: 6px; align-items: flex-end; margin-right: 30px;">
-            <div class="friend-stat" style="color: #ffffff; text-shadow: 0 0 12px rgba(0,0,0,1), 0 0 24px rgba(0,0,0,0.9), 0 2px 8px rgba(0,0,0,0.8); background: rgba(0,0,0,0.6); padding: 6px 12px; border-radius: 8px; backdrop-filter: blur(4px); font-size: 12px;">Level <strong style="color: #3b82f6; text-shadow: 0 0 12px rgba(59, 130, 246, 1), 0 0 24px rgba(59, 130, 246, 0.8); font-size: 14px;">${friend.level || 1}</strong></div>
-            <div class="friend-stat" style="color: #ffffff; text-shadow: 0 0 12px rgba(0,0,0,1), 0 0 24px rgba(0,0,0,0.9), 0 2px 8px rgba(0,0,0,0.8); background: rgba(0,0,0,0.6); padding: 6px 12px; border-radius: 8px; backdrop-filter: blur(4px); font-size: 12px;"><strong style="color: #10b981; text-shadow: 0 0 12px rgba(16, 185, 129, 1), 0 0 24px rgba(16, 185, 129, 0.8); font-size: 14px;">${friend.stats?.totalFocusTime || 0}</strong> min</div>
           </div>
           <button class="friend-menu-btn" data-id="${friend.userId}" data-name="${friend.displayName}">
             <i class="fas fa-ellipsis-v"></i>
@@ -767,7 +767,47 @@ async function loadLeaderboard() {
       return;
     }
     
-    container.innerHTML = leaderboard.map((user, index) => {
+    // Add reset info icon with hover tooltip
+    const resetInfo = `
+      <div style="position: relative; margin-bottom: 16px; display: flex; justify-content: flex-end;">
+        <div class="reset-info-trigger" style="
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 24px;
+          height: 24px;
+          background: rgba(239, 68, 68, 0.1);
+          border: 1px solid rgba(239, 68, 68, 0.3);
+          border-radius: 50%;
+          cursor: help;
+          transition: all 0.3s ease;
+        ">
+          <i class="fas fa-info" style="font-size: 12px; color: #ef4444;"></i>
+        </div>
+        <div class="reset-info-tooltip" style="
+          position: absolute;
+          top: 32px;
+          right: 0;
+          background: #1a1a1a;
+          border: 1px solid rgba(239, 68, 68, 0.3);
+          border-radius: 8px;
+          padding: 12px 16px;
+          min-width: 280px;
+          opacity: 0;
+          pointer-events: none;
+          transform: translateY(-8px);
+          transition: all 0.3s ease;
+          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+          z-index: 100;
+        ">
+          <div style="font-size: 13px; color: #ffffff; line-height: 1.5;">
+            Points reset on <strong style="color: #ef4444;">January 1, 2026</strong>. Focus time and badges preserved.
+          </div>
+        </div>
+      </div>
+    `;
+    
+    container.innerHTML = resetInfo + leaderboard.map((user, index) => {
       const rank = index + 1;
       const rankClass = rank === 1 ? 'top1' : rank === 2 ? 'top2' : rank === 3 ? 'top3' : '';
       const isCurrentUser = currentUser && user.userId === currentUser.userId;
@@ -807,17 +847,17 @@ async function loadLeaderboard() {
         ${user.nameBanner && isAnimated ? getNameBannerHTML(user.nameBanner) : ''}
         <div class="leaderboard-rank ${rankClass}" style="position: relative; z-index: 1;">${rankIcon}</div>
         <div style="position: relative; z-index: 1;">${avatarContent}</div>
-        <div class="friend-info" style="position: relative; z-index: 1;">
+        <div class="friend-info" style="position: relative; z-index: 1; flex: 1;">
           <div class="friend-name">
             ${user.displayName}
             ${isCurrentUser ? '<span style="color: #3b82f6; font-size: 11px; font-weight: 600;">(You)</span>' : ''}
           </div>
           <div class="friend-username">@${user.username}</div>
-        </div>
-        <div class="friend-stats" style="position: relative; z-index: 2;">
-          <div class="friend-stat" style="color: #ffffff; text-shadow: 0 0 12px rgba(0,0,0,1), 0 0 24px rgba(0,0,0,0.9), 0 2px 8px rgba(0,0,0,0.8); background: rgba(0,0,0,0.6); padding: 4px 10px; border-radius: 6px; backdrop-filter: blur(4px);">Lv <strong style="color: #ffffff; text-shadow: 0 0 12px rgba(59, 130, 246, 1), 0 0 24px rgba(59, 130, 246, 0.8);">${user.level || 1}</strong></div>
-          <div class="friend-stat" style="color: #ffffff; text-shadow: 0 0 12px rgba(0,0,0,1), 0 0 24px rgba(0,0,0,0.9), 0 2px 8px rgba(0,0,0,0.8); background: rgba(0,0,0,0.6); padding: 4px 10px; border-radius: 6px; backdrop-filter: blur(4px);"><strong style="color: #fbbf24; text-shadow: 0 0 12px rgba(251, 191, 36, 1), 0 0 24px rgba(251, 191, 36, 0.8);">${user.points || 0}</strong> pts</div>
-          <div class="friend-stat" style="color: #ffffff; text-shadow: 0 0 12px rgba(0,0,0,1), 0 0 24px rgba(0,0,0,0.9), 0 2px 8px rgba(0,0,0,0.8); background: rgba(0,0,0,0.6); padding: 4px 10px; border-radius: 6px; backdrop-filter: blur(4px);"><strong style="color: #10b981; text-shadow: 0 0 12px rgba(16, 185, 129, 1), 0 0 24px rgba(16, 185, 129, 0.8);">${user.stats?.totalFocusTime || 0}</strong> min</div>
+          <div style="display: flex; gap: 8px; margin-top: 8px;">
+            <div class="friend-stat" style="color: #ffffff; text-shadow: 0 0 12px rgba(0,0,0,1), 0 0 24px rgba(0,0,0,0.9), 0 2px 8px rgba(0,0,0,0.8); background: rgba(0,0,0,0.6); padding: 4px 10px; border-radius: 6px; backdrop-filter: blur(4px); font-size: 11px;">Lv <strong style="color: #ffffff; text-shadow: 0 0 12px rgba(59, 130, 246, 1), 0 0 24px rgba(59, 130, 246, 0.8);">${user.level || 1}</strong></div>
+            <div class="friend-stat" style="color: #ffffff; text-shadow: 0 0 12px rgba(0,0,0,1), 0 0 24px rgba(0,0,0,0.9), 0 2px 8px rgba(0,0,0,0.8); background: rgba(0,0,0,0.6); padding: 4px 10px; border-radius: 6px; backdrop-filter: blur(4px); font-size: 11px;"><strong style="color: #fbbf24; text-shadow: 0 0 12px rgba(251, 191, 36, 1), 0 0 24px rgba(251, 191, 36, 0.8);">${user.points || 0}</strong> pts</div>
+            <div class="friend-stat" style="color: #ffffff; text-shadow: 0 0 12px rgba(0,0,0,1), 0 0 24px rgba(0,0,0,0.9), 0 2px 8px rgba(0,0,0,0.8); background: rgba(0,0,0,0.6); padding: 4px 10px; border-radius: 6px; backdrop-filter: blur(4px); font-size: 11px;"><strong style="color: #10b981; text-shadow: 0 0 12px rgba(16, 185, 129, 1), 0 0 24px rgba(16, 185, 129, 0.8);">${user.stats?.totalFocusTime || 0}</strong> min</div>
+          </div>
         </div>
       `;
       
@@ -827,6 +867,26 @@ async function loadLeaderboard() {
         </div>
       `;
     }).join('');
+    
+    // Add hover effect for reset info
+    const infoTrigger = container.querySelector('.reset-info-trigger');
+    const infoTooltip = container.querySelector('.reset-info-tooltip');
+    if (infoTrigger && infoTooltip) {
+      infoTrigger.addEventListener('mouseenter', () => {
+        infoTooltip.style.opacity = '1';
+        infoTooltip.style.transform = 'translateY(0)';
+        infoTooltip.style.pointerEvents = 'auto';
+        infoTrigger.style.background = 'rgba(239, 68, 68, 0.2)';
+        infoTrigger.style.borderColor = 'rgba(239, 68, 68, 0.5)';
+      });
+      infoTrigger.addEventListener('mouseleave', () => {
+        infoTooltip.style.opacity = '0';
+        infoTooltip.style.transform = 'translateY(-8px)';
+        infoTooltip.style.pointerEvents = 'none';
+        infoTrigger.style.background = 'rgba(239, 68, 68, 0.1)';
+        infoTrigger.style.borderColor = 'rgba(239, 68, 68, 0.3)';
+      });
+    }
   } catch (error) {
     console.error('Failed to load leaderboard:', error);
     document.getElementById('leaderboardList').innerHTML = `
@@ -2160,7 +2220,7 @@ function updateOnlineUsers() {
     return `
       <div class="online-user" style="${cardStyle}">
         ${bannerHTML}
-        <div style="position: relative; width: 32px; height: 32px; flex-shrink: 0; z-index: 1;">
+        <div style="position: relative; width: 36px; height: 36px; flex-shrink: 0; z-index: 1;">
           <div class="online-user-avatar" style="position: relative; z-index: 1;">${user.avatar || '👤'}</div>
           ${avatarDecoration}
         </div>
@@ -2224,7 +2284,7 @@ function getNameBannerHTML(bannerId, additionalClass = '', additionalStyle = '')
   const url = chrome.runtime.getURL(`assets/name_banner/${bannerId}${extension}`);
   
   if (isAnimated) {
-    return `<video autoplay loop muted playsinline class="name-banner-video ${additionalClass}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; ${additionalStyle}" src="${url}"></video>`;
+    return `<video autoplay loop muted playsinline class="name-banner-video ${additionalClass}" style="position: absolute; top: 0; width: 650px; left: 500px; height: 100%; object-fit: fill; z-index: 0; ${additionalStyle}" src="${url}"></video>`;
   }
   
   return '';
@@ -2343,9 +2403,9 @@ async function loadShopItems(category) {
     return `
       <div class="shop-item ${isOwned ? 'owned' : ''} ${isEquipped ? 'equipped' : ''} ${isComingSoon ? 'coming-soon' : ''}" data-item-id="${item.id}" data-category="${category}">
         ${isComingSoon ? '<div class="shop-item-status coming-soon">COMING SOON</div>' : (isEquipped ? '<div class="shop-item-status equipped">EQUIPPED</div>' : (isOwned ? '<div class="shop-item-status owned">OWNED</div>' : ''))}
-        <div class="shop-item-image" style="${isComingSoon ? 'opacity: 0.4; filter: blur(2px);' : ''}">
+        <div class="shop-item-image" style="${category === 'banner' ? 'aspect-ratio: 3/1; height: auto;' : ''} ${isComingSoon ? 'opacity: 0.4; filter: blur(2px);' : ''}">
           ${isAnimated ? 
-            `<video src="${imageUrl}" autoplay loop muted playsinline style="width: 100%; height: 100%; object-fit: cover;" onerror="console.error('Video load error:', this.src); this.style.display='none'; this.parentElement.innerHTML='<div style=\\'display:flex;align-items:center;justify-content:center;height:100%;color:#666;font-size:12px;\\'>Preview Unavailable</div>'" ${isComingSoon ? 'poster="data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\'%3E%3C/svg%3E"' : ''}></video>` :
+            `<video src="${imageUrl}" autoplay loop muted playsinline style="width: 100%; height: 100%; object-fit: ${category === 'banner' ? 'cover' : 'contain'};" onerror="console.error('Video load error:', this.src); this.style.display='none'; this.parentElement.innerHTML='<div style=\\'display:flex;align-items:center;justify-content:center;height:100%;color:#666;font-size:12px;\\'>Preview Unavailable</div>'" ${isComingSoon ? 'poster="data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\'%3E%3C/svg%3E"' : ''}></video>` :
             `<img src="${imageUrl}" style="width: 100%; height: 100%; object-fit: ${category === 'banner' ? 'cover' : 'contain'};" onerror="this.style.display='none'; this.parentElement.innerHTML='<div style=\\'display:flex;align-items:center;justify-content:center;height:100%;color:#666;font-size:12px;\\'>Preview Unavailable</div>'" />`
           }
         </div>
@@ -2428,35 +2488,26 @@ async function purchaseItem(itemId, category) {
   
   if (confirm(`Purchase ${item.name} for ${item.price} points?`)) {
     try {
-      // Add to purchased effects
-      const purchasedEffects = user.purchasedEffects || [];
-      if (!purchasedEffects.includes(itemId)) {
-        purchasedEffects.push(itemId);
-      }
-      
-      // Deduct points
-      const newPoints = user.points - item.price;
-      
-      // Update backend
+      // Update backend - backend will handle developer privileges
       const response = await API.request('/users/purchase-effect', {
         method: 'POST',
         body: JSON.stringify({ effectId: itemId, price: item.price })
       });
       
       // Update local storage with response from server
-      user.purchasedEffects = response.purchasedEffects || purchasedEffects;
-      user.points = response.points || newPoints;
+      user.purchasedEffects = response.purchasedEffects;
+      user.points = response.points;
       await chrome.storage.local.set({ user });
       currentUserData = user;
       
       // Refresh shop
-      document.getElementById('shopUserPoints').textContent = newPoints;
+      document.getElementById('shopUserPoints').textContent = response.points;
       await loadShopItems(category);
       
       alert(`Successfully purchased ${item.name}!`);
     } catch (error) {
       console.error('Purchase failed:', error);
-      alert('Purchase failed! Please try again.');
+      alert(error.message || 'Purchase failed! Please try again.');
     }
   }
 }
@@ -2823,8 +2874,21 @@ function showNudgeNotification(nudge) {
 
   content.innerHTML = `
     <div style="display: flex; align-items: start; gap: 16px;">
-      <div style="position: relative; flex-shrink: 0;">
-        <div style="font-size: 48px; filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.3));">${nudge.fromAvatar || '👤'}</div>
+      <div style="position: relative; flex-shrink: 0; width: 64px; height: 64px; display: flex; align-items: center; justify-content: center;">
+        <div style="font-size: 48px; filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.3)); position: relative; z-index: 1;">${nudge.fromAvatar || '👤'}</div>
+        ${nudge.fromAvatarDecoration ? `
+          <div style="
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 64px;
+            height: 64px;
+            background: url('${chrome.runtime.getURL(`assets/avatar/${nudge.fromAvatarDecoration}.png`)}') center/contain no-repeat;
+            pointer-events: none;
+            z-index: 10;
+          "></div>
+        ` : ''}
         <div style="
           position: absolute;
           bottom: -4px;
@@ -2838,6 +2902,7 @@ function showNudgeNotification(nudge) {
           justify-content: center;
           box-shadow: 0 4px 12px rgba(251, 191, 36, 0.5);
           animation: nudgeBounce 0.6s ease-in-out infinite;
+          z-index: 11;
         ">
           <i class="fas fa-hand-point-right" style="color: white; font-size: 12px;"></i>
         </div>
@@ -3073,8 +3138,8 @@ function displayFriendSuggestions(suggestions) {
                     z-index: 0;
                   ">
                     ${isAnimatedBanner ?
-                      `<video src="${chrome.runtime.getURL(`assets/name_banner/${nameBannerFile}`)}" autoplay loop muted playsinline style="height: 100%; width: auto; object-fit: contain;"></video>` :
-                      `<img src="${chrome.runtime.getURL(`assets/name_banner/${nameBannerFile}`)}" style="height: 100%; width: auto; object-fit: contain;" />`
+                      `<video src="${chrome.runtime.getURL(`assets/name_banner/${nameBannerFile}`)}" autoplay loop muted playsinline style="height: 100%; width: auto; object-fit: fill;"></video>` :
+                      `<img src="${chrome.runtime.getURL(`assets/name_banner/${nameBannerFile}`)}" style="height: 100%; width: auto; object-fit: fill;" />`
                     }
                   </div>
                   <div style="font-weight: 600; font-size: 15px; color: #e5e5e5; position: relative; z-index: 1; padding: 0 8px;">${user.displayName}</div>
