@@ -344,6 +344,7 @@ async function updateUserActivity(tab) {
       status: status,
       currentActivity,
       currentUrl: currentUrl.substring(0, 100), // Limit length
+      tabTitle: tab.title || null,  // Include tab title
       videoTitle: videoTitle,
       focusActive: state.focusActive || false,
       lastUpdated: Date.now()
@@ -358,6 +359,7 @@ async function updateUserActivity(tab) {
         status: status,
         currentActivity,
         currentUrl: currentUrl.substring(0, 100),
+        tabTitle: tab.title || null,  // Include tab title
         videoTitle: storedVideo.youtubeVideo.title,
         videoThumbnail: storedVideo.youtubeVideo.thumbnail,
         videoChannel: storedVideo.youtubeVideo.channel,
@@ -373,6 +375,26 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
   if (alarm.name === 'activity-heartbeat') {
     // Handle activity heartbeat
     await sendActivityHeartbeat();
+  } else if (alarm.name === 'presence-check') {
+    // Handle presence check notification
+    const state = await getState();
+    
+    if (state.focusActive) {
+      chrome.notifications.create({
+        type: 'basic',
+        iconUrl: 'icons/icon48.png',
+        title: '👋 Are you still there?',
+        message: 'Tap to confirm you\'re still focusing',
+        requireInteraction: true,
+        buttons: [{ title: 'Yes, I\'m here!' }]
+      }, (notificationId) => {
+        // Store notification ID for handling response
+        chrome.storage.local.set({ lastPresenceCheckId: notificationId });
+      });
+      
+      // Schedule next check
+      schedulePresenceChecks();
+    }
   } else if (alarm.name === 'break-end') {
     // End the emergency break, resume blocking
     await chrome.storage.local.set({onBreak: false});
@@ -413,12 +435,12 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
     // Clear session activities
     await chrome.storage.local.remove('sessionActivities');
     
-    // Check minimum session duration (5 minutes = 300000 ms)
-    const minimumDuration = 5 * 60 * 1000; // 5 minutes
+    // Check minimum session duration (15 minutes = 900000 ms)
+    const minimumDuration = 15 * 60 * 1000; // 15 minutes minimum
     const earnedPoints = actualDuration >= minimumDuration;
     
     if (!earnedPoints) {
-      console.log('[SessionEnd] Session too short for points:', Math.floor(actualDuration / 60000), 'minutes');
+      console.log('[SessionEnd] Session too short for points:', Math.floor(actualDuration / 60000), 'minutes (minimum: 15 minutes)');
     } else {
       console.log('[SessionEnd] Updating stats for', Math.floor(actualDuration / 60000), 'minute session');
       // Update stats using ACTUAL elapsed time
@@ -629,15 +651,34 @@ async function updateSessionStats(durationMs) {
     return level;
   };
   
-  // Calculate base points (1 point per minute + bonuses)
-  let basePoints = durationMin;
+  // Calculate base points with progressive scaling
+  // First hour (0-60 min): 1 min = 1 point
+  // Second hour (61-120 min): 1 min = 1.5 points
+  // Third hour (121-180 min): 1 min = 2 points
+  // After 180 min: capped at 180 min calculation (max 210 min sessions)
+  let basePoints = 0;
+  
+  if (durationMin <= 60) {
+    // First hour: 1x
+    basePoints = durationMin;
+  } else if (durationMin <= 120) {
+    // First hour at 1x, second hour at 1.5x
+    basePoints = 60 + ((durationMin - 60) * 1.5);
+  } else {
+    // First hour: 1x (60 pts), second: 1.5x (90 pts), third hour: 2x
+    // Cap at 210 minutes max
+    const thirdHourMinutes = Math.min(durationMin - 120, 60);
+    basePoints = 60 + (60 * 1.5) + (thirdHourMinutes * 2);
+  }
+  
+  // Bonus points
   if (durationMin >= 60) basePoints += 20; // 1 hour bonus
   if (currentStreak >= 7) basePoints += 50; // Week streak bonus
   
   // Apply focus multiplier to earned points
   const pointsEarned = Math.floor(basePoints * focusMultiplier);
   
-  console.log(`[Points] Base: ${basePoints}, After Focus Multiplier: ${pointsEarned}`);
+  console.log(`[Points] Duration: ${durationMin}min, Base: ${basePoints.toFixed(1)}, Focus Multiplier: ${focusMultiplier.toFixed(2)}x, Final: ${pointsEarned}`);
   
   const newPoints = (state.points || 0) + pointsEarned;
   const newLevel = calculateLevel(newPoints);
@@ -718,7 +759,8 @@ async function updateSessionStats(durationMs) {
           },
           points: newPoints,
           level: newLevel,
-          badges: updatedBadges.filter(b => b && b.id).map(b => b.id)
+          badges: updatedBadges.filter(b => b && b.id).map(b => b.id),
+          focusHistory: state.focusHistory || {}
         })
       });
       console.log('Stats synced to MongoDB');
@@ -928,6 +970,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       await chrome.storage.local.set({ sessionActivities: [] });
       
       chrome.alarms.create('focus-end', {when: end});
+      
+      // Schedule presence checks
+      schedulePresenceChecks();
+      
       sendResponse({ok:true, end});
     } else if (msg.action === 'endSession') {
       const s = await chrome.storage.local.get();
@@ -1303,12 +1349,123 @@ async function checkStreakOnLogin() {
   }
 }
 
-// Handle browser startup/restart - check for stuck focus sessions and streak
+// Handle browser startup/restart - check for paused sessions
 chrome.runtime.onStartup.addListener(async () => {
-  console.log('[Startup] Browser started, checking for stuck focus sessions...');
-  await handleStuckSession();
+  console.log('[Startup] Browser started, checking for paused focus sessions...');
+  await handlePausedSession();
   // checkStreakOnLogin will be called after MongoDB sync in onInstalled
 });
+
+// Handle paused sessions (browser closed during focus)
+async function handlePausedSession() {
+  try {
+    const state = await getState();
+    const now = Date.now();
+    
+    // Check if there was an active focus session
+    if (state.focusActive && state.sessionPausedAt) {
+      const pauseDuration = now - state.sessionPausedAt;
+      const gracePeriod = 10 * 60 * 1000; // 10 minutes
+      
+      console.log('[PausedSession] Found paused session, paused for:', Math.floor(pauseDuration / 60000), 'minutes');
+      
+      if (pauseDuration > gracePeriod) {
+        // Grace period exceeded - discard session
+        console.log('[PausedSession] ❌ Grace period exceeded, discarding session');
+        
+        await chrome.storage.local.set({
+          focusActive: false,
+          sessionEnd: 0,
+          sessionStart: 0,
+          sessionPausedAt: 0,
+          sessionPausedDuration: 0,
+          emergencyUsed: false,
+          sessionBlockedCount: 0
+        });
+        
+        chrome.notifications.create({
+          type: 'basic',
+          iconUrl: 'icons/icon48.png',
+          title: '⏸️ Focus Session Discarded',
+          message: 'Your focus session was paused for too long and has been cancelled.',
+          requireInteraction: false
+        });
+        
+        // Update activity back to online
+        try {
+          const token = state.authToken;
+          if (token) {
+            await fetch(`${API_BASE_URL}/api/users/activity`, {
+              method: 'PUT',
+              headers: { 
+                'Content-Type': 'application/json', 
+                'Authorization': `Bearer ${token}` 
+              },
+              body: JSON.stringify({ 
+                activity: {
+                  status: 'online',
+                  focusActive: false
+                }
+              })
+            });
+          }
+        } catch (error) {
+          console.error('[PausedSession] Error updating activity:', error);
+        }
+      } else {
+        // Within grace period - resume session
+        console.log('[PausedSession] ✅ Resuming session, adjusting end time');
+        
+        const newEndTime = state.sessionEnd + pauseDuration;
+        
+        await chrome.storage.local.set({
+          sessionEnd: newEndTime,
+          sessionPausedAt: 0,
+          sessionPausedDuration: (state.sessionPausedDuration || 0) + pauseDuration
+        });
+        
+        // Recreate alarm
+        chrome.alarms.create('focus-end', { when: newEndTime });
+        
+        // Schedule presence checks
+        schedulePresenceChecks();
+        
+        chrome.notifications.create({
+          type: 'basic',
+          iconUrl: 'icons/icon48.png',
+          title: '▶️ Focus Session Resumed',
+          message: 'Your focus session has been resumed. Keep going!',
+          requireInteraction: false
+        });
+      }
+    }
+  } catch (error) {
+    console.error('[PausedSession] Error:', error);
+  }
+}
+
+// Detect when browser is about to close - pause the session
+chrome.runtime.onSuspend.addListener(async () => {
+  console.log('[Suspend] Browser closing, pausing focus session...');
+  const state = await getState();
+  
+  if (state.focusActive) {
+    await chrome.storage.local.set({
+      sessionPausedAt: Date.now()
+    });
+    console.log('[Suspend] ✅ Session paused');
+  }
+});
+
+// Schedule presence check notifications at random intervals
+function schedulePresenceChecks() {
+  const intervals = [5, 7, 13, 17]; // Minutes
+  const randomInterval = intervals[Math.floor(Math.random() * intervals.length)];
+  const nextCheckTime = Date.now() + (randomInterval * 60 * 1000);
+  
+  chrome.alarms.create('presence-check', { when: nextCheckTime });
+  console.log(`[PresenceCheck] Next check scheduled in ${randomInterval} minutes`);
+}
 
 // Initialize defaults on installed
 chrome.runtime.onInstalled.addListener(async () => {
@@ -1523,6 +1680,10 @@ async function syncFromMongoDB() {
             displayName: userData.displayName,
             avatar: userData.avatar
           },
+          points: userData.points || 0,
+          level: userData.level || 1,
+          badges: userData.badges || [],
+          focusHistory: userData.focusHistory ? Object.fromEntries(userData.focusHistory) : (currentState.focusHistory || {}),
           dailyGoal: userData.settings?.dailyGoal || currentState.dailyGoal || 120,
           pomodoroBreakDuration: userData.settings?.breakTime || currentState.pomodoroBreakDuration || 5
         };

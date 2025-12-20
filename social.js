@@ -22,7 +22,14 @@ function isPublicURL(url) {
     'stackoverflow.com',
     'reddit.com',
     'twitter.com',
-    'x.com'
+    'x.com',
+    'getmarks.app',  // GetMarks educational app
+    'spotify.com',   // Spotify
+    'netflix.com',   // Netflix
+    'instagram.com', // Instagram
+    'facebook.com',  // Facebook
+    'tiktok.com',    // TikTok
+    'linkedin.com'   // LinkedIn
   ];
   
   // Private/sensitive sites that should be hidden
@@ -262,39 +269,37 @@ async function loadFriends() {
         ${!isAnimated ? `background: url('${chrome.runtime.getURL(`assets/name_banner/${friend.nameBanner}.png`)}') center/cover; background-size: 100% 100%;` : 'position: relative; overflow: hidden;'}
       ` : 'cursor: pointer;';
       
-      const content = `
-        ${bannerHTML}
-        ${avatarContent}
-        <div class="friend-info" style="position: relative; z-index: 1;">
-          <div class="friend-name" style="text-shadow: 0 2px 8px rgba(0,0,0,0.8), 0 0 4px rgba(0,0,0,0.6);">
-            ${friend.displayName}
-          </div>
-          <div class="friend-username" style="text-shadow: 0 2px 8px rgba(0,0,0,0.8), 0 0 4px rgba(0,0,0,0.6);">@${friend.username}</div>
-          <div class="friend-activity" style="text-shadow: 0 2px 8px rgba(0,0,0,0.8), 0 0 4px rgba(0,0,0,0.6);">
-            <span class="activity-indicator ${getActivityStatus(friend)}"></span>
-            ${getActivityText(friend)}
-          </div>
-        </div>
-        <div class="friend-stats" style="position: relative; z-index: 1; display: flex; flex-direction: column; gap: 6px; align-items: flex-end; margin-right: 30px;">
-          <div class="friend-stat" style="color: #ffffff; text-shadow: 0 0 12px rgba(0,0,0,1), 0 0 24px rgba(0,0,0,0.9), 0 2px 8px rgba(0,0,0,0.8); background: rgba(0,0,0,0.6); padding: 6px 12px; border-radius: 8px; backdrop-filter: blur(4px); font-size: 12px;">Level <strong style="color: #3b82f6; text-shadow: 0 0 12px rgba(59, 130, 246, 1), 0 0 24px rgba(59, 130, 246, 0.8); font-size: 14px;">${friend.level || 1}</strong></div>
-          <div class="friend-stat" style="color: #ffffff; text-shadow: 0 0 12px rgba(0,0,0,1), 0 0 24px rgba(0,0,0,0.9), 0 2px 8px rgba(0,0,0,0.8); background: rgba(0,0,0,0.6); padding: 6px 12px; border-radius: 8px; backdrop-filter: blur(4px); font-size: 12px;"><strong style="color: #10b981; text-shadow: 0 0 12px rgba(16, 185, 129, 1), 0 0 24px rgba(16, 185, 129, 0.8); font-size: 14px;">${friend.stats?.totalFocusTime || 0}</strong> min</div>
-        </div>
-        <button class="friend-menu-btn" data-id="${friend.userId}" data-name="${friend.displayName}">
-          <i class="fas fa-ellipsis-v"></i>
-        </button>
-        <div class="friend-menu hidden" data-id="${friend.userId}">
-          <div class="friend-menu-item nudge-option" data-id="${friend.userId}" data-name="${friend.displayName}">
-            <i class="fas fa-hand-point-right"></i> Nudge
-          </div>
-          <div class="friend-menu-item remove-option" data-id="${friend.userId}" data-name="${friend.displayName}">
-            <i class="fas fa-user-minus"></i> Remove
-          </div>
-        </div>
-      `;
-      
       return `
         <div class="friend-card" data-username="${friend.username}" style="${cardStyle}">
-          ${content}
+          ${bannerHTML}
+          <div style="position: relative; z-index: 1; display: flex; align-items: center; gap: 14px; flex: 1;">
+            ${avatarContent}
+            <div class="friend-info">
+              <div class="friend-name" style="text-shadow: 0 2px 8px rgba(0,0,0,0.8), 0 0 4px rgba(0,0,0,0.6);">
+                ${friend.displayName}
+              </div>
+              <div class="friend-username" style="text-shadow: 0 2px 8px rgba(0,0,0,0.8), 0 0 4px rgba(0,0,0,0.6);">@${friend.username}</div>
+              <div class="friend-activity" style="text-shadow: 0 2px 8px rgba(0,0,0,0.8), 0 0 4px rgba(0,0,0,0.6);">
+                <span class="activity-indicator ${getActivityStatus(friend)}"></span>
+                ${getActivityText(friend)}
+              </div>
+            </div>
+          </div>
+          <div class="friend-stats" style="position: relative; z-index: 1; display: flex; flex-direction: column; gap: 6px; align-items: flex-end; margin-right: 30px;">
+            <div class="friend-stat" style="color: #ffffff; text-shadow: 0 0 12px rgba(0,0,0,1), 0 0 24px rgba(0,0,0,0.9), 0 2px 8px rgba(0,0,0,0.8); background: rgba(0,0,0,0.6); padding: 6px 12px; border-radius: 8px; backdrop-filter: blur(4px); font-size: 12px;">Level <strong style="color: #3b82f6; text-shadow: 0 0 12px rgba(59, 130, 246, 1), 0 0 24px rgba(59, 130, 246, 0.8); font-size: 14px;">${friend.level || 1}</strong></div>
+            <div class="friend-stat" style="color: #ffffff; text-shadow: 0 0 12px rgba(0,0,0,1), 0 0 24px rgba(0,0,0,0.9), 0 2px 8px rgba(0,0,0,0.8); background: rgba(0,0,0,0.6); padding: 6px 12px; border-radius: 8px; backdrop-filter: blur(4px); font-size: 12px;"><strong style="color: #10b981; text-shadow: 0 0 12px rgba(16, 185, 129, 1), 0 0 24px rgba(16, 185, 129, 0.8); font-size: 14px;">${friend.stats?.totalFocusTime || 0}</strong> min</div>
+          </div>
+          <button class="friend-menu-btn" data-id="${friend.userId}" data-name="${friend.displayName}">
+            <i class="fas fa-ellipsis-v"></i>
+          </button>
+          <div class="friend-menu hidden" data-id="${friend.userId}">
+            <div class="friend-menu-item nudge-option" data-id="${friend.userId}" data-name="${friend.displayName}">
+              <i class="fas fa-hand-point-right"></i> Nudge
+            </div>
+            <div class="friend-menu-item remove-option" data-id="${friend.userId}" data-name="${friend.displayName}">
+              <i class="fas fa-user-minus"></i> Remove
+            </div>
+          </div>
         </div>
       `;
     }).join('');
@@ -476,77 +481,82 @@ function getActivityText(friend) {
     
     // Privacy: Show only platform name for private meeting sites
     if (lowerUrl.includes('meet.google.com')) {
-      return '📹 Google Meet';
+      return '<i class="fas fa-video"></i> Google Meet';
     }
     if (lowerUrl.includes('zoom.us')) {
-      return '📹 Zoom';
+      return '<i class="fas fa-video"></i> Zoom';
     }
     if (lowerUrl.includes('teams.microsoft.com')) {
-      return '📹 Microsoft Teams';
+      return '<i class="fas fa-video"></i> Microsoft Teams';
     }
     if (lowerUrl.includes('webex.com')) {
-      return '📹 Webex';
+      return '<i class="fas fa-video"></i> Webex';
     }
     if (lowerUrl.includes('whereby.com')) {
-      return '📹 Whereby';
+      return '<i class="fas fa-video"></i> Whereby';
     }
     if (lowerUrl.includes('discord.com/channels')) {
-      return '📹 Discord Call';
+      return '<i class="fab fa-discord"></i> Discord Call';
     }
     if (lowerUrl.includes('slack.com/call')) {
-      return '📹 Slack Call';
+      return '<i class="fab fa-slack"></i> Slack Call';
     }
     
     // Google
     if (lowerUrl.includes('google.com')) {
       if (lowerUrl.includes('/search')) {
-        return '🔍 Googling...';
+        return '<i class="fas fa-search"></i> Googling...';
       }
-      return '🔍 On Google';
+      return '<i class="fab fa-google"></i> On Google';
     }
     
     // Social Media
     if (lowerUrl.includes('instagram.com')) {
-      if (lowerUrl.includes('/reel')) return '📸 Watching Reels';
-      if (lowerUrl.includes('/stories')) return '📸 Checking Stories';
-      return '📸 Scrolling Instagram';
+      if (lowerUrl.includes('/reel')) return '<i class="fab fa-instagram"></i> Watching Reels';
+      if (lowerUrl.includes('/stories')) return '<i class="fab fa-instagram"></i> Checking Stories';
+      return '<i class="fab fa-instagram"></i> Scrolling Instagram';
     }
     
     if (lowerUrl.includes('facebook.com')) {
-      return '👥 On Facebook';
+      return '<i class="fab fa-facebook"></i> On Facebook';
     }
     
     if (lowerUrl.includes('twitter.com') || lowerUrl.includes('x.com')) {
-      return '🐦 Scrolling X (Twitter)';
+      return '<i class="fab fa-twitter"></i> Scrolling X (Twitter)';
     }
     
     if (lowerUrl.includes('reddit.com')) {
-      return '🤖 Browsing Reddit';
+      return '<i class="fab fa-reddit"></i> Browsing Reddit';
     }
     
     if (lowerUrl.includes('tiktok.com')) {
-      return '🎵 Watching TikTok';
+      return '<i class="fab fa-tiktok"></i> Watching TikTok';
     }
     
     if (lowerUrl.includes('snapchat.com')) {
-      return '👻 On Snapchat';
+      return '<i class="fab fa-snapchat"></i> On Snapchat';
     }
     
     if (lowerUrl.includes('linkedin.com')) {
-      return '💼 Networking on LinkedIn';
+      return '<i class="fab fa-linkedin"></i> Networking on LinkedIn';
     }
     
     if (lowerUrl.includes('pinterest.com')) {
-      return '📌 Pinning Ideas';
+      return '<i class="fab fa-pinterest"></i> Pinning Ideas';
     }
     
     // Entertainment
     if (lowerUrl.includes('netflix.com')) {
-      return '🎬 Watching Netflix';
+      return '<i class="fas fa-film"></i> Watching Netflix';
     }
     
     if (lowerUrl.includes('spotify.com')) {
-      return '🎵 Listening to Spotify';
+      // Show song name if available in videoTitle
+      if (activity.videoTitle && !isPrivateUrl) {
+        const cleanTitle = cleanVideoTitle(activity.videoTitle);
+        return `<i class="fab fa-spotify"></i> ${cleanTitle}`;
+      }
+      return '<i class="fab fa-spotify"></i> Listening to Spotify';
     }
     
     if (lowerUrl.includes('twitch.tv')) {
@@ -614,7 +624,7 @@ async function loadFriendRequests() {
     if (pending.length === 0) {
       pendingContainer.innerHTML = `
         <div class="empty-state" style="padding: 32px 16px;">
-          <div class="empty-state-icon">📬</div>
+          <div class="empty-state-icon"><i class="fas fa-inbox" style="font-size: 48px; opacity: 0.3;"></i></div>
           <p style="font-size: 14px;">No pending friend requests</p>
         </div>
       `;
@@ -626,15 +636,15 @@ async function loadFriendRequests() {
             <div class="friend-name" style="text-shadow: 0 2px 8px rgba(0,0,0,0.8), 0 0 4px rgba(0,0,0,0.6);">${req.displayName || req.username}</div>
             <div class="friend-username" style="text-shadow: 0 2px 8px rgba(0,0,0,0.8), 0 0 4px rgba(0,0,0,0.6);">@${req.username}</div>
             <div style="font-size: 11px; color: #888; margin-top: 4px; text-shadow: 0 2px 8px rgba(0,0,0,0.8), 0 0 4px rgba(0,0,0,0.6);">
-              📅 ${new Date(req.requestedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+              <i class="fas fa-calendar-alt"></i> ${new Date(req.requestedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
             </div>
           </div>
           <div class="friend-actions">
             <button class="accept-request-btn" data-username="${req.username}">
-              ✓ Accept
+              <i class="fas fa-check"></i> Accept
             </button>
             <button class="reject-request-btn" data-username="${req.username}">
-              ✕ Reject
+              <i class="fas fa-times"></i> Reject
             </button>
           </div>
         </div>
@@ -674,7 +684,7 @@ async function loadFriendRequests() {
     if (sent.length === 0) {
       sentContainer.innerHTML = `
         <div class="empty-state" style="padding: 32px 16px;">
-          <div class="empty-state-icon">✉️</div>
+          <div class="empty-state-icon"><i class="fas fa-paper-plane" style="font-size: 48px; opacity: 0.3;"></i></div>
           <p style="font-size: 14px;">No sent friend requests</p>
         </div>
       `;
@@ -686,26 +696,47 @@ async function loadFriendRequests() {
             <div class="friend-name" style="text-shadow: 0 2px 8px rgba(0,0,0,0.8), 0 0 4px rgba(0,0,0,0.6);">${req.displayName || req.username}</div>
             <div class="friend-username" style="text-shadow: 0 2px 8px rgba(0,0,0,0.8), 0 0 4px rgba(0,0,0,0.6);">@${req.username}</div>
             <div style="font-size: 11px; color: #888; margin-top: 4px; text-shadow: 0 2px 8px rgba(0,0,0,0.8), 0 0 4px rgba(0,0,0,0.6);">
-              📤 Sent ${new Date(req.requestedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+              <i class="fas fa-clock"></i> Sent ${new Date(req.requestedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
             </div>
           </div>
           <div class="friend-actions">
-            <span style="
-              background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-              color: #000;
+            <button class="withdraw-request-btn" data-username="${req.username}" style="
+              background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+              border: none;
               padding: 8px 16px;
               border-radius: 6px;
+              color: white;
               font-size: 12px;
               font-weight: 600;
-              text-transform: uppercase;
-              letter-spacing: 0.5px;
+              cursor: pointer;
+              transition: all 0.3s ease;
               display: flex;
               align-items: center;
               gap: 6px;
-            ">⏳ Pending</span>
+            ">
+              <i class="fas fa-undo"></i> Withdraw
+            </button>
           </div>
         </div>
       `).join('');
+      
+      // Add event listeners for withdraw buttons
+      document.querySelectorAll('.withdraw-request-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          const username = e.target.closest('.withdraw-request-btn').dataset.username;
+          if (confirm(`Withdraw friend request to @${username}?`)) {
+            try {
+              // Use reject endpoint with withdraw parameter
+              await API.rejectFriendRequest(username, true);
+              showToast('Friend request withdrawn', 'success');
+              loadFriendRequests();
+            } catch (error) {
+              console.error('Withdraw error:', error);
+              showToast('Failed to withdraw request', 'error');
+            }
+          }
+        });
+      });
     }
   } catch (error) {
     console.error('Failed to load friend requests:', error);
@@ -1019,6 +1050,11 @@ function getActivityTextFromData(activity) {
     }
     
     if (lowerUrl.includes('spotify.com')) {
+      // Show song name if available in videoTitle
+      if (activity.videoTitle && !isPublicURL(activity.currentUrl)) {
+        const cleanTitle = cleanVideoTitle(activity.videoTitle);
+        return `<i class="fab fa-spotify" style="color: #1db954;"></i> ${cleanTitle}`;
+      }
       return '<i class="fab fa-spotify" style="color: #1db954;"></i> Listening to Spotify';
     }
     
@@ -1102,8 +1138,8 @@ async function viewProfile(username) {
     modalContent.style.boxShadow = '0 24px 80px rgba(0,0,0,0.8)';
     
     // Profile decoration overlay (on top of modal, not as border)
-    // Valid profile IDs: gradient-1, p2-p8 (exclude banner/avatar IDs)
-    const validProfileIds = ['gradient-1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8'];
+    // Valid profile IDs: gradient-1, p2-p15 (exclude banner/avatar IDs)
+    const validProfileIds = ['gradient-1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8', 'p9', 'p10', 'p11', 'p12', 'p13', 'p14', 'p15'];
     const hasValidProfileDecoration = profile.profileDecoration && validProfileIds.includes(profile.profileDecoration);
     
     const profileDecoration = hasValidProfileDecoration ? `
@@ -1254,8 +1290,34 @@ async function viewProfile(username) {
             </div>
           </div>
           
-          ${profile.activity.videoTitle && isPublicURL(profile.activity.currentUrl) ? `
+          ${profile.activity.videoTitle && (isPublicURL(profile.activity.currentUrl) || profile.activity.currentUrl?.includes('spotify.com')) ? `
             ${(() => {
+              // Check for Spotify first
+              const isSpotify = profile.activity.currentUrl?.toLowerCase().includes('spotify.com');
+              
+              if (isSpotify && profile.activity.videoTitle) {
+                const cleanSongTitle = cleanVideoTitle(profile.activity.videoTitle);
+                return `
+                  <div style="background: linear-gradient(135deg, #1db954 0%, #1ed760 100%); border-radius: 12px; padding: 20px; margin-top: 12px; box-shadow: 0 8px 24px rgba(29, 185, 84, 0.3);">
+                    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 14px;">
+                      <div style="width: 48px; height: 48px; background: rgba(255, 255, 255, 0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px;">
+                        <i class="fab fa-spotify" style="color: white;"></i>
+                      </div>
+                      <div style="flex: 1;">
+                        <div style="color: rgba(255, 255, 255, 0.8); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px;">NOW PLAYING</div>
+                        <div style="color: white; font-size: 15px; font-weight: 600; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${cleanSongTitle}</div>
+                      </div>
+                    </div>
+                    ${profile.activity.focusActive ? `
+                      <div style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; background: rgba(0, 0, 0, 0.3); border-radius: 6px; font-size: 10px; font-weight: 600; color: white;">
+                        <span style="width: 5px; height: 5px; background: white; border-radius: 50%;"></span>
+                        FOCUSING
+                      </div>
+                    ` : ''}
+                  </div>
+                `;
+              }
+              
               // Privacy check: only show details for public URLs
               if (!isPublicURL(profile.activity.currentUrl)) {
                 return '';
@@ -1287,7 +1349,7 @@ async function viewProfile(username) {
                 return `
                   <div style="background: #0a0a0a; border: 1px solid #1f1f1f; border-radius: 10px; overflow: hidden; transition: transform 0.2s;">
                     <div style="position: relative;">
-                      <img src="${profile.activity.videoThumbnail}" alt="Thumbnail" style="width: 100%; height: auto; display: block;">
+                      <img src="${profile.activity.videoThumbnail}" alt="Thumbnail" style="width: 100%; height: auto; display: block;" onerror="this.style.display='none'; this.parentElement.innerHTML='<div style=\"width: 100%; height: 200px; background: #1a1a1a; display: flex; align-items: center; justify-content: center; color: #6b7280; font-size: 14px;\"><i class=\"fas fa-image\" style=\"font-size: 48px; opacity: 0.3;\"></i></div>';">
                       ${profile.activity.focusActive ? `<div style="position: absolute; top: 10px; right: 10px; background: #dc2626; border: 1px solid #ef4444; padding: 5px 10px; border-radius: 6px; font-size: 10px; font-weight: 600; color: white;">FOCUSING</div>` : ''}
                       <div style="position: absolute; bottom: 0; left: 0; right: 0; background: linear-gradient(to top, rgba(0,0,0,0.9), transparent); padding: 16px 14px 10px;">
                         <div style="display: flex; align-items: center; gap: 6px;">
@@ -1363,7 +1425,7 @@ async function viewProfile(username) {
             })()}
           ` : ''}
           
-          ${profile.activity.actionButton && profile.activity.currentUrl && isPublicURL(profile.activity.currentUrl) ? `
+          ${profile.activity.actionButton && profile.activity.currentUrl ? `
             <button class="activity-action-btn" data-url="${profile.activity.currentUrl}" style="width: 100%; margin-top: 12px; padding: 10px 16px; background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); border: 1px solid #60a5fa; border-radius: 8px; color: white; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; outline: none;">
               <i class="fas fa-external-link-alt"></i>
               ${profile.activity.actionButton}
@@ -2217,6 +2279,17 @@ async function initializeShop() {
       });
     });
     
+    // Add "View as Friend" button listener
+    const viewAsProfileBtn = document.getElementById('viewAsProfileBtn');
+    if (viewAsProfileBtn) {
+      viewAsProfileBtn.addEventListener('click', () => {
+        // Show user's own profile as friends see it
+        if (currentUserData && currentUserData.username) {
+          viewProfile(currentUserData.username);
+        }
+      });
+    }
+    
     // Update preview with current decorations
     updatePreview();
     
@@ -2412,18 +2485,20 @@ function previewItem(itemId, category) {
   const isOwned = currentUserData?.purchasedEffects?.includes(itemId);
   
   // Update preview based on category
+  // Get unified purchase button
+  const purchaseBtn = document.getElementById('shopPurchaseBtn');
+  
   if (category === 'avatar') {
     const decorationUrl = chrome.runtime.getURL(`assets/avatar/${itemId}.png`);
     document.getElementById('previewAvatarDecoration').style.background = `url('${decorationUrl}') center/contain no-repeat`;
     document.getElementById('previewAvatarDecoration').style.pointerEvents = 'none';
     
     // Show/hide purchase button
-    const purchaseBtn = document.getElementById('purchaseAvatarBtn');
     if (isOwned) {
       purchaseBtn.style.display = 'none';
     } else {
       purchaseBtn.style.display = 'block';
-      purchaseBtn.innerHTML = `<i class="fas fa-coins"></i> Purchase for ${item.price} Points`;
+      purchaseBtn.innerHTML = `<i class="fas fa-shopping-cart"></i> Purchase for ${item.price} Points`;
       purchaseBtn.onclick = () => purchaseItem(itemId, category);
     }
   } else if (category === 'banner') {
@@ -2469,12 +2544,11 @@ function previewItem(itemId, category) {
     }
     
     // Show/hide purchase button
-    const purchaseBtn = document.getElementById('purchaseBannerBtn');
     if (isOwned) {
       purchaseBtn.style.display = 'none';
     } else {
       purchaseBtn.style.display = 'block';
-      purchaseBtn.innerHTML = `<i class="fas fa-coins"></i> Purchase for ${item.price} Points`;
+      purchaseBtn.innerHTML = `<i class="fas fa-shopping-cart"></i> Purchase for ${item.price} Points`;
       purchaseBtn.onclick = () => purchaseItem(itemId, category);
     }
   } else if (category === 'profile') {
@@ -2484,12 +2558,11 @@ function previewItem(itemId, category) {
     document.getElementById('previewProfile').textContent = '';
     
     // Show/hide purchase button
-    const purchaseBtn = document.getElementById('purchaseProfileBtn');
     if (isOwned) {
       purchaseBtn.style.display = 'none';
     } else {
       purchaseBtn.style.display = 'block';
-      purchaseBtn.innerHTML = `<i class="fas fa-coins"></i> Purchase for ${item.price} Points`;
+      purchaseBtn.innerHTML = `<i class="fas fa-shopping-cart"></i> Purchase for ${item.price} Points`;
       purchaseBtn.onclick = () => purchaseItem(itemId, category);
     }
   }
@@ -2827,6 +2900,41 @@ async function loadFriendSuggestions() {
   }
 }
 
+// Add friend from suggestions
+window.addFriend = async function(username, event) {
+  try {
+    const button = event?.target?.closest('.add-friend-btn') || event?.currentTarget;
+    if (button) {
+      button.disabled = true;
+      button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Adding...';
+    }
+    
+    await API.addFriend(username);
+    
+    if (button) {
+      button.innerHTML = '<i class="fas fa-check"></i> Request Sent!';
+      button.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
+    }
+    
+    // Reload suggestions after 1 second
+    setTimeout(() => {
+      loadFriendSuggestions();
+    }, 1000);
+    
+    // Show success notification
+    showToast(`Friend request sent to @${username}`, 'success');
+  } catch (error) {
+    console.error('Add friend error:', error);
+    showToast('Failed to send friend request', 'error');
+    
+    const button = event?.target?.closest('.add-friend-btn') || event?.currentTarget;
+    if (button) {
+      button.disabled = false;
+      button.innerHTML = '<i class="fas fa-user-plus"></i> Add Friend';
+    }
+  }
+}
+
 // Display friend suggestions
 function displayFriendSuggestions(suggestions) {
   const list = document.getElementById('suggestionsList');
@@ -2846,6 +2954,11 @@ function displayFriendSuggestions(suggestions) {
     const mutualText = user.mutualFriendsCount === 1
       ? `1 mutual friend`
       : `${user.mutualFriendsCount} mutual friends`;
+
+    // Determine name banner file (add .png if not specified)
+    const nameBannerFile = user.nameBanner ? 
+      (user.nameBanner.includes('.') ? user.nameBanner : `${user.nameBanner}.png`) : null;
+    const isAnimatedBanner = nameBannerFile?.endsWith('.webm');
 
     return `
       <div class="friend-card" style="animation: slideIn 0.4s ease-out; position: relative;">
@@ -2868,7 +2981,25 @@ function displayFriendSuggestions(suggestions) {
           </div>
           <div style="flex: 1;">
             <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
-              <div style="font-weight: 600; font-size: 15px; color: #e5e5e5;">${user.displayName}</div>
+              ${nameBannerFile ? `
+                <div style="position: relative; display: inline-block;">
+                  <div style="
+                    position: absolute;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%);
+                    width: auto;
+                    height: 28px;
+                    z-index: 0;
+                  ">
+                    ${isAnimatedBanner ?
+                      `<video src="${chrome.runtime.getURL(`assets/name_banner/${nameBannerFile}`)}" autoplay loop muted playsinline style="height: 100%; width: auto; object-fit: contain;"></video>` :
+                      `<img src="${chrome.runtime.getURL(`assets/name_banner/${nameBannerFile}`)}" style="height: 100%; width: auto; object-fit: contain;" />`
+                    }
+                  </div>
+                  <div style="font-weight: 600; font-size: 15px; color: #e5e5e5; position: relative; z-index: 1; padding: 0 8px;">${user.displayName}</div>
+                </div>
+              ` : `<div style="font-weight: 600; font-size: 15px; color: #e5e5e5;">${user.displayName}</div>`}
               <div style="background: #3b82f6; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600;">
                 Lv ${user.level || 1}
               </div>
@@ -2883,7 +3014,7 @@ function displayFriendSuggestions(suggestions) {
             <div style="font-size: 13px; color: #6b7280; margin-bottom: 8px;">
               ${user.points || 0} pts
             </div>
-            <button class="add-friend-btn" onclick="addFriend('${user.username}')" style="
+            <button class="add-friend-btn" data-username="${user.username}" style="
               background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%);
               border: none;
               padding: 8px 16px;
@@ -2905,11 +3036,266 @@ function displayFriendSuggestions(suggestions) {
       </div>
     `;
   }).join('');
+  
+  // Add event listeners to all add friend buttons
+  document.querySelectorAll('.add-friend-btn').forEach(button => {
+    button.addEventListener('click', async function(e) {
+      const username = this.getAttribute('data-username');
+      if (username) {
+        await window.addFriend(username, e);
+      }
+    });
+  });
 }
 
 // Check nudges every 2 minutes
 setInterval(checkNudges, 2 * 60 * 1000);
 checkNudges(); // Initial check
+
+// Check for developer messages on load
+checkDeveloperMessageSocial();
+
+// Function to check and show developer message in social page
+async function checkDeveloperMessageSocial() {
+  try {
+    const state = await chrome.storage.local.get(['authToken', 'user']);
+    if (!state.authToken || !state.user) return;
+
+    const response = await fetch(`${API_BASE_URL}/api/users/developer-message`, {
+      headers: {
+        'Authorization': `Bearer ${state.authToken}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) return;
+
+    const message = await response.json();
+    console.log('Developer message response:', message);
+
+    // Show notification if there's a message (hasUnread is undefined means there's a message)
+    if (message && message.messageId && message.hasUnread !== false) {
+      showDeveloperMessageNotificationSocial(message);
+    }
+  } catch (error) {
+    console.error('Check developer message error:', error);
+  }
+}
+
+// Show developer message notification in social page
+function showDeveloperMessageNotificationSocial(message) {
+  // Reuse the existing nudge notification code but with blue theme
+  const notification = document.createElement('div');
+  notification.className = 'developer-message-notification';
+  notification.style.cssText = `
+    position: fixed;
+    top: 24px;
+    right: 24px;
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 50%, #1d4ed8 100%);
+    border: 2px solid transparent;
+    border-radius: 16px;
+    padding: 0;
+    box-shadow: 0 20px 60px rgba(59, 130, 246, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+    z-index: 10000;
+    min-width: 400px;
+    max-width: 450px;
+    animation: nudgeSlideIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+    cursor: pointer;
+    transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    overflow: hidden;
+    backdrop-filter: blur(10px);
+  `;
+
+  // Add animated gradient border effect
+  const borderGlow = document.createElement('div');
+  borderGlow.style.cssText = `
+    position: absolute;
+    inset: -2px;
+    background: linear-gradient(90deg, #3b82f6, #2563eb, #1d4ed8, #2563eb, #3b82f6);
+    background-size: 200% 100%;
+    border-radius: 16px;
+    z-index: -1;
+    animation: gradientShift 3s linear infinite;
+  `;
+  notification.appendChild(borderGlow);
+
+  const pulseOverlay = document.createElement('div');
+  pulseOverlay.style.cssText = `
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at top right, rgba(255, 255, 255, 0.2), transparent 60%);
+    animation: pulse 2s ease-in-out infinite;
+    pointer-events: none;
+  `;
+  notification.appendChild(pulseOverlay);
+
+  const content = document.createElement('div');
+  content.style.cssText = `
+    position: relative;
+    padding: 20px 24px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 14px;
+  `;
+
+  // Get avatar decoration HTML if exists
+  let avatarDecorationHTML = '';
+  if (message.from.avatarDecoration) {
+    avatarDecorationHTML = `
+      <div style="
+        position: absolute;
+        inset: -8px;
+        background-image: url('${chrome.runtime.getURL(`assets/avatar/${message.from.avatarDecoration}.png`)}');
+        background-size: contain;
+        background-position: center;
+        background-repeat: no-repeat;
+        pointer-events: none;
+        z-index: 2;
+      "></div>
+    `;
+  }
+
+  content.innerHTML = `
+    <div style="display: flex; align-items: start; gap: 16px;">
+      <div style="position: relative; flex-shrink: 0;">
+        <div style="font-size: 48px; filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.3)); position: relative; z-index: 1;">${message.from.avatar}</div>
+        ${avatarDecorationHTML}
+        <div style="
+          position: absolute;
+          bottom: -4px;
+          right: -4px;
+          background: linear-gradient(135deg, #fbbf24, #f59e0b);
+          width: 24px;
+          height: 24px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-shadow: 0 4px 12px rgba(251, 191, 36, 0.5);
+          z-index: 3;
+        ">
+          <i class="fas fa-crown" style="color: white; font-size: 12px;"></i>
+        </div>
+      </div>
+      <div style="flex: 1; min-width: 0;">
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+          <div style="font-size: 16px; font-weight: 700; color: #ffffff; text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);">
+            ${message.from.displayName}
+          </div>
+          <div style="
+            background: rgba(255, 255, 255, 0.2);
+            padding: 2px 8px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            color: #ffffff;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+          ">
+            Developer
+          </div>
+        </div>
+        <div style="
+          font-size: 14px;
+          font-weight: 600;
+          color: #ffffff;
+          margin-bottom: 8px;
+        ">
+          ${message.title}
+        </div>
+        <div style="
+          margin-top: 12px;
+          padding-top: 12px;
+          border-top: 1px solid rgba(255, 255, 255, 0.1);
+          font-size: 12px;
+          color: rgba(255, 255, 255, 0.7);
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        ">
+          <i class="fas fa-mouse-pointer" style="font-size: 10px;"></i>
+          <span>Click to read message</span>
+        </div>
+      </div>
+      <button class="dev-msg-close-btn" style="
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 8px;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: rgba(255, 255, 255, 0.8);
+        cursor: pointer;
+        font-size: 14px;
+        padding: 0;
+        transition: all 0.2s ease;
+        flex-shrink: 0;
+      ">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+  `;
+
+  notification.appendChild(content);
+
+  notification.onmouseenter = () => {
+    notification.style.transform = 'translateY(-4px) scale(1.02)';
+    notification.style.boxShadow = '0 24px 80px rgba(59, 130, 246, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.2) inset';
+  };
+
+  notification.onmouseleave = () => {
+    notification.style.transform = 'translateY(0) scale(1)';
+    notification.style.boxShadow = '0 20px 60px rgba(59, 130, 246, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.1) inset';
+  };
+
+  const closeBtn = notification.querySelector('.dev-msg-close-btn');
+  closeBtn.onmouseenter = () => {
+    closeBtn.style.background = 'rgba(255, 255, 255, 0.2)';
+    closeBtn.style.transform = 'scale(1.1)';
+  };
+  closeBtn.onmouseleave = () => {
+    closeBtn.style.background = 'rgba(255, 255, 255, 0.1)';
+    closeBtn.style.transform = 'scale(1)';
+  };
+  closeBtn.onclick = (e) => {
+    e.stopPropagation();
+    notification.style.animation = 'nudgeSlideOut 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)';
+    setTimeout(() => notification.remove(), 400);
+  };
+
+  notification.onclick = async () => {
+    // Mark as read
+    try {
+      const state = await chrome.storage.local.get('sessionToken');
+      await fetch(`${API_BASE_URL}/api/users/mark-message-read`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${state.sessionToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ messageId: message.id })
+      });
+    } catch (error) {
+      console.error('Mark as read error:', error);
+    }
+    
+    // Show alert with full message
+    alert(`${message.title}\n\n${message.message}\n\n- ${message.from.displayName}`);
+    notification.style.animation = 'nudgeSlideOut 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)';
+    setTimeout(() => notification.remove(), 400);
+  };
+
+  document.body.appendChild(notification);
+
+  // Auto-hide after 8 seconds if not interacted with
+  setTimeout(() => {
+    if (notification.parentElement) {
+      notification.style.animation = 'nudgeSlideOut 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)';
+      setTimeout(() => notification.remove(), 400);
+    }
+  }, 8000);
+}
 
 // Add suggestions tab handling
 const suggestionsTab = document.querySelector('[data-tab="suggestions"]');

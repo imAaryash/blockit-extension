@@ -51,6 +51,48 @@
       }
     }
 
+    @keyframes nudgeSlideIn {
+      0% {
+        opacity: 0;
+        transform: translateX(100%) scale(0.8);
+      }
+      60% {
+        transform: translateX(-10px) scale(1.05);
+      }
+      100% {
+        opacity: 1;
+        transform: translateX(0) scale(1);
+      }
+    }
+
+    @keyframes nudgeSlideOut {
+      0% {
+        opacity: 1;
+        transform: translateX(0) scale(1);
+      }
+      100% {
+        opacity: 0;
+        transform: translateX(100%) scale(0.8);
+      }
+    }
+
+    @keyframes gradientShift {
+      0% {
+        background-position: 0% 50%;
+      }
+      50% {
+        background-position: 100% 50%;
+      }
+      100% {
+        background-position: 0% 50%;
+      }
+    }
+
+    @keyframes fadeOut {
+      from { opacity: 1; }
+      to { opacity: 0; }
+    }
+
     body {
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       background: #0a0a0a;
@@ -450,7 +492,7 @@
     /* Heatmap Styles */
     .heatmap-container {
       display: flex;
-      gap: 3px;
+      gap: 4px;
       flex-wrap: wrap;
       align-items: flex-start;
     }
@@ -458,7 +500,7 @@
     .heatmap-month {
       display: flex;
       flex-direction: column;
-      gap: 3px;
+      gap: 4px;
     }
     
     .heatmap-month-label {
@@ -470,19 +512,19 @@
 
     .heatmap-month-grid {
       display: flex;
-      gap: 3px;
+      gap: 4px;
     }
     
     .heatmap-week {
       display: flex;
       flex-direction: column;
-      gap: 3px;
+      gap: 4px;
     }
     
     .heatmap-day {
-      width: 12px;
-      height: 12px;
-      border-radius: 2px;
+      width: 16px;
+      height: 16px;
+      border-radius: 3px;
       background: #1a1a1a;
       border: 1px solid #2a2a2a;
       cursor: pointer;
@@ -565,13 +607,13 @@
     
     .heatmap-legend-boxes {
       display: flex;
-      gap: 3px;
+      gap: 4px;
     }
     
     .heatmap-legend-box {
-      width: 12px;
-      height: 12px;
-      border-radius: 2px;
+      width: 16px;
+      height: 16px;
+      border-radius: 3px;
       border: 1px solid #2a2a2a;
     }
 
@@ -1209,6 +1251,39 @@
       </button>
     </div>
 
+    <!-- Top Section: Today's Focus Time + Heat Map -->
+    <div style="display: grid; grid-template-columns: 320px 1fr; gap: 24px; margin-bottom: 48px; animation: fadeInUp 0.6s ease-out 0.3s both; align-items: stretch;">
+      <!-- Today's Focus Time Card -->
+      <div class="stat-card" style="background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%); border: none;">
+        <div class="stat-card-title" style="color: rgba(255, 255, 255, 0.9);">Today's Focus Time</div>
+        <div class="stat-card-value" id="todayTime" style="font-size: 56px; color: #ffffff;">0m</div>
+        <div class="stat-card-subtitle" style="color: rgba(255, 255, 255, 0.8);">Current day</div>
+        <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid rgba(255, 255, 255, 0.2);">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <span style="font-size: 13px; color: rgba(255, 255, 255, 0.8);">Daily Goal</span>
+            <span id="dailyGoalText" style="font-size: 13px; font-weight: 600; color: #ffffff;">2h</span>
+          </div>
+          <div style="background: rgba(0, 0, 0, 0.2); height: 8px; border-radius: 4px; overflow: hidden;">
+            <div id="todayGoalProgress" style="background: #fbbf24; height: 100%; width: 0%; transition: width 0.5s ease; border-radius: 4px;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Focus Heatmap -->
+      <div style="background: #141414; border: 1px solid #1f1f1f; border-radius: 12px; padding: 24px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
+          <div>
+            <div style="font-size: 18px; font-weight: 600; color: #ffffff; display: flex; align-items: center; gap: 10px; margin-bottom: 6px;">
+              <i class="fas fa-calendar-alt" style="color: #3b82f6;"></i>
+              Focus Heat Map
+            </div>
+            <div style="font-size: 13px; color: #6b7280;">Your focus activity over the last 90 days</div>
+          </div>
+        </div>
+        <div id="focusHeatmap" style="overflow-x: auto; padding: 12px; background: #0a0a0a; border-radius: 8px;"></div>
+      </div>
+    </div>
+
     <!-- Stats Grid -->
     <div class="dashboard-grid">
       <div class="stat-card">
@@ -1236,30 +1311,13 @@
         <div class="stat-card-subtitle"><span id="totalSessions">0</span> sessions</div>
       </div>
       <div class="stat-card">
-        <div class="stat-card-title">Today's Focus Time</div>
-        <div class="stat-card-value" id="todayTime">0m</div>
-        <div class="stat-card-subtitle">Current day</div>
-      </div>
-      <div class="stat-card">
         <div class="stat-card-title">Sites Blocked</div>
         <div class="stat-card-value" id="blockedStat">0</div>
         <div class="stat-card-subtitle">All time</div>
       </div>
     </div>
 
-    <!-- Focus Heatmap Calendar -->
-    <div class="badges-section" style="margin-bottom: 48px;">
-      <div class="section-header" style="margin-bottom: 24px;">
-        <div>
-          <div class="section-title">
-            <i class="fas fa-calendar-alt"></i>
-            Focus Heatmap
-          </div>
-          <div class="section-subtitle">Your focus activity over the last 90 days</div>
-        </div>
-      </div>
-      <div id="focusHeatmap" style="overflow-x: auto; padding: 12px; background: #0a0a0a; border-radius: 12px; border: 1px solid #1f1f1f;"></div>
-    </div>
+
 
     <!-- Badges Section -->
     <div class="badges-section">

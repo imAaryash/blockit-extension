@@ -34,14 +34,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 });
 
 async function loadDashboard() {
-  // Get local state first (prioritize local data)
-  const localState = await chrome.storage.local.get();
-  
-  // Sync from MongoDB (but don't let it overwrite recent settings)
+  // Sync from MongoDB first to get latest cloud data
   await send({action: 'syncFromMongoDB'}).catch(err => console.error('Sync failed:', err));
   
-  // Get state (merge with local)
-  const state = await send({action: 'getState'});
+  // Get fresh state after sync
+  const state = await chrome.storage.local.get();
   
   // Check if it's a new day and reset todayFocusTime if needed (IST timezone)
   const now = new Date();
@@ -50,13 +47,15 @@ async function loadDashboard() {
   const todayDateString = istTime.toISOString().substring(0, 10); // YYYY-MM-DD in IST
   const storedDate = state.todayDate || '';
   
+  let todayMin = state.todayFocusTime || 0;
+  
   // Reset if it's a new day
   if (storedDate !== todayDateString) {
+    todayMin = 0;
     await chrome.storage.local.set({ 
       todayFocusTime: 0, 
       todayDate: todayDateString 
     });
-    state.todayFocusTime = 0;
   }
   
   // Update stats
@@ -81,13 +80,29 @@ async function loadDashboard() {
   const mins = totalMin % 60;
   document.getElementById('totalTime').textContent = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
   
-  // Today's focused time (use state.todayFocusTime, not stats.todayFocusTime)
-  const todayMin = state.todayFocusTime || 0;
+  // Today's focused time - use todayMin which is already calculated above
   const todayHours = Math.floor(todayMin / 60);
   const todayMins = todayMin % 60;
   const todayTimeElement = document.getElementById('todayTime');
   if (todayTimeElement) {
     todayTimeElement.textContent = todayHours > 0 ? `${todayHours}h ${todayMins}m` : `${todayMins}m`;
+  }
+  
+  // Update daily goal progress - fetch from state
+  const dailyGoalMinutes = state.dailyGoal || 120;
+  const goalProgress = Math.min((todayMin / dailyGoalMinutes) * 100, 100);
+  const goalProgressElement = document.getElementById('todayGoalProgress');
+  if (goalProgressElement) {
+    goalProgressElement.style.width = `${goalProgress}%`;
+  }
+  
+  // Update daily goal text display
+  const dailyGoalHours = Math.floor(dailyGoalMinutes / 60);
+  const dailyGoalMins = dailyGoalMinutes % 60;
+  const dailyGoalText = dailyGoalHours > 0 ? `${dailyGoalHours}h` : `${dailyGoalMinutes}m`;
+  const dailyGoalElement = document.getElementById('dailyGoalText');
+  if (dailyGoalElement) {
+    dailyGoalElement.textContent = dailyGoalText;
   }
   
   document.getElementById('totalSessions').textContent = state.stats?.sessionsCompleted || 0;
@@ -129,12 +144,20 @@ async function loadFocusHeatmap() {
     heatmapData.push({
       date: dateStr,
       minutes: minutes,
-      level: getHeatLevel(minutes),
       dayOfWeek: new Date(dateStr + 'T12:00:00').getDay() // 0=Sunday, 6=Saturday
     });
   }
   
   console.log('Heatmap Data Generated:', heatmapData.filter(d => d.minutes > 0)); // Debug log
+  
+  // Calculate max value for relative color scaling
+  const maxMinutes = Math.max(...heatmapData.map(d => d.minutes), 1);
+  console.log('Max minutes for scaling:', maxMinutes);
+  
+  // Assign levels based on percentiles of max value
+  heatmapData.forEach(day => {
+    day.level = getHeatLevelRelative(day.minutes, maxMinutes);
+  });
   
   // Group by weeks (Sunday to Saturday)
   const weeks = [];
@@ -242,12 +265,17 @@ async function loadFocusHeatmap() {
   container.innerHTML = html;
 }
 
-function getHeatLevel(minutes) {
+function getHeatLevelRelative(minutes, maxMinutes) {
   if (minutes === 0) return 0;
-  if (minutes < 30) return 1;
-  if (minutes < 60) return 2;
-  if (minutes < 120) return 3;
-  return 4;
+  
+  // Calculate percentage of max
+  const percentage = (minutes / maxMinutes) * 100;
+  
+  // Distribute into 4 levels based on quartiles
+  if (percentage <= 25) return 1;   // 0-25% of max
+  if (percentage <= 50) return 2;   // 25-50% of max
+  if (percentage <= 75) return 3;   // 50-75% of max
+  return 4;                          // 75-100% of max
 }
 
 async function checkLevelUp() {
@@ -577,3 +605,439 @@ document.getElementById('checkUpdatesBtn')?.addEventListener('click', async () =
 
 // Load on page load
 loadDashboard();
+
+// Check for developer messages
+checkDeveloperMessage();
+
+// Function to check and show developer message
+async function checkDeveloperMessage() {
+  try {
+    const state = await chrome.storage.local.get(['authToken', 'user']);
+    if (!state.authToken || !state.user) return;
+
+    const response = await fetch('https://focus-backend-g1zg.onrender.com/api/users/developer-message', {
+      headers: {
+        'Authorization': `Bearer ${state.authToken}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) return;
+
+    const message = await response.json();
+    console.log('Developer message response:', message);
+
+    // Show notification if there's a message (hasUnread is undefined means there's a message)
+    if (message && message.messageId && message.hasUnread !== false) {
+      showDeveloperMessageNotification(message);
+    }
+  } catch (error) {
+    console.error('Check developer message error:', error);
+  }
+}
+
+// Show developer message notification
+function showDeveloperMessageNotification(message) {
+  const notification = document.createElement('div');
+  notification.className = 'developer-message-notification';
+  notification.style.cssText = `
+    position: fixed;
+    top: 24px;
+    right: 24px;
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 50%, #1d4ed8 100%);
+    border: 2px solid transparent;
+    border-radius: 16px;
+    padding: 0;
+    box-shadow: 0 20px 60px rgba(59, 130, 246, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+    z-index: 10000;
+    min-width: 400px;
+    max-width: 450px;
+    animation: nudgeSlideIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+    cursor: pointer;
+    transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    overflow: hidden;
+    backdrop-filter: blur(10px);
+  `;
+
+  // Add animated gradient border effect
+  const borderGlow = document.createElement('div');
+  borderGlow.style.cssText = `
+    position: absolute;
+    inset: -2px;
+    background: linear-gradient(90deg, #3b82f6, #2563eb, #1d4ed8, #2563eb, #3b82f6);
+    background-size: 200% 100%;
+    border-radius: 16px;
+    z-index: -1;
+    animation: gradientShift 3s linear infinite;
+  `;
+  notification.appendChild(borderGlow);
+
+  const pulseOverlay = document.createElement('div');
+  pulseOverlay.style.cssText = `
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at top right, rgba(255, 255, 255, 0.2), transparent 60%);
+    animation: pulse 2s ease-in-out infinite;
+    pointer-events: none;
+  `;
+  notification.appendChild(pulseOverlay);
+
+  const content = document.createElement('div');
+  content.style.cssText = `
+    position: relative;
+    padding: 20px 24px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 14px;
+  `;
+
+  // Get avatar decoration HTML if exists
+  let avatarDecorationHTML = '';
+  if (message.from.avatarDecoration) {
+    avatarDecorationHTML = `
+      <div style="
+        position: absolute;
+        inset: -8px;
+        background-image: url('${chrome.runtime.getURL(`assets/avatar/${message.from.avatarDecoration}.png`)}');
+        background-size: contain;
+        background-position: center;
+        background-repeat: no-repeat;
+        pointer-events: none;
+        z-index: 2;
+      "></div>
+    `;
+  }
+
+  content.innerHTML = `
+    <div style="display: flex; align-items: start; gap: 16px;">
+      <div style="position: relative; flex-shrink: 0;">
+        <div style="font-size: 48px; filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.3)); position: relative; z-index: 1;">${message.from.avatar}</div>
+        ${avatarDecorationHTML}
+        <div style="
+          position: absolute;
+          bottom: -4px;
+          right: -4px;
+          background: linear-gradient(135deg, #fbbf24, #f59e0b);
+          width: 24px;
+          height: 24px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-shadow: 0 4px 12px rgba(251, 191, 36, 0.5);
+          z-index: 3;
+        ">
+          <i class="fas fa-crown" style="color: white; font-size: 12px;"></i>
+        </div>
+      </div>
+      <div style="flex: 1; min-width: 0;">
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+          <div style="font-size: 16px; font-weight: 700; color: #ffffff; text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);">
+            ${message.from.displayName}
+          </div>
+          <div style="
+            background: rgba(255, 255, 255, 0.2);
+            padding: 2px 8px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            color: #ffffff;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+          ">
+            Developer
+          </div>
+        </div>
+        <div style="
+          font-size: 14px;
+          font-weight: 600;
+          color: #ffffff;
+          margin-bottom: 8px;
+        ">
+          ${message.title}
+        </div>
+        <div style="
+          margin-top: 12px;
+          padding-top: 12px;
+          border-top: 1px solid rgba(255, 255, 255, 0.1);
+          font-size: 12px;
+          color: rgba(255, 255, 255, 0.7);
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        ">
+          <i class="fas fa-mouse-pointer" style="font-size: 10px;"></i>
+          <span>Click to read message</span>
+        </div>
+      </div>
+      <button class="dev-msg-close-btn" style="
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 8px;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: rgba(255, 255, 255, 0.8);
+        cursor: pointer;
+        font-size: 14px;
+        padding: 0;
+        transition: all 0.2s ease;
+        flex-shrink: 0;
+      ">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+  `;
+
+  notification.appendChild(content);
+
+  notification.onmouseenter = () => {
+    notification.style.transform = 'translateY(-4px) scale(1.02)';
+    notification.style.boxShadow = '0 24px 80px rgba(59, 130, 246, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.2) inset';
+  };
+
+  notification.onmouseleave = () => {
+    notification.style.transform = 'translateY(0) scale(1)';
+    notification.style.boxShadow = '0 20px 60px rgba(59, 130, 246, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.1) inset';
+  };
+
+  const closeBtn = notification.querySelector('.dev-msg-close-btn');
+  closeBtn.onmouseenter = () => {
+    closeBtn.style.background = 'rgba(255, 255, 255, 0.2)';
+    closeBtn.style.transform = 'scale(1.1)';
+  };
+  closeBtn.onmouseleave = () => {
+    closeBtn.style.background = 'rgba(255, 255, 255, 0.1)';
+    closeBtn.style.transform = 'scale(1)';
+  };
+  closeBtn.onclick = (e) => {
+    e.stopPropagation();
+    notification.style.animation = 'nudgeSlideOut 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)';
+    setTimeout(() => notification.remove(), 400);
+  };
+
+  notification.onclick = () => {
+    showDeveloperMessageModal(message);
+    notification.style.animation = 'nudgeSlideOut 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)';
+    setTimeout(() => notification.remove(), 400);
+  };
+
+  document.body.appendChild(notification);
+
+  // Auto-hide after 8 seconds if not interacted with
+  setTimeout(() => {
+    if (notification.parentElement) {
+      notification.style.animation = 'nudgeSlideOut 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)';
+      setTimeout(() => notification.remove(), 400);
+    }
+  }, 8000);
+}
+
+// Show developer message modal
+async function showDeveloperMessageModal(message) {
+  const modal = document.createElement('div');
+  modal.style.cssText = `
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10001;
+    animation: fadeIn 0.3s ease;
+    padding: 20px;
+  `;
+
+  // Get avatar decoration HTML
+  let avatarDecorationHTML = '';
+  if (message.from.avatarDecoration) {
+    avatarDecorationHTML = `
+      <div style="
+        position: absolute;
+        inset: -12px;
+        background-image: url('${chrome.runtime.getURL(`assets/avatar/${message.from.avatarDecoration}.png`)}');
+        background-size: contain;
+        background-position: center;
+        background-repeat: no-repeat;
+        pointer-events: none;
+        z-index: 2;
+      "></div>
+    `;
+  }
+
+  modal.innerHTML = `
+    <div style="
+      background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+      border: 2px solid #3b82f6;
+      border-radius: 20px;
+      padding: 32px;
+      max-width: 600px;
+      width: 100%;
+      box-shadow: 0 25px 80px rgba(59, 130, 246, 0.4);
+      animation: modalSlideUp 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+      position: relative;
+    ">
+      <button class="modal-close-btn" style="
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 8px;
+        width: 36px;
+        height: 36px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: rgba(255, 255, 255, 0.8);
+        cursor: pointer;
+        font-size: 16px;
+        padding: 0;
+        transition: all 0.2s ease;
+      ">
+        <i class="fas fa-times"></i>
+      </button>
+      
+      <div style="display: flex; align-items: center; gap: 20px; margin-bottom: 24px;">
+        <div style="position: relative; flex-shrink: 0;">
+          <div style="font-size: 64px; filter: drop-shadow(0 4px 16px rgba(0, 0, 0, 0.5)); position: relative; z-index: 1;">${message.from.avatar}</div>
+          ${avatarDecorationHTML}
+          <div style="
+            position: absolute;
+            bottom: -6px;
+            right: -6px;
+            background: linear-gradient(135deg, #fbbf24, #f59e0b);
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 16px rgba(251, 191, 36, 0.6);
+            z-index: 3;
+          ">
+            <i class="fas fa-crown" style="color: white; font-size: 16px;"></i>
+          </div>
+        </div>
+        <div>
+          <div style="font-size: 24px; font-weight: 700; color: #ffffff; margin-bottom: 4px;">
+            ${message.from.displayName}
+          </div>
+          <div style="
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            padding: 4px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #ffffff;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: inline-block;
+          ">
+            Developer
+          </div>
+        </div>
+      </div>
+
+      <div style="
+        font-size: 20px;
+        font-weight: 600;
+        color: #ffffff;
+        margin-bottom: 16px;
+      ">
+        ${message.title}
+      </div>
+
+      <div style="
+        font-size: 16px;
+        line-height: 1.7;
+        color: rgba(255, 255, 255, 0.85);
+        margin-bottom: 24px;
+        padding: 20px;
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 12px;
+        border-left: 4px solid #3b82f6;
+      ">
+        ${message.message}
+      </div>
+
+      <button class="got-it-btn" style="
+        width: 100%;
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        border: none;
+        border-radius: 12px;
+        padding: 14px;
+        color: white;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 16px rgba(59, 130, 246, 0.3);
+      ">
+        <i class="fas fa-check"></i> Got it, thanks!
+      </button>
+    </div>
+  `;
+
+  // Add modal styles
+  const style = document.createElement('style');
+  style.textContent = `
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    @keyframes modalSlideUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px) scale(0.95);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+    .got-it-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+    }
+    .modal-close-btn:hover {
+      background: rgba(255, 255, 255, 0.2) !important;
+      transform: scale(1.1);
+    }
+  `;
+  document.head.appendChild(style);
+
+  document.body.appendChild(modal);
+
+  // Mark message as read
+  const markAsRead = async () => {
+    try {
+      const state = await chrome.storage.local.get('authToken');
+      await fetch('https://focus-backend-g1zg.onrender.com/api/users/mark-message-read', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${state.authToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ messageId: message.id })
+      });
+    } catch (error) {
+      console.error('Mark as read error:', error);
+    }
+  };
+
+  const closeModal = () => {
+    modal.style.animation = 'fadeOut 0.3s ease';
+    setTimeout(() => modal.remove(), 300);
+    markAsRead();
+  };
+
+  modal.querySelector('.modal-close-btn').onclick = closeModal;
+  modal.querySelector('.got-it-btn').onclick = closeModal;
+  modal.onclick = (e) => {
+    if (e.target === modal) closeModal();
+  };
+}
+

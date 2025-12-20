@@ -59,7 +59,14 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
     }
   } catch (error) {
     console.error('Login error:', error);
-    showError(error.message || 'Login failed. Please check your credentials.');
+    
+    // Check if it's a device restriction error
+    if (error.message && error.message.includes('already logged in on another device')) {
+      showError('You are already logged in on another device. Please logout from the other device first.');
+    } else {
+      showError(error.message || 'Login failed. Please check your credentials.');
+    }
+    
     loginBtn.disabled = false;
     loginBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Sign In';
   }

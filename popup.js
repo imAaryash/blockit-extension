@@ -1,6 +1,60 @@
 // Popup with real data integration
 const API_BASE_URL = 'https://focus-backend-g1zg.onrender.com';
 
+// Privacy check: Only show exact titles for public URLs
+function isPublicURL(url) {
+  if (!url) return false;
+  
+  const lowerUrl = url.toLowerCase();
+  
+  // Public sites that are safe to show exact URLs
+  const publicDomains = [
+    'youtube.com',
+    'youtu.be',
+    'wikipedia.org',
+    'github.com',
+    'stackoverflow.com',
+    'reddit.com',
+    'twitter.com',
+    'x.com',
+    'getmarks.app',  // GetMarks educational app
+    'spotify.com',   // Spotify
+    'netflix.com',   // Netflix
+    'instagram.com', // Instagram
+    'facebook.com',  // Facebook
+    'tiktok.com',    // TikTok
+    'linkedin.com'   // LinkedIn
+  ];
+  
+  // Private/sensitive sites that should be hidden
+  const privateDomains = [
+    'meet.google.com',
+    'zoom.us',
+    'teams.microsoft.com',
+    'webex.com',
+    'whereby.com',
+    'discord.com/channels',
+    'slack.com',
+    'mail.google.com',
+    'outlook.com',
+    'calendar.google.com'
+  ];
+  
+  // Check if URL contains private domain
+  if (privateDomains.some(domain => lowerUrl.includes(domain))) {
+    return false;
+  }
+  
+  // Check if URL contains public domain
+  return publicDomains.some(domain => lowerUrl.includes(domain));
+}
+
+function cleanVideoTitle(title) {
+  if (!title) return title;
+  // Remove notification count like "(127) " from the beginning
+  return title.replace(/^\(\d+\)\s*/, '').trim();
+}
+
 let selectedDuration = 25;
 let focusActive = false;
 let remainingTime = 0;
@@ -118,9 +172,7 @@ async function loadPopupData() {
       
       document.getElementById('statusDisplay1').textContent = 'Focusing';
       document.getElementById('startBtn1').style.display = 'none';
-      document.querySelector('.popup1 .custom-timer').style.opacity = '0.5';
-      document.querySelector('.popup1 .custom-timer').style.pointerEvents = 'none';
-      document.getElementById('customMinutes1').disabled = true;
+      document.getElementById('customTimerSection').classList.add('hidden');
       document.getElementById('quickActions1').classList.add('hidden');
       
       // Set initial circle state
@@ -197,6 +249,9 @@ async function loadFriends(state) {
       const isFocusing = activity.focusActive;
       const avatar = friend.avatar || friend.displayName?.[0] || friend.username?.[0] || '👤';
       
+      // Privacy check: Don't show title for private URLs (Meet, Zoom, etc.)
+      const isPrivateUrl = activity.currentUrl && !isPublicURL(activity.currentUrl);
+      
       // Avatar decoration overlay
       const avatarDecoration = friend.avatarDecoration ? 
         `<div class="friend-avatar-decoration" style="background-image: url('${chrome.runtime.getURL(`assets/avatar/${friend.avatarDecoration}.png`)}')"></div>` : '';
@@ -227,25 +282,118 @@ async function loadFriends(state) {
         activityIcon = '◉';
         activityText = 'Focusing';
         
-        // Add specific activity if available
-        if (activity.videoTitle) {
+        // Only show specific activity if URL is public
+        if (activity.videoTitle && !isPrivateUrl) {
           activityIcon = '▶';
-          activityText = `${activity.videoTitle.substring(0, 22)}${activity.videoTitle.length > 22 ? '...' : ''}`;
-        } else if (activity.activityDetails) {
+          const cleanTitle = cleanVideoTitle(activity.videoTitle);
+          activityText = `${cleanTitle.substring(0, 22)}${cleanTitle.length > 22 ? '...' : ''}`;
+        } else if (activity.activityDetails && !isPrivateUrl) {
           activityIcon = '◉';
           activityText = `${activity.activityDetails.substring(0, 22)}${activity.activityDetails.length > 22 ? '...' : ''}`;
+        } else if (isPrivateUrl) {
+          // Only show "In a meeting" if it's actually a meeting URL
+          const isMeetingUrl = activity.currentUrl && (
+            activity.currentUrl.includes('meet.google.com') ||
+            activity.currentUrl.includes('zoom.us') ||
+            activity.currentUrl.includes('teams.microsoft.com') ||
+            activity.currentUrl.includes('webex.com')
+          );
+          if (isMeetingUrl) {
+            activityIcon = '◉';
+            activityText = 'In a meeting';
+          }
         }
-      } else if (activity.videoTitle) {
+      } else if (activity.videoTitle && !isPrivateUrl) {
         activityIcon = '▶';
-        activityText = `${activity.videoTitle.substring(0, 22)}${activity.videoTitle.length > 22 ? '...' : ''}`;
-      } else if (activity.currentUrl) {
-        try {
-          const domain = new URL(activity.currentUrl).hostname.replace('www.', '');
+        const cleanTitle = cleanVideoTitle(activity.videoTitle);
+        activityText = `${cleanTitle.substring(0, 22)}${cleanTitle.length > 22 ? '...' : ''}`;
+      } else if (activity.currentUrl && !isPrivateUrl) {
+        // Check for specific domains with custom labels
+        const lowerUrl = activity.currentUrl.toLowerCase();
+        
+        // Entertainment
+        if (lowerUrl.includes('spotify.com')) {
+          activityIcon = '<i class="fab fa-spotify"></i>';
+          activityText = 'Listening to Spotify';
+        } else if (lowerUrl.includes('netflix.com')) {
+          activityIcon = '<i class="fas fa-film"></i>';
+          activityText = 'Watching Netflix';
+        }
+        // Social Media
+        else if (lowerUrl.includes('instagram.com')) {
+          activityIcon = '<i class="fab fa-instagram"></i>';
+          if (lowerUrl.includes('/reel')) {
+            activityText = 'Watching Reels';
+          } else if (lowerUrl.includes('/stories')) {
+            activityText = 'Checking Stories';
+          } else {
+            activityText = 'Scrolling Instagram';
+          }
+        } else if (lowerUrl.includes('facebook.com')) {
+          activityIcon = '<i class="fab fa-facebook"></i>';
+          activityText = 'On Facebook';
+        } else if (lowerUrl.includes('twitter.com') || lowerUrl.includes('x.com')) {
+          activityIcon = '<i class="fab fa-twitter"></i>';
+          activityText = 'Scrolling X';
+        } else if (lowerUrl.includes('tiktok.com')) {
+          activityIcon = '<i class="fab fa-tiktok"></i>';
+          activityText = 'Watching TikTok';
+        } else if (lowerUrl.includes('linkedin.com')) {
+          activityIcon = '<i class="fab fa-linkedin"></i>';
+          activityText = 'Networking';
+        } else if (lowerUrl.includes('google.com')) {
+          activityIcon = '<i class="fab fa-google"></i>';
+          if (lowerUrl.includes('/search')) {
+            activityText = 'Googling...';
+          } else {
+            activityText = 'On Google';
+          }
+        } else {
+          // Fallback: show domain name or tab title
+          try {
+            const domain = new URL(activity.currentUrl).hostname.replace('www.', '');
+            activityIcon = '⊕';
+            activityText = domain;
+          } catch {
+            activityIcon = '⊕';
+            activityText = activity.tabTitle ? (activity.tabTitle.length > 25 ? activity.tabTitle.substring(0, 25) + '...' : activity.tabTitle) : 'Browsing';
+          }
+        }
+      } else if (activity.currentUrl && isPrivateUrl) {
+        // Check for specific private URLs with custom labels
+        const lowerUrl = activity.currentUrl.toLowerCase();
+        
+        if (lowerUrl.includes('meet.google.com')) {
+          activityIcon = '<i class="fas fa-video"></i>';
+          activityText = 'Google Meet';
+        } else if (lowerUrl.includes('zoom.us')) {
+          activityIcon = '<i class="fas fa-video"></i>';
+          activityText = 'Zoom';
+        } else if (lowerUrl.includes('teams.microsoft.com')) {
+          activityIcon = '<i class="fas fa-video"></i>';
+          activityText = 'Microsoft Teams';
+        } else if (lowerUrl.includes('webex.com')) {
+          activityIcon = '<i class="fas fa-video"></i>';
+          activityText = 'Webex';
+        } else if (lowerUrl.includes('discord.com/channels')) {
+          activityIcon = '<i class="fab fa-discord"></i>';
+          activityText = 'Discord Call';
+        } else if (lowerUrl.includes('slack.com')) {
+          activityIcon = '<i class="fab fa-slack"></i>';
+          activityText = 'On Slack';
+        } else if (lowerUrl.includes('mail.google.com')) {
+          activityIcon = '<i class="fas fa-envelope"></i>';
+          activityText = 'Checking Email';
+        } else if (lowerUrl.includes('outlook.com')) {
+          activityIcon = '<i class="fas fa-envelope"></i>';
+          activityText = 'Checking Email';
+        } else if (lowerUrl.includes('calendar.google.com')) {
+          activityIcon = '<i class="fas fa-calendar-alt"></i>';
+          activityText = 'Checking Calendar';
+        } else {
+          // For other private URLs, show tab title or browsing
           activityIcon = '⊕';
-          activityText = domain;
-        } catch {
-          activityIcon = '⊕';
-          activityText = 'Browsing';
+          activityText = activity.tabTitle ? (activity.tabTitle.length > 25 ? activity.tabTitle.substring(0, 25) + '...' : activity.tabTitle) : 'Browsing';
         }
       } else if (activity.status === 'idle') {
         statusClass = 'idle';
@@ -292,37 +440,60 @@ async function loadFriends(state) {
 
 // Setup event listeners
 function setupEventListeners() {
-  // Custom timer input - update on change
+  // Custom timer range slider - update on change
   const customInput = document.getElementById('customMinutes1');
+  const durationDisplay = document.getElementById('durationDisplay');
+  
+  // Update slider progress fill (webkit browsers)
+  function updateSliderProgress() {
+    const value = parseFloat(customInput.value);
+    const min = parseFloat(customInput.min);
+    const max = parseFloat(customInput.max);
+    const percentage = ((value - min) / (max - min)) * 100;
+    
+    // Create gradient that fills from left up to thumb position with glow effect
+    const gradient = `linear-gradient(to right, 
+      #3b82f6 0%, 
+      #2563eb ${percentage - 1}%, 
+      #1a1a1a ${percentage}%, 
+      #1a1a1a 100%)`;
+    customInput.style.background = gradient;
+    customInput.style.border = '1px solid #2a2a2a';
+    customInput.style.boxShadow = `inset 0 1px 3px rgba(0, 0, 0, 0.4), 0 0 ${percentage > 5 ? '10' : '0'}px rgba(59, 130, 246, ${percentage / 200})`;
+  }
   
   function updateDuration() {
     if (focusActive) return;
     
-    const minutes = parseInt(customInput.value);
+    let minutes = parseInt(customInput.value);
     
-    if (isNaN(minutes) || minutes < 1 || minutes > 480) {
-      customInput.style.borderColor = '#dc2626';
-      customInput.value = selectedDuration;
-      setTimeout(() => customInput.style.borderColor = '#2a2a2a', 1000);
-      return;
+    // Validation: 15-210 minutes in 5-minute steps (enforced by input attributes)
+    if (isNaN(minutes) || minutes < 15 || minutes > 210) {
+      minutes = 25; // Reset to default
+      customInput.value = minutes;
     }
     
+    // Ensure it's a multiple of 5 (snap to nearest)
+    minutes = Math.round(minutes / 5) * 5;
+    minutes = Math.max(15, Math.min(210, minutes));
+    
     selectedDuration = minutes;
+    customInput.value = minutes;
+    durationDisplay.textContent = `${minutes} minutes`;
     document.getElementById('timerDisplay1').textContent = formatTime(minutes * 60);
-    customInput.style.borderColor = '#22c55e';
-    setTimeout(() => customInput.style.borderColor = '#2a2a2a', 500);
+    
+    // Update progress fill
+    updateSliderProgress();
     
     // Save to storage
     chrome.storage.local.set({ selectedDuration: minutes });
   }
   
+  // Initialize slider progress on load
+  setTimeout(() => updateSliderProgress(), 50);
+  
+  customInput.addEventListener('input', updateDuration);
   customInput.addEventListener('change', updateDuration);
-  customInput.addEventListener('blur', updateDuration);
-  customInput.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') {
-      customInput.blur();
-    }
-  });
   
   // Start button - show countdown first
   const startBtn = document.getElementById('startBtn1');
@@ -424,9 +595,7 @@ async function startFocusSession() {
     
     document.getElementById('statusDisplay1').textContent = 'Focusing';
     document.getElementById('startBtn1').style.display = 'none';
-    document.querySelector('.popup1 .custom-timer').style.opacity = '0.5';
-    document.querySelector('.popup1 .custom-timer').style.pointerEvents = 'none';
-    document.getElementById('customMinutes1').disabled = true;
+    document.getElementById('customTimerSection').classList.add('hidden');
     document.getElementById('quickActions1').classList.add('hidden');
     
     // Initialize circle to full
@@ -486,8 +655,7 @@ async function endFocusSession() {
   document.getElementById('statusDisplay1').textContent = 'Ready';
   document.getElementById('timerDisplay1').textContent = formatTime(selectedDuration * 60);
   document.getElementById('startBtn1').style.display = 'block';
-  document.querySelector('.popup1 .custom-timer').style.opacity = '1';
-  document.querySelector('.popup1 .custom-timer').style.pointerEvents = 'auto';
+  document.getElementById('customTimerSection').classList.remove('hidden');
   document.getElementById('customMinutes1').disabled = false;
   document.getElementById('quickActions1').classList.remove('hidden');
   
@@ -564,6 +732,32 @@ function triggerCelebration() {
   setTimeout(() => {
     confettiContainer.remove();
   }, 4000);
+}
+
+// Toast notification function
+function showToast(message, type = 'info') {
+  const toast = document.createElement('div');
+  toast.className = 'toast-notification';
+  toast.style.cssText = `
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: ${type === 'error' ? '#dc2626' : type === 'success' ? '#22c55e' : '#3b82f6'};
+    color: white;
+    padding: 12px 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    z-index: 10000;
+    font-size: 13px;
+    animation: slideIn 0.3s ease-out;
+  `;
+  toast.textContent = message;
+  document.body.appendChild(toast);
+  
+  setTimeout(() => {
+    toast.style.animation = 'slideOut 0.3s ease-in';
+    setTimeout(() => toast.remove(), 300);
+  }, 3000);
 }
 
 // Format time (seconds to MM:SS)

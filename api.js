@@ -69,28 +69,57 @@ class API {
     await chrome.storage.local.remove(['authToken']);
   }
 
+  static async getDeviceId() {
+    const result = await chrome.storage.local.get(['deviceId']);
+    if (result.deviceId) {
+      return result.deviceId;
+    }
+    // Generate new device ID
+    const newDeviceId = crypto.randomUUID ? crypto.randomUUID() : `device_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    await chrome.storage.local.set({ deviceId: newDeviceId });
+    return newDeviceId;
+  }
+
+  static getBrowserInfo() {
+    return navigator.userAgent;
+  }
+
   // Auth endpoints
   static async register(username, displayName, password) {
+    const deviceId = await this.getDeviceId();
+    const browserInfo = this.getBrowserInfo();
+    
     const data = await this.request(API_CONFIG.endpoints.register, {
       method: 'POST',
-      body: JSON.stringify({ username, displayName, password })
+      body: JSON.stringify({ username, displayName, password, deviceId, browserInfo })
     });
     
     if (data.token) {
       await this.setToken(data.token);
     }
     
+    if (data.deviceId) {
+      await chrome.storage.local.set({ deviceId: data.deviceId });
+    }
+    
     return data;
   }
 
   static async login(username, password) {
+    const deviceId = await this.getDeviceId();
+    const browserInfo = this.getBrowserInfo();
+    
     const data = await this.request(API_CONFIG.endpoints.login, {
       method: 'POST',
-      body: JSON.stringify({ username, password })
+      body: JSON.stringify({ username, password, deviceId, browserInfo })
     });
     
     if (data.token) {
       await this.setToken(data.token);
+    }
+    
+    if (data.deviceId) {
+      await chrome.storage.local.set({ deviceId: data.deviceId });
     }
     
     return data;
@@ -173,10 +202,10 @@ class API {
     });
   }
 
-  static async rejectFriendRequest(friendUsername) {
+  static async rejectFriendRequest(friendUsername, withdraw = false) {
     return await this.request('/friends/reject', {
       method: 'POST',
-      body: JSON.stringify({ friendUsername })
+      body: JSON.stringify({ friendUsername, withdraw })
     });
   }
 

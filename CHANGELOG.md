@@ -2,6 +2,27 @@
 
 All notable changes to BlockIt Focus Extension will be documented in this file.
 
+## [2.4.0] - 2025-12-16
+
+### 🆕 Social & UI Improvements
+- **Three-Dots Menu on Friend Cards**: Added a modern three-dots (⋮) menu to each friend card with options for Nudge and Remove, replacing the old button layout.
+- **Popup Menu & Confirmation**: Nudge and Remove actions now appear in a popup menu. Remove action shows a confirmation modal for safety.
+- **Stats Alignment & Visibility**: Friend stats (level, focus time) now use a glassmorphic background and are always visible, even on decorated cards. Stats are aligned left of the menu button for a clean look.
+- **Menu Positioning Fixes**: Menu now opens outside the card, unaffected by card hover/transform, and always appears in the correct position.
+- **Leaderboard-Style Stats**: Friend stats now match the leaderboard style for consistency and readability.
+
+### 🔄 Data & Sync Logic
+- **Local Storage Streak Migration**: Local streak data is now cleared and always synced with MongoDB on login/startup. Old local streak logic is fully migrated to the new backend-driven system for reliability across devices.
+- **Improved Sync on Install/Update**: On extension install or update, all user data (including streak, stats, points, badges, and settings) is fetched from the backend and replaces local storage, ensuring a single source of truth.
+
+### 🐛 Bug Fixes
+- Fixed friend card menu overlapping stats or decorations
+- Fixed menu popup being affected by card hover/transform
+- Fixed stats not visible on decorated backgrounds
+- Fixed rare sync issues with streak data on login
+
+---
+
 ## [2.3.0] - 2025-12-14
 
 ### 🛍️ Shop System

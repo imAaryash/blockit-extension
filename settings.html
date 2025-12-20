@@ -241,6 +241,12 @@
       background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
     }
 
+    #logoutButton:hover {
+      background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 24px rgba(220, 38, 38, 0.4);
+    }
+
     /* Back Link */
     .back-link {
       display: inline-flex;
@@ -332,6 +338,12 @@
     <button class="save-button" id="saveButton">
       <i class="fas fa-save"></i>
       Save Settings
+    </button>
+
+    <!-- Logout Button -->
+    <button class="save-button" id="logoutButton" style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); margin-top: 16px;">
+      <i class="fas fa-sign-out-alt"></i>
+      Logout
     </button>
   </div>
 

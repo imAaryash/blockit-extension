@@ -1,6 +1,34 @@
 // Settings page functionality
 const API_BASE_URL = 'https://focus-backend-g1zg.onrender.com';
 
+// Logout handler
+async function handleLogout() {
+  try {
+    const token = await chrome.storage.local.get('token');
+    if (token.token) {
+      // Call logout endpoint to invalidate session
+      await fetch(`${API_BASE_URL}/api/auth/logout`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token.token}`,
+          'Content-Type': 'application/json'
+        }
+      }).catch(() => {}); // Ignore errors
+    }
+    
+    // Clear all local storage
+    await chrome.storage.local.clear();
+    
+    // Redirect to login
+    window.location.href = 'login.html';
+  } catch (error) {
+    console.error('Logout error:', error);
+    // Clear storage and redirect anyway
+    await chrome.storage.local.clear();
+    window.location.href = 'login.html';
+  }
+}
+
 // Available emojis (matching backend)
 const AVAILABLE_EMOJIS = [
   // Animals (character-like)
@@ -22,6 +50,13 @@ let selectedEmoji = '👤';
 document.addEventListener('DOMContentLoaded', async () => {
   await loadSettings();
   loadEmojiGrid();
+  
+  // Add logout button event listener
+  document.getElementById('logoutButton').addEventListener('click', async () => {
+    if (confirm('Are you sure you want to logout?')) {
+      await handleLogout();
+    }
+  });
 });
 
 // Load current settings from storage

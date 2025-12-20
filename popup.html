@@ -320,8 +320,13 @@
       background: #111111;
       border: 1px solid #1f1f1f;
       border-radius: 12px;
-      padding: 16px;
+      padding: 20px 24px;
       text-align: center;
+      transition: all 0.3s ease;
+    }
+
+    .popup1 .custom-timer.hidden {
+      display: none !important;
     }
 
     .popup1 .custom-timer-label {
@@ -335,35 +340,109 @@
 
     .popup1 .custom-timer-input {
       display: flex;
+      flex-direction: column;
       align-items: center;
-      justify-content: center;
-      gap: 8px;
+      gap: 18px;
+      padding: 8px 16px 0;
     }
 
-    .popup1 .custom-timer-input input {
-      width: 100px;
-      padding: 10px 14px;
-      background: #0a0a0a;
-      border: 1px solid #2a2a2a;
-      border-radius: 8px;
-      color: #ffffff;
-      font-size: 16px;
-      font-weight: 600;
-      text-align: center;
+    .popup1 .custom-timer-input input[type="range"] {
+      width: 100%;
+      height: 10px;
+      background: #1a1a1a;
+      border-radius: 10px;
       outline: none;
-      transition: all 0.2s;
-      font-variant-numeric: tabular-nums;
+      cursor: grab;
+      -webkit-appearance: none;
+      appearance: none;
+      position: relative;
+      border: 1px solid #2a2a2a;
+      box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.4);
     }
 
-    .popup1 .custom-timer-input input:focus {
-      border-color: #3b82f6;
-      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    .popup1 .custom-timer-input input[type="range"]:active {
+      cursor: grabbing;
+    }
+
+    .popup1 .custom-timer-input input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 20px;
+      height: 20px;
+      background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+      border: 2px solid #0a0a0a;
+      border-radius: 50%;
+      cursor: grab;
+      box-shadow: 0 2px 8px rgba(59, 130, 246, 0.6), 0 0 0 3px rgba(59, 130, 246, 0.2);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      margin-top: -6px;
+    }
+
+    .popup1 .custom-timer-input input[type="range"]:active::-webkit-slider-thumb {
+      cursor: grabbing;
+      transform: scale(1.05);
+    }
+
+    .popup1 .custom-timer-input input[type="range"]::-webkit-slider-thumb:hover {
+      background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+      transform: scale(1.15);
+      box-shadow: 0 4px 16px rgba(59, 130, 246, 0.8), 0 0 0 4px rgba(59, 130, 246, 0.25);
+    }
+
+    .popup1 .custom-timer-input input[type="range"]::-moz-range-thumb {
+      width: 20px;
+      height: 20px;
+      background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+      border: 2px solid #0a0a0a;
+      border-radius: 50%;
+      cursor: grab;
+      box-shadow: 0 2px 8px rgba(59, 130, 246, 0.6), 0 0 0 3px rgba(59, 130, 246, 0.2);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .popup1 .custom-timer-input input[type="range"]:active::-moz-range-thumb {
+      cursor: grabbing;
+      transform: scale(1.05);
+    }
+
+    .popup1 .custom-timer-input input[type="range"]::-moz-range-thumb:hover {
+      background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+      transform: scale(1.15);
+      box-shadow: 0 4px 16px rgba(59, 130, 246, 0.8), 0 0 0 4px rgba(59, 130, 246, 0.25);
+    }
+
+    .popup1 .custom-timer-input input[type="range"]::-webkit-slider-runnable-track {
+      width: 100%;
+      height: 10px;
+      background: transparent;
+      border: none;
+      border-radius: 10px;
+    }
+
+    .popup1 .custom-timer-input input[type="range"]::-moz-range-track {
+      width: 100%;
+      height: 10px;
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      border-radius: 10px;
+      box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.4);
+    }
+
+    /* Progress fill effect for Firefox */
+    .popup1 .custom-timer-input input[type="range"]::-moz-range-progress {
+      height: 10px;
+      background: linear-gradient(90deg, #3b82f6 0%, #2563eb 100%);
+      border-radius: 10px 0 0 10px;
+      box-shadow: 0 0 10px rgba(59, 130, 246, 0.5), inset 0 1px 3px rgba(255, 255, 255, 0.1);
     }
 
     .popup1 .custom-timer-input span {
-      font-size: 13px;
-      color: #6b7280;
-      font-weight: 500;
+      font-size: 16px;
+      color: #ffffff;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      text-align: center;
+      min-width: 120px;
     }
 
     .popup1 .action-btn {
@@ -747,11 +826,11 @@
         </div>
       </div>
 
-      <div class="custom-timer">
+      <div class="custom-timer" id="customTimerSection">
         <div class="custom-timer-label">Session Duration</div>
         <div class="custom-timer-input">
-          <input type="number" id="customMinutes1" placeholder="25" min="1" max="480" value="25" />
-          <span>minutes</span>
+          <input type="range" id="customMinutes1" min="15" max="210" value="25" step="5" />
+          <span id="durationDisplay">25 minutes</span>
         </div>
       </div>
 

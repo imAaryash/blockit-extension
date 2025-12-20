@@ -76,7 +76,14 @@ document.getElementById('registerForm').addEventListener('submit', async (e) => 
     }
   } catch (error) {
     console.error('Registration error:', error);
-    showError(error.message || 'Registration failed. Please try again.');
+    
+    // Check if it's a device restriction error
+    if (error.message && error.message.includes('already logged in on another device')) {
+      showError('This account is already logged in on another device.');
+    } else {
+      showError(error.message || 'Registration failed. Please try again.');
+    }
+    
     registerBtn.disabled = false;
     registerBtn.innerHTML = '<i class="fas fa-rocket"></i> Create Account';
   }
