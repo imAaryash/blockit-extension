@@ -2348,8 +2348,8 @@ async function loadShopItems(category) {
         ${isComingSoon ? '<div class="shop-item-status coming-soon">COMING SOON</div>' : (isEquipped ? '<div class="shop-item-status equipped">EQUIPPED</div>' : (isOwned ? '<div class="shop-item-status owned">OWNED</div>' : ''))}
         <div class="shop-item-image" style="${isComingSoon ? 'opacity: 0.4; filter: blur(2px);' : ''}">
           ${isAnimated ? 
-            `<video src="${imageUrl}" autoplay loop muted playsinline style="width: 100%; height: 100%; object-fit: cover;" ${isComingSoon ? 'poster="data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\'%3E%3C/svg%3E"' : ''}></video>` :
-            `<img src="${imageUrl}" style="width: 100%; height: 100%; object-fit: ${category === 'banner' ? 'cover' : 'contain'};" onerror="this.style.display='none'; this.parentElement.innerHTML='<div style=\'display:flex;align-items:center;justify-content:center;height:100%;color:#666;font-size:12px;\'>Coming Soon</div>'" />`
+            `<video src="${imageUrl}" autoplay loop muted playsinline style="width: 100%; height: 100%; object-fit: cover;" onerror="console.error('Video load error:', this.src); this.style.display='none'; this.parentElement.innerHTML='<div style=\\'display:flex;align-items:center;justify-content:center;height:100%;color:#666;font-size:12px;\\'>Preview Unavailable</div>'" ${isComingSoon ? 'poster="data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\'%3E%3C/svg%3E"' : ''}></video>` :
+            `<img src="${imageUrl}" style="width: 100%; height: 100%; object-fit: ${category === 'banner' ? 'cover' : 'contain'};" onerror="this.style.display='none'; this.parentElement.innerHTML='<div style=\\'display:flex;align-items:center;justify-content:center;height:100%;color:#666;font-size:12px;\\'>Preview Unavailable</div>'" />`
           }
         </div>
         <div style="text-align: center; font-size: 13px; font-weight: 600; color: #ddd; margin-bottom: 4px;">${item.name}</div>
@@ -2358,8 +2358,8 @@ async function loadShopItems(category) {
           (isEquipped ? 
             '<div style="padding: 8px; background: #fbbf24; border-radius: 6px; font-weight: 600; font-size: 13px; color: #000; text-align: center;">EQUIPPED</div>' :
             (isOwned ? 
-              '<button class="shop-item-equip-btn" style="width: 100%; padding: 8px; background: #3b82f6; border: none; border-radius: 6px; font-weight: 600; font-size: 13px; color: #fff; cursor: pointer;">EQUIP</button>' :
-              `<div class="shop-item-price"><i class="fas fa-coins"></i> ${item.price} Points</div>`
+              '<button class="shop-item-equip-btn" style="width: 100%; padding: 10px; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 8px; font-weight: 500; font-size: 12px; color: #3b82f6; cursor: pointer; transition: all 0.2s; text-transform: uppercase; letter-spacing: 0.5px;">Equip</button>' :
+              `<button class="shop-item-buy-btn" style="width: 100%; padding: 10px; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 8px; font-weight: 500; font-size: 12px; color: #10b981; cursor: pointer; transition: all 0.2s; text-transform: uppercase; letter-spacing: 0.5px;">${item.price} <span style="opacity: 0.7;">pts</span></button>`
             )
           )
         }
@@ -2369,9 +2369,25 @@ async function loadShopItems(category) {
   
   // Add click listeners
   grid.querySelectorAll('.shop-item').forEach(itemEl => {
+    const video = itemEl.querySelector('video');
+    
+    // Restart video on hover
+    if (video) {
+      itemEl.addEventListener('mouseenter', () => {
+        video.currentTime = 0;
+        video.play().catch(err => console.error('Video play failed:', err));
+      });
+    }
+    
     itemEl.addEventListener('click', async (e) => {
       const itemId = itemEl.dataset.itemId;
       const category = itemEl.dataset.category;
+      
+      // Restart video on click
+      if (video) {
+        video.currentTime = 0;
+        video.play().catch(err => console.error('Video play failed:', err));
+      }
       
       // Prevent interaction with coming soon items
       if (itemEl.classList.contains('coming-soon')) {
@@ -2379,14 +2395,22 @@ async function loadShopItems(category) {
         return;
       }
       
+      // Handle buy button click
+      if (e.target.classList.contains('shop-item-buy-btn') || e.target.closest('.shop-item-buy-btn')) {
+        e.stopPropagation();
+        await purchaseItem(itemId, category);
+        return;
+      }
+      
       // Handle equip button click
       if (e.target.classList.contains('shop-item-equip-btn')) {
+        e.stopPropagation();
         await equipItem(itemId, category);
+        return;
       } 
-      // For unowned/unequipped items, just preview (don't purchase immediately)
-      else {
-        previewItem(itemId, category);
-      }
+      
+      // For any other click on the item, show preview
+      previewItem(itemId, category);
     });
   });
 }
@@ -2523,6 +2547,31 @@ function previewItem(itemId, category) {
       video.playsInline = true;
       video.className = 'preview-banner-video';
       video.style.cssText = 'position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0;';
+      
+      // Add error handler for video loading issues
+      video.onerror = function() {
+        console.error('Banner video failed to load:', bannerUrl);
+        video.remove();
+        previewCard.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+      };
+      
+      // Ensure video plays after loading
+      video.onloadeddata = function() {
+        video.play().catch(err => console.error('Video playback failed:', err));
+      };
+      
+      // Restart video on click
+      video.addEventListener('click', () => {
+        video.currentTime = 0;
+        video.play().catch(err => console.error('Video play failed:', err));
+      });
+      
+      // Restart video on hover
+      video.addEventListener('mouseenter', () => {
+        video.currentTime = 0;
+        video.play().catch(err => console.error('Video play failed:', err));
+      });
+      
       previewCard.insertBefore(video, previewCard.firstChild);
       
       // Ensure text is visible above video
@@ -2553,9 +2602,18 @@ function previewItem(itemId, category) {
     }
   } else if (category === 'profile') {
     const profileUrl = chrome.runtime.getURL(`assets/profile/${itemId}.png`);
-    document.getElementById('previewProfile').style.background = `url('${profileUrl}') center/cover`;
-    document.getElementById('previewProfile').style.backgroundSize = '100% 100%';
-    document.getElementById('previewProfile').textContent = '';
+    const previewProfile = document.getElementById('previewProfile');
+    previewProfile.style.background = `url('${profileUrl}') center/cover`;
+    previewProfile.style.backgroundSize = '100% 100%';
+    previewProfile.textContent = '';
+    
+    // Add click handler to reload image
+    previewProfile.style.cursor = 'pointer';
+    previewProfile.onclick = function() {
+      const timestamp = new Date().getTime();
+      this.style.background = `url('${profileUrl}?t=${timestamp}') center/cover`;
+      this.style.backgroundSize = '100% 100%';
+    };
     
     // Show/hide purchase button
     if (isOwned) {
@@ -2607,6 +2665,31 @@ function updatePreview() {
       video.playsInline = true;
       video.className = 'preview-banner-video';
       video.style.cssText = 'position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0;';
+      
+      // Add error handler
+      video.onerror = function() {
+        console.error('User banner video failed to load:', bannerUrl);
+        video.remove();
+        previewCard.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+      };
+      
+      // Ensure video plays
+      video.onloadeddata = function() {
+        video.play().catch(err => console.error('Video playback failed:', err));
+      };
+      
+      // Restart video on click
+      video.addEventListener('click', () => {
+        video.currentTime = 0;
+        video.play().catch(err => console.error('Video play failed:', err));
+      });
+      
+      // Restart video on hover
+      video.addEventListener('mouseenter', () => {
+        video.currentTime = 0;
+        video.play().catch(err => console.error('Video play failed:', err));
+      });
+      
       previewCard.insertBefore(video, previewCard.firstChild);
       
       // Ensure text is visible above video

@@ -1208,58 +1208,74 @@
       box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
     }
 
-    .shop-item {
-      background: #141414;
-      border: 2px solid #2a2a2a;
-      border-radius: 12px;
-      padding: 16px;
+    /* Shop button hover effects */
+    .shop-item-buy-btn:hover {
+      background: rgba(16, 185, 129, 0.15) !important;
+      border-color: rgba(16, 185, 129, 0.5) !important;
+      transform: translateY(-1px);
+    }
+
+    .shop-item-equip-btn:hover {
+      background: rgba(59, 130, 246, 0.15) !important;
+      border-color: rgba(59, 130, 246, 0.5) !important;
+      transform: translateY(-1px);
+    }
+
+    #shopPurchaseBtn:hover {
+      background: rgba(16, 185, 129, 0.15) !important;
+      border-color: rgba(16, 185, 129, 0.5) !important;
+      transform: translateY(-1px);
+    }
+
+    /* Profile preview interactive cursor */
+    #previewProfile {
       cursor: pointer;
-      transition: all 0.3s;
+      transition: all 0.2s ease;
+    }
+
+    #previewProfile:hover {
+      border-color: rgba(59, 130, 246, 0.4) !important;
+    }
+
+    .shop-item {
+      background: rgba(20, 20, 20, 0.6);
+      border: 1px solid rgba(42, 42, 42, 0.8);
+      border-radius: 12px;
+      padding: 12px;
+      cursor: pointer;
+      transition: all 0.2s ease;
       position: relative;
       overflow: hidden;
     }
 
     .shop-item:hover {
-      border-color: #3b82f6;
-      transform: translateY(-4px);
-      box-shadow: 0 8px 24px rgba(59, 130, 246, 0.3);
+      border-color: rgba(59, 130, 246, 0.4);
+      transform: translateY(-2px);
+      background: rgba(20, 20, 20, 0.9);
     }
 
     .shop-item.owned {
-      border-color: #10b981;
-      background: rgba(16, 185, 129, 0.05);
+      border-color: rgba(16, 185, 129, 0.3);
+      background: rgba(16, 185, 129, 0.03);
     }
 
     .shop-item.equipped {
-      border-color: #fbbf24;
-      background: rgba(251, 191, 36, 0.05);
+      border-color: rgba(251, 191, 36, 0.3);
+      background: rgba(251, 191, 36, 0.03);
     }
 
     .shop-item-image {
       width: 100%;
       aspect-ratio: 1;
-      background: #0a0a0a;
-      border-radius: 8px;
-      margin-bottom: 12px;
+      background: rgba(10, 10, 10, 0.8);
+      border-radius: 10px;
+      margin-bottom: 10px;
       display: flex;
       align-items: center;
       justify-content: center;
       position: relative;
       overflow: hidden;
-    }
-
-    .shop-item-price {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      padding: 8px;
-      background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
-      border-radius: 6px;
-      font-weight: 600;
-      font-size: 14px;
-      color: #000;
-      margin-top: 12px;
+      border: 1px solid rgba(42, 42, 42, 0.5);
     }
 
     .shop-item-status {
@@ -1268,24 +1284,29 @@
       right: 8px;
       padding: 4px 10px;
       border-radius: 6px;
-      font-size: 11px;
+      font-size: 10px;
       font-weight: 600;
       z-index: 10;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
 
     .shop-item-status.owned {
-      background: #10b981;
-      color: #000;
+      background: rgba(16, 185, 129, 0.2);
+      color: #10b981;
+      border: 1px solid rgba(16, 185, 129, 0.3);
     }
 
     .shop-item-status.equipped {
-      background: #fbbf24;
-      color: #000;
+      background: rgba(251, 191, 36, 0.2);
+      color: #fbbf24;
+      border: 1px solid rgba(251, 191, 36, 0.3);
     }
 
     .shop-item-status.coming-soon {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: #fff;
+      background: rgba(102, 126, 234, 0.2);
+      color: #667eea;
+      border: 1px solid rgba(102, 126, 234, 0.3);
       animation: pulse 2s ease-in-out infinite;
     }
 
@@ -1489,7 +1510,7 @@
                 </div>
 
                 <!-- Purchase Button -->
-                <button id="shopPurchaseBtn" style="width: 100%; padding: 14px; background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); border: none; border-radius: 10px; color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.3s; display: none; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);">
+                <button id="shopPurchaseBtn" style="width: 100%; padding: 12px; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 10px; color: #10b981; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.2s; display: none; text-transform: uppercase; letter-spacing: 0.5px;">
                   <i class="fas fa-shopping-cart"></i> Purchase Item
                 </button>
               </div>
