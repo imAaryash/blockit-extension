@@ -653,6 +653,31 @@
       transform: rotate(5deg) scale(1.1);
     }
 
+    .refresh-badges-btn {
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      color: #9ca3af;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .refresh-badges-btn:hover {
+      background: #2a2a2a;
+      color: #ffffff;
+      border-color: #3b82f6;
+    }
+
+    .refresh-badges-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
     .badges-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
@@ -1321,9 +1346,15 @@
 
     <!-- Badges Section -->
     <div class="badges-section">
-      <div class="section-title">
-        <i class="fas fa-trophy"></i>
-        Achievements
+      <div class="section-title" style="display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <i class="fas fa-trophy"></i>
+          Achievements
+        </div>
+        <button id="refreshBadgesBtn" class="refresh-badges-btn">
+          <i class="fas fa-sync-alt"></i>
+          Check Badges
+        </button>
       </div>
       <div class="badges-grid" id="badgesGrid">
         <!-- Populated by JS -->

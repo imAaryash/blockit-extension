@@ -546,11 +546,14 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
 async function syncCurrentStateToMongoDB() {
   try {
     const token = (await chrome.storage.local.get('authToken'))?.authToken;
-    if (!token) return;
+    if (!token) {
+      console.log('[Sync] No auth token, skipping sync');
+      return false;
+    }
     
     const currentState = await chrome.storage.local.get(['stats', 'points', 'level', 'badges', 'streak', 'focusHistory']);
     
-    await fetch(`${API_BASE_URL}/api/users/stats`, {
+    const response = await fetch(`${API_BASE_URL}/api/users/stats`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -565,9 +568,17 @@ async function syncCurrentStateToMongoDB() {
         focusHistory: currentState.focusHistory || {}
       })
     });
-    console.log('[Sync] ✅ Current state synced to MongoDB');
+    
+    if (response.ok) {
+      console.log('[Sync] ✅ Current state synced to MongoDB successfully');
+      return true;
+    } else {
+      console.error('[Sync] MongoDB sync failed:', response.status);
+      return false;
+    }
   } catch (error) {
     console.error('[Sync] Failed to sync current state:', error);
+    return false;
   }
 }
 
@@ -816,9 +827,17 @@ async function updateSessionStats(durationMs) {
   }
 }
 
-async function checkBadges(badges, totalTime, sessions, streak, level) {
+async function checkBadges(badges, totalTime, sessions, streak, level, silent = false) {
   // Ensure badges is always an array and filter out invalid entries
   const validBadges = Array.isArray(badges) ? badges.filter(b => b && b.id) : [];
+  
+  console.log('[Badges] ========== BADGE CHECK START ==========');
+  console.log('[Badges] Input parameters:');
+  console.log('  - Total Time:', totalTime, 'minutes (', Math.floor(totalTime/60), 'hours )');
+  console.log('  - Sessions:', sessions);
+  console.log('  - Streak:', streak, 'days');
+  console.log('  - Level:', level);
+  console.log('  - Current badges:', validBadges.length, '-', validBadges.map(b => b.id).join(', '));
   
   const newBadges = [
     // Session-based achievements
@@ -851,40 +870,50 @@ async function checkBadges(badges, totalTime, sessions, streak, level) {
     {id: 'social-butterfly', name: 'Social Butterfly', desc: '5+ friends', condition: false}
   ];
   
-  console.log('[Badges] Checking badges - Sessions:', sessions, 'Time:', totalTime, 'Streak:', streak, 'Level:', level);
-  console.log('[Badges] Current badges:', validBadges.map(b => b.id).join(', '));
+  console.log('[Badges] ========================================');
+  console.log('[Badges] Checking each badge condition:');
   
   let hasNewBadges = false;
   for (const badge of newBadges) {
-    if (badge.condition && !validBadges.find(b => b.id === badge.id)) {
-      console.log('[Badge] ✅ Unlocked:', badge.name, badge.desc);
+    const alreadyEarned = validBadges.find(b => b.id === badge.id);
+    console.log(`[Badge] ${badge.id}: ${badge.condition ? '✓ QUALIFIED' : '✗ Not qualified'} | ${alreadyEarned ? 'Already earned' : 'Not earned yet'}`);
+    
+    if (badge.condition && !alreadyEarned) {
+      console.log('[Badge] 🎉 UNLOCKING:', badge.name, '-', badge.desc);
       const newBadge = {id: badge.id, name: badge.name, desc: badge.desc, earnedAt: Date.now()};
       validBadges.push(newBadge);
       hasNewBadges = true;
       
-      // Show system notification
-      chrome.notifications.create({
-        type: 'basic',
-        iconUrl: 'icons/icon48.png',
-        title: '🏆 New Badge Unlocked!',
-        message: `${badge.name}: ${badge.desc}`
-      });
-      
-      // Send message to dashboard for popup animation
-      chrome.runtime.sendMessage({
-        action: 'badgeUnlocked',
-        badge: newBadge
-      }).catch(() => {
-        // Dashboard might not be open, that's okay
-        console.log('[Badge] Dashboard not open for popup notification');
-      });
+      // Only show notifications if not in silent mode (i.e., during actual gameplay, not manual checks)
+      if (!silent) {
+        // Show system notification
+        chrome.notifications.create({
+          type: 'basic',
+          iconUrl: 'icons/icon48.png',
+          title: '🏆 New Badge Unlocked!',
+          message: `${badge.name}: ${badge.desc}`
+        });
+        
+        // Send message to dashboard for popup animation
+        chrome.runtime.sendMessage({
+          action: 'badgeUnlocked',
+          badge: newBadge
+        }).catch(() => {
+          // Dashboard might not be open, that's okay
+          console.log('[Badge] Dashboard not open for popup notification');
+        });
+      }
     }
   }
   
+  console.log('[Badges] ========================================');
   if (hasNewBadges) {
-    console.log('[Badges] ✨ New badges unlocked! Total earned:', validBadges.length);
+    console.log('[Badges] 🎉 NEW BADGES UNLOCKED! Total earned:', validBadges.length);
+  } else {
+    console.log('[Badges] No new badges this time. Total earned:', validBadges.length);
   }
-  console.log('[Badges] Final badge count:', validBadges.length, 'Badge IDs:', validBadges.map(b => b.id).join(', '));
+  console.log('[Badges] Final badge IDs:', validBadges.map(b => b.id).join(', '));
+  console.log('[Badges] ========== BADGE CHECK END ==========');
   return validBadges;
 }
 
@@ -1247,9 +1276,32 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     } else if (msg.action === 'checkBadges') {
       console.log('[Badge Check] Manual badge check triggered');
       const state = await getState();
-      const newBadges = await checkBadges(state.stats || {}, state.streak || {}, state.level || 1);
-      console.log('[Badge Check] Badges earned:', newBadges.length);
-      sendResponse({badges: newBadges, success: true});
+      const currentBadges = state.badges || [];
+      const totalTime = state.stats?.totalFocusTime || 0;
+      const sessions = state.stats?.sessionsCompleted || 0;
+      const currentStreak = state.streak?.current || 0;
+      const level = state.level || 1;
+      
+      console.log('[Badge Check] Current stats - Sessions:', sessions, 'Time:', totalTime, 'Streak:', currentStreak, 'Level:', level);
+      console.log('[Badge Check] Existing badges:', currentBadges.length);
+      
+      // Use silent mode for manual checks to avoid duplicate notifications
+      const newBadges = await checkBadges(currentBadges, totalTime, sessions, currentStreak, level, true);
+      console.log('[Badge Check] After check, total badges:', newBadges.length);
+      
+      // Save updated badges to local storage
+      await chrome.storage.local.set({ badges: newBadges });
+      console.log('[Badge Check] ✅ Badges saved to local storage');
+      
+      // Sync to MongoDB and wait for completion
+      const syncSuccess = await syncCurrentStateToMongoDB();
+      if (syncSuccess) {
+        console.log('[Badge Check] ✅ Synced to MongoDB successfully');
+      } else {
+        console.warn('[Badge Check] ⚠️ MongoDB sync failed, badges saved locally only');
+      }
+      
+      sendResponse({badges: newBadges, success: true, synced: syncSuccess});
     } else if (msg.action === 'userRegistered') {
       // Handle user registration/login notification
       console.log('[Background] User registered/logged in:', msg.user?.username);
@@ -1721,7 +1773,7 @@ async function syncFromMongoDB() {
           points: mongoPoints,
           level: mongoLevel,
           badges: userData.badges || [],
-          focusHistory: userData.focusHistory ? Object.fromEntries(userData.focusHistory) : {},
+          focusHistory: userData.focusHistory || {},
           dailyGoal: userData.settings?.dailyGoal || 120,
           pomodoroBreakDuration: userData.settings?.breakTime || 5,
           stats: {
