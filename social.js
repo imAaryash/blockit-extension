@@ -1349,7 +1349,7 @@ async function viewProfile(username) {
                 return `
                   <div style="background: #0a0a0a; border: 1px solid #1f1f1f; border-radius: 10px; overflow: hidden; transition: transform 0.2s;">
                     <div style="position: relative;">
-                      <img src="${profile.activity.videoThumbnail}" alt="Thumbnail" style="width: 100%; height: auto; display: block;" onerror="this.style.display='none'; this.parentElement.innerHTML='<div style=\"width: 100%; height: 200px; background: #1a1a1a; display: flex; align-items: center; justify-content: center; color: #6b7280; font-size: 14px;\"><i class=\"fas fa-image\" style=\"font-size: 48px; opacity: 0.3;\"></i></div>';">
+                      <img src="${profile.activity.videoThumbnail}" alt="Thumbnail" style="width: 100%; height: auto; display: block;" onerror="this.style.display='none'; this.parentElement.innerHTML='&lt;div style=&quot;width: 100%; height: 200px; background: #1a1a1a; display: flex; align-items: center; justify-content: center; color: #6b7280; font-size: 14px;&quot;&gt;&lt;i class=&quot;fas fa-image&quot; style=&quot;font-size: 48px; opacity: 0.3;&quot;&gt;&lt;/i&gt;&lt;/div&gt;';">
                       ${profile.activity.focusActive ? `<div style="position: absolute; top: 10px; right: 10px; background: #dc2626; border: 1px solid #ef4444; padding: 5px 10px; border-radius: 6px; font-size: 10px; font-weight: 600; color: white;">FOCUSING</div>` : ''}
                       <div style="position: absolute; bottom: 0; left: 0; right: 0; background: linear-gradient(to top, rgba(0,0,0,0.9), transparent); padding: 16px 14px 10px;">
                         <div style="display: flex; align-items: center; gap: 6px;">
@@ -1418,10 +1418,7 @@ async function viewProfile(username) {
               }
               
               // PRIORITY 4: Fallback - Simple text display
-              {
-                // Fallback - Simple text display
-                return `<div style="color: #6b7280; font-size: 12px; padding: 10px; background: #0a0a0a; border: 1px solid #1f1f1f; border-radius: 8px; border-left: 2px solid #3b82f6;">${profile.activity.videoTitle}</div>`;
-              }
+              return `<div style="color: #6b7280; font-size: 12px; padding: 10px; background: #0a0a0a; border: 1px solid #1f1f1f; border-radius: 8px; border-left: 2px solid #3b82f6;">${profile.activity.videoTitle}</div>`;
             })()}
           ` : ''}
           
