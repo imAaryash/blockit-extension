@@ -1221,6 +1221,12 @@
       transform: translateY(-1px);
     }
 
+    .shop-item-unequip-btn:hover {
+      background: rgba(239, 68, 68, 0.15) !important;
+      border-color: rgba(239, 68, 68, 0.5) !important;
+      transform: translateY(-1px);
+    }
+
     #shopPurchaseBtn:hover {
       background: rgba(16, 185, 129, 0.15) !important;
       border-color: rgba(16, 185, 129, 0.5) !important;
@@ -1491,12 +1497,14 @@
 
                 <!-- Card Preview -->
                 <div style="background: #0a0a0a; border: 1px solid #2a2a2a; border-radius: 12px; padding: 20px;">
-                  <div style="font-size: 12px; color: #888; margin-bottom: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; text-align: center;">Name Banner</div>
-                  <div id="previewCard" style="background: #141414; border: 1px solid #2a2a2a; border-radius: 10px; padding: 16px; display: flex; align-items: center; gap: 14px; min-height: 80px; box-sizing: border-box;">
-                    <div id="previewCardAvatar" style="font-size: 32px; width: 56px; height: 56px; display: flex; align-items: center; justify-content: center; background: #0a0a0a; border: 2px solid #2a2a2a; border-radius: 50%;">👤</div>
-                    <div style="flex: 1; min-width: 0;">
-                      <div id="previewCardName" style="font-size: 15px; font-weight: 600; color: #ffffff; text-shadow: 2px 2px 4px rgba(0,0,0,0.8); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Your Name</div>
-                      <div id="previewCardUsername" style="font-size: 12px; color: #ddd; text-shadow: 1px 1px 3px rgba(0,0,0,0.8);">@username</div>
+                  <div style="font-size: 12px; color: #888; margin-bottom: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; text-align: center;">Name Banner Preview</div>
+                  <div id="previewCard" style="background: #141414; border: 1px solid #2a2a2a; border-radius: 12px; padding: 20px; display: flex; align-items: center; gap: 16px; min-height: 80px; box-sizing: border-box; position: relative; overflow: hidden;">
+                    <div style="position: relative; z-index: 1;">
+                      <div id="previewCardAvatar" style="font-size: 40px; width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; background: #0a0a0a; border: 2px solid #2a2a2a; border-radius: 50%;">👤</div>
+                    </div>
+                    <div style="flex: 1; min-width: 0; position: relative; z-index: 1;">
+                      <div id="previewCardName" style="font-size: 16px; font-weight: 600; color: #ffffff; text-shadow: 0 0 12px rgba(0,0,0,1), 0 0 24px rgba(0,0,0,0.9), 0 2px 8px rgba(0,0,0,0.8); margin-bottom: 4px;">Your Name</div>
+                      <div id="previewCardUsername" style="font-size: 13px; color: #9ca3af; text-shadow: 0 0 8px rgba(0,0,0,0.9), 0 2px 4px rgba(0,0,0,0.8);">@username</div>
                     </div>
                   </div>
                 </div>

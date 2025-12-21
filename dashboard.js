@@ -34,11 +34,27 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 });
 
 async function loadDashboard() {
-  // Sync from MongoDB first to get latest cloud data
-  await send({action: 'syncFromMongoDB'}).catch(err => console.error('Sync failed:', err));
+  // CRITICAL: Try to sync from MongoDB first, but fallback to local if offline
+  try {
+    await send({action: 'syncFromMongoDB'});
+    // Small delay to ensure sync completes
+    await new Promise(resolve => setTimeout(resolve, 100));
+    console.log('[Dashboard] ✅ Synced from MongoDB (online)');
+  } catch (err) {
+    console.warn('[Dashboard] ⚠️ MongoDB sync failed (offline or network error), using local data:', err);
+    // Continue with local storage data when offline
+  }
   
-  // Get fresh state after sync
+  // Get fresh state after sync (or local data if offline)
   const state = await chrome.storage.local.get();
+  
+  console.log('[Dashboard] Loaded stats:', {
+    totalFocusTime: state.stats?.totalFocusTime,
+    sessionsCompleted: state.stats?.sessionsCompleted,
+    points: state.points,
+    level: state.level,
+    source: state.lastSyncTime ? 'MongoDB (cached)' : 'Local only'
+  });
   
   // Check if it's a new day and reset todayFocusTime if needed (IST timezone)
   const now = new Date();
@@ -1040,4 +1056,49 @@ async function showDeveloperMessageModal(message) {
     if (e.target === modal) closeModal();
   };
 }
+
+// Manual badge refresh button handler
+document.addEventListener('DOMContentLoaded', () => {
+  const refreshBadgesBtn = document.getElementById('refreshBadgesBtn');
+  if (refreshBadgesBtn) {
+    refreshBadgesBtn.addEventListener('click', async () => {
+      const icon = refreshBadgesBtn.querySelector('i');
+      icon.classList.add('fa-spin');
+      refreshBadgesBtn.disabled = true;
+      
+      try {
+        console.log('[Badge Refresh] Manually checking badges...');
+        const response = await send({action: 'checkBadges'});
+        console.log('[Badge Refresh] Badge check response:', response);
+        
+        if (response.success) {
+          // Wait a moment for MongoDB sync to propagate
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          // Reload dashboard to show updated badges
+          console.log('[Badge Refresh] Reloading dashboard...');
+          await loadDashboard();
+          
+          // Show success feedback
+          const badgeCount = response.badges?.length || 0;
+          refreshBadgesBtn.innerHTML = `<i class="fas fa-check"></i> Found ${badgeCount} badges!`;
+          setTimeout(() => {
+            refreshBadgesBtn.innerHTML = '<i class="fas fa-sync-alt"></i> Check Badges';
+            refreshBadgesBtn.disabled = false;
+          }, 3000);
+        } else {
+          throw new Error('Badge check failed');
+        }
+      } catch (error) {
+        console.error('[Badge Refresh] Error:', error);
+        refreshBadgesBtn.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Error';
+        setTimeout(() => {
+          refreshBadgesBtn.innerHTML = '<i class="fas fa-sync-alt"></i> Check Badges';
+          refreshBadgesBtn.disabled = false;
+        }, 2000);
+        icon.classList.remove('fa-spin');
+      }
+    });
+  }
+});
 

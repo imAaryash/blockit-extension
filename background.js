@@ -543,6 +543,8 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
 });
 
 // Helper function to sync current state to MongoDB (Global scope)
+// CRITICAL: Only call this after completing a session or earning achievements
+// MongoDB uses incremental updates only (never decreases values)
 async function syncCurrentStateToMongoDB() {
   try {
     const token = (await chrome.storage.local.get('authToken'))?.authToken;
@@ -552,6 +554,17 @@ async function syncCurrentStateToMongoDB() {
     }
     
     const currentState = await chrome.storage.local.get(['stats', 'points', 'level', 'badges', 'streak', 'focusHistory']);
+    
+    console.log('[Sync] Sending incremental update to MongoDB:', {
+      totalFocusTime: currentState.stats?.totalFocusTime,
+      sessions: currentState.stats?.sessionsCompleted,
+      points: currentState.points,
+      level: currentState.level
+    });
+    
+    // Add timeout for offline detection
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
     
     const response = await fetch(`${API_BASE_URL}/api/users/stats`, {
       method: 'PUT',
@@ -566,18 +579,48 @@ async function syncCurrentStateToMongoDB() {
         points: currentState.points,
         level: currentState.level,
         focusHistory: currentState.focusHistory || {}
-      })
+      }),
+      signal: controller.signal
     });
     
+    clearTimeout(timeoutId);
+    
     if (response.ok) {
-      console.log('[Sync] ✅ Current state synced to MongoDB successfully');
+      const result = await response.json();
+      console.log('[Sync] ✅ Incremental update sent to MongoDB (server validates no decreases)');
+      
+      // Check if server rejected any values
+      if (result.rejected) {
+        if (result.rejected.totalFocusTime || result.rejected.sessionsCompleted) {
+          console.warn('[Sync] ⚠️ Server rejected some values - local data is WRONG');
+          console.warn('[Sync] Local had:', currentState.stats);
+          console.warn('[Sync] MongoDB has:', result.user.stats);
+          
+          // Update local storage with correct MongoDB values
+          await chrome.storage.local.set({
+            stats: result.user.stats,
+            points: result.user.points,
+            level: result.user.level,
+            badges: result.user.badges,
+            streak: result.user.streak
+          });
+          console.log('[Sync] ✅ Corrected local data from MongoDB response');
+        }
+      }
+      
       return true;
     } else {
-      console.error('[Sync] MongoDB sync failed:', response.status);
+      const errorText = await response.text();
+      console.error('[Sync] MongoDB sync failed:', response.status, errorText);
       return false;
     }
   } catch (error) {
-    console.error('[Sync] Failed to sync current state:', error);
+    if (error.name === 'AbortError') {
+      console.warn('[Sync] ⚠️ Request timeout - likely offline or poor connection');
+    } else {
+      console.error('[Sync] Failed to sync current state:', error.message);
+    }
+    // Don't throw - allow offline usage, data will sync when back online
     return false;
   }
 }
@@ -610,37 +653,72 @@ async function updateSessionStats(durationMs) {
   const newTotalTime = (state.stats.totalFocusTime || 0) + durationMin;
   const newSessions = (state.stats.sessionsCompleted || 0) + 1;
   
+  // CRITICAL: Use session START time for date tracking (not end time)
+  // This ensures cross-midnight sessions (e.g., 11:40 PM to 1 AM) are credited to the correct day
+  let sessionStartTime = state.sessionStart || Date.now();
+  
+  // Validate session start time (detect clock issues)
+  const now = Date.now();
+  if (sessionStartTime > now) {
+    console.warn('[SessionTracking] ⚠️ Session start time is in the future! Clock drift detected.');
+    console.warn('[SessionTracking] Using current time instead');
+    sessionStartTime = now - durationMs; // Estimate start time
+  }
+  
+  if (now - sessionStartTime > 24 * 60 * 60 * 1000) {
+    console.warn('[SessionTracking] ⚠️ Session started more than 24 hours ago!');
+    console.warn('[SessionTracking] This might be a stuck session or clock issue');
+  }
+  
+  const sessionStartDate = new Date(sessionStartTime);
+  
   // Update daily focus time with IST date comparison (IST = UTC+5:30)
-  const now = new Date();
   const istOffset = 5.5 * 60 * 60 * 1000; // 5 hours 30 minutes in milliseconds
-  const istTime = new Date(now.getTime() + istOffset);
-  const todayDateString = istTime.toISOString().substring(0, 10); // YYYY-MM-DD in IST
+  const sessionStartIST = new Date(sessionStartDate.getTime() + istOffset);
+  const sessionDateString = sessionStartIST.toISOString().substring(0, 10); // YYYY-MM-DD in IST
+  
+  console.log('[SessionTracking] Session started at:', sessionStartDate.toISOString());
+  console.log('[SessionTracking] Session date (IST):', sessionDateString);
+  console.log('[SessionTracking] Duration:', durationMin, 'minutes');
   
   let todayTime = state.todayFocusTime || 0;
   const storedDate = state.todayDate || '';
   
-  // Reset if it's a new day (comparing YYYY-MM-DD strings in IST)
-  if (storedDate !== todayDateString) {
-    todayTime = 0; // Reset if new day
+  // Check if we need to update today's time or if this session belongs to a previous day
+  const currentTime = new Date();
+  const currentDateIST = new Date(currentTime.getTime() + istOffset);
+  const currentDateString = currentDateIST.toISOString().substring(0, 10);
+  
+  if (sessionDateString === currentDateString) {
+    // Session belongs to today - add to today's time
+    if (storedDate !== currentDateString) {
+      todayTime = 0; // Reset if it's a new day
+    }
+    todayTime += durationMin;
+    console.log('[SessionTracking] ✅ Session credited to today:', currentDateString, '- Total today:', todayTime, 'min');
+  } else {
+    // Session started on a previous day (cross-midnight or delayed sync)
+    console.log('[SessionTracking] ⚠️ Session belongs to', sessionDateString, '(not today:', currentDateString, ')');
+    // Don't add to todayTime, but still update streak and history for that date
   }
-  todayTime += durationMin;
   
   // Update streak with IST-based date comparison (Duolingo-style)
+  // CRITICAL: Use session START date for streak tracking
   let lastDate = state.streak?.lastSessionDate;
   
   // Migrate old date format to new format
   lastDate = normalizeDateToISO(lastDate);
   
-  // Get yesterday in IST (reuse istTime calculated above)
-  const yesterdayIST = new Date(istTime.getTime() - (24 * 60 * 60 * 1000));
-  const yesterdayDateString = yesterdayIST.toISOString().substring(0, 10);
+  // Get yesterday based on session start date
+  const yesterdaySessionIST = new Date(sessionStartIST.getTime() - (24 * 60 * 60 * 1000));
+  const yesterdayDateString = yesterdaySessionIST.toISOString().substring(0, 10);
   
   let currentStreak = state.streak?.current || 0;
   let longestStreak = state.streak?.longest || 0;
   
   console.log('[Streak] Last session date (normalized):', lastDate);
-  console.log('[Streak] Today (IST):', todayDateString);
-  console.log('[Streak] Yesterday (IST):', yesterdayDateString);
+  console.log('[Streak] This session date (IST):', sessionDateString);
+  console.log('[Streak] Yesterday from session (IST):', yesterdayDateString);
   console.log('[Streak] Current streak before update:', currentStreak);
   
   // Duolingo-style streak logic:
@@ -653,27 +731,26 @@ async function updateSessionStats(durationMs) {
     // First session ever
     currentStreak = 1;
     console.log('[Streak] 🎉 First session ever! Streak started at 1');
-  } else if (lastDate === todayDateString) {
-    // Already completed a session today - keep current streak (don't increment)
-    console.log('[Streak] ✅ Already completed session today, maintaining streak at', currentStreak);
+  } else if (lastDate === sessionDateString) {
+    // Already completed a session on this date - keep current streak (don't increment)
+    console.log('[Streak] ✅ Already completed session on', sessionDateString, ', maintaining streak at', currentStreak);
   } else if (lastDate === yesterdayDateString) {
-    // This is the FIRST session of today, and last session was yesterday - continue streak!
+    // This is the FIRST session of this date, and last session was yesterday - continue streak!
     currentStreak++;
-    console.log('[Streak] 🔥 First session of the day! Continued from yesterday. New streak:', currentStreak);
-  } else if (lastDate > todayDateString) {
-    // Clock issue - last date is in the future somehow
-    console.log('[Streak] ⚠️ Clock issue detected (last date in future), keeping streak at', currentStreak);
+    console.log('[Streak] 🔥 First session of', sessionDateString, '! Continued from yesterday. New streak:', currentStreak);
+  } else if (lastDate > sessionDateString) {
+    // Last date is in the future somehow (clock issue or session from past being processed)
+    console.log('[Streak] ⚠️ Session is from the past (', sessionDateString, 'vs last:', lastDate, '), keeping streak at', currentStreak);
   } else {
     // Last session was before yesterday (2+ days ago)
-    // Streak should have been broken by checkStreakOnLogin(), but handle it here as safety net
-    console.log('[Streak] ❌ Last session was', lastDate, '(before yesterday). Starting new streak at 1');
+    console.log('[Streak] ❌ Last session was', lastDate, '(before', yesterdayDateString, '). Starting new streak at 1');
     currentStreak = 1;
   }
   
   // Always update longest if current is higher
   longestStreak = Math.max(longestStreak, currentStreak);
   
-  console.log('[Streak] ✅ Updated - Current:', currentStreak, 'Longest:', longestStreak, 'Last date:', todayDateString);
+  console.log('[Streak] ✅ Updated - Current:', currentStreak, 'Longest:', longestStreak, 'Session date:', sessionDateString);
   
   // Progressive leveling system
   // Each level requires more XP: Level 1->2: 100, 2->3: 200, 3->4: 300, etc.
@@ -728,30 +805,82 @@ async function updateSessionStats(durationMs) {
   const updatedBadges = await checkBadges(currentBadges, newTotalTime, newSessions, currentStreak, newLevel);
   
   // Save everything including points earned for this session
-  await chrome.storage.local.set({
-    stats: {
-      ...state.stats,
-      totalFocusTime: newTotalTime,
-      sessionsCompleted: newSessions
-    },
-    streak: {
-      current: currentStreak,
-      longest: longestStreak,
-      lastSessionDate: todayDateString // Store as YYYY-MM-DD in IST
-    },
-    points: newPoints,
-    level: newLevel,
-    badges: updatedBadges,
-    todayFocusTime: todayTime,
-    todayDate: todayDateString, // Store as YYYY-MM-DD in IST
-    sessionPointsEarned: pointsEarned // Store points earned this session for summary display
-  });
+  try {
+    await chrome.storage.local.set({
+      stats: {
+        ...state.stats,
+        totalFocusTime: newTotalTime,
+        sessionsCompleted: newSessions
+      },
+      streak: {
+        current: currentStreak,
+        longest: longestStreak,
+        lastSessionDate: sessionDateString // Store session START date in IST
+      },
+      points: newPoints,
+      level: newLevel,
+      badges: updatedBadges,
+      todayFocusTime: todayTime,
+      todayDate: currentDateString, // Store current date (for today's time tracking)
+      sessionPointsEarned: pointsEarned // Store points earned this session for summary display
+    });
+  } catch (error) {
+    console.error('[Storage] CRITICAL: Failed to save session stats:', error);
+    
+    // Try to save critical data only (minimal payload)
+    try {
+      await chrome.storage.local.set({
+        stats: { totalFocusTime: newTotalTime, sessionsCompleted: newSessions },
+        points: newPoints,
+        level: newLevel
+      });
+      console.log('[Storage] ✅ Saved critical stats only');
+    } catch (criticalError) {
+      console.error('[Storage] FATAL: Cannot save even critical data:', criticalError);
+      // Last resort - try to notify user
+      chrome.notifications.create({
+        type: 'basic',
+        iconUrl: 'icons/icon48.png',
+        title: '⚠️ Storage Error',
+        message: 'Session completed but could not save data. Please check browser storage.',
+        priority: 2
+      }).catch(() => {});
+    }
+  }
   
-  // Update focus history for heatmap
-  const historyResult = await chrome.storage.local.get('focusHistory');
-  const focusHistory = historyResult.focusHistory || {};
-  focusHistory[todayDateString] = todayTime;
-  await chrome.storage.local.set({ focusHistory });
+  // Update focus history for heatmap - use session start date
+  try {
+    const historyResult = await chrome.storage.local.get('focusHistory');
+    const focusHistory = historyResult.focusHistory || {};
+    
+    // Add session time to the date it was started on
+    if (!focusHistory[sessionDateString]) {
+      focusHistory[sessionDateString] = 0;
+    }
+    focusHistory[sessionDateString] += durationMin;
+    
+    console.log('[FocusHistory] Added', durationMin, 'min to', sessionDateString, '- Total:', focusHistory[sessionDateString], 'min');
+    
+    // Cleanup old history if storage is getting full (keep last 365 days)
+    const dates = Object.keys(focusHistory).sort();
+    if (dates.length > 365) {
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - 365);
+      const cutoffString = cutoffDate.toISOString().substring(0, 10);
+      
+      dates.forEach(date => {
+        if (date < cutoffString) {
+          delete focusHistory[date];
+        }
+      });
+      console.log('[FocusHistory] Cleaned up old data, keeping last 365 days');
+    }
+    
+    await chrome.storage.local.set({ focusHistory });
+  } catch (error) {
+    console.error('[FocusHistory] Failed to save history:', error);
+    // Non-critical, continue without history update
+  }
   
   // Update study group stats if user has active groups
   const groupResult = await chrome.storage.local.get('activeGroupIds');
@@ -777,36 +906,25 @@ async function updateSessionStats(durationMs) {
   }
   
   // Sync to MongoDB after session completion
-  try {
-    const token = (await chrome.storage.local.get('authToken'))?.authToken;
-    if (token) {
-      await fetch(`${API_BASE_URL}/api/users/stats`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          stats: {
-            totalFocusTime: newTotalTime,
-            sessionsCompleted: newSessions,
-            sitesBlocked: state.stats.blockedCount || 0
-          },
-          streak: {
-            current: currentStreak,
-            longest: longestStreak,
-            lastSessionDate: todayDateString
-          },
-          points: newPoints,
-          level: newLevel,
-          badges: updatedBadges, // Send full badge objects, not just IDs
-          focusHistory: state.focusHistory || {}
-        })
-      });
-      console.log('[Sync] Stats and badges synced to MongoDB');
-    }
-  } catch (error) {
-    console.error('Failed to sync stats to MongoDB:', error);
+  const syncSuccess = await syncCurrentStateToMongoDB();
+  
+  if (syncSuccess) {
+    console.log('[Sync] ✅ Stats and badges synced to MongoDB');
+    
+    // CRITICAL: Pull back from MongoDB to verify and get authoritative values
+    // This ensures local matches server (in case server rejected any decreases)
+    console.log('[Sync] Pulling fresh data from MongoDB to verify consistency...');
+    await syncFromMongoDB();
+  } else {
+    console.warn('[Sync] ⚠️ MongoDB sync failed (likely offline) - data saved locally and will sync when online');
+    // Mark that we have pending sync
+    await chrome.storage.local.set({ pendingSync: true, lastOfflineSession: Date.now() });
+  }
+  
+  // Try to sync when back online (if we were offline)
+  if (!syncSuccess) {
+    // Set up a retry mechanism
+    chrome.alarms.create('retry-sync', { delayInMinutes: 5 });
   }
   
   // Update user data in allUsers registry for friends to see
@@ -1441,11 +1559,11 @@ async function checkStreakOnLogin() {
   }
 }
 
-// Handle browser startup/restart - check for paused sessions
+// Handle browser startup/restart - sync from MongoDB first, then check sessions
 chrome.runtime.onStartup.addListener(async () => {
-  console.log('[Startup] Browser started, checking for paused focus sessions...');
+  console.log('[Startup] Browser started, syncing from MongoDB first...');
+  await syncFromMongoDB(); // Pull fresh data from authoritative source
   await handlePausedSession();
-  // checkStreakOnLogin will be called after MongoDB sync in onInstalled
 });
 
 // Handle paused sessions (browser closed during focus)
@@ -1627,6 +1745,18 @@ async function handleStuckSession() {
     
     // Check if there was an active focus session
     if (state.focusActive && state.sessionStart && state.sessionEnd) {
+      // Validate session times
+      if (state.sessionStart > now || state.sessionEnd > now + (24 * 60 * 60 * 1000)) {
+        console.error('[StuckSession] Invalid session times detected, resetting');
+        await chrome.storage.local.set({ focusActive: false, sessionStart: 0, sessionEnd: 0 });
+        return;
+      }
+      
+      if (state.sessionEnd < state.sessionStart) {
+        console.error('[StuckSession] End time before start time, resetting');
+        await chrome.storage.local.set({ focusActive: false, sessionStart: 0, sessionEnd: 0 });
+        return;
+      }
       console.log('[StuckSession] Found active session from previous browser session');
       console.log('[StuckSession] Session started:', new Date(state.sessionStart).toISOString());
       console.log('[StuckSession] Session was supposed to end:', new Date(state.sessionEnd).toISOString());
@@ -1741,73 +1871,200 @@ async function syncFromMongoDB() {
     const currentState = await getState();
     const token = currentState.authToken;
     
-    if (token) {
-      const response = await fetch(`${API_BASE_URL}/api/auth/profile`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+    if (!token) {
+      console.log('[Sync] No auth token, skipping MongoDB sync');
+      return false;
+    }
+    
+    // Add timeout for offline detection
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+    
+    const response = await fetch(`${API_BASE_URL}/api/auth/profile`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      },
+      signal: controller.signal
+    });
+    
+    clearTimeout(timeoutId);
+    
+    if (response.ok) {
+      const userData = await response.json();
+      console.log('[Sync] Data from MongoDB:', userData);
+      console.log('[Sync] Current local stats:', currentState.stats);
       
-      if (response.ok) {
-        const userData = await response.json();
-        console.log('[Sync] Data from MongoDB:', userData);
-        console.log('[Sync] Current local stats:', currentState.stats);
-        
-        // MongoDB is the SINGLE SOURCE OF TRUTH
-        // Always use MongoDB data, never let local override it
-        const mongoTotalTime = userData.stats?.totalFocusTime || 0;
-        const mongoSessions = userData.stats?.sessionsCompleted || 0;
-        const mongoPoints = userData.points || 0;
-        const mongoLevel = userData.level || 1;
-        
-        console.log('[Sync] Loading from MongoDB - Time:', mongoTotalTime, 'Sessions:', mongoSessions, 'Points:', mongoPoints, 'Level:', mongoLevel);
-        
-        // ALWAYS use MongoDB data - it's the authoritative source
-        const updateData = {
-          user: {
-            userId: userData.userId,
-            username: userData.username,
-            displayName: userData.displayName,
-            avatar: userData.avatar
-          },
-          points: mongoPoints,
-          level: mongoLevel,
-          badges: userData.badges || [],
-          focusHistory: userData.focusHistory || {},
-          dailyGoal: userData.settings?.dailyGoal || 120,
-          pomodoroBreakDuration: userData.settings?.breakTime || 5,
-          stats: {
-            totalFocusTime: mongoTotalTime,
-            sessionsCompleted: mongoSessions,
-            blockedCount: userData.stats?.sitesBlocked || 0
-          },
-          streak: {
-            current: userData.streak?.current || 0,
-            longest: userData.streak?.longest || 0,
-            lastSessionDate: userData.streak?.lastSessionDate || null
-          }
-        };
-        
-        console.log('[Sync] ✅ Loaded all data from MongoDB (authoritative source)');
-        
+      // MongoDB is the SINGLE SOURCE OF TRUTH
+      // Always use MongoDB data, never let local override it
+      const mongoTotalTime = userData.stats?.totalFocusTime || 0;
+      const mongoSessions = userData.stats?.sessionsCompleted || 0;
+      const mongoPoints = userData.points || 0;
+      const mongoLevel = userData.level || 1;
+      
+      console.log('[Sync] 📥 LOADING FROM MONGODB (AUTHORITATIVE SOURCE)');
+      console.log('[Sync] MongoDB Data - Time:', mongoTotalTime, 'Sessions:', mongoSessions, 'Points:', mongoPoints, 'Level:', mongoLevel);
+      
+      // Validate MongoDB data before using it
+      if (mongoTotalTime < 0 || mongoSessions < 0 || mongoPoints < 0 || mongoLevel < 1) {
+        console.error('[Sync] ⚠️ Invalid MongoDB data detected, keeping local data');
+        return false;
+      }
+      
+      // Sanity check: If MongoDB has way less data than local, warn but still use it (might be correct)
+      if (currentState.stats?.totalFocusTime && mongoTotalTime < currentState.stats.totalFocusTime * 0.5) {
+        console.warn('[Sync] ⚠️ MongoDB has significantly less time than local:', mongoTotalTime, 'vs', currentState.stats.totalFocusTime);
+        console.warn('[Sync] This might indicate data loss. Using MongoDB anyway (authoritative source).');
+      }
+      
+      // ALWAYS use MongoDB data - it's the authoritative source
+      const updateData = {
+        user: {
+          userId: userData.userId,
+          username: userData.username,
+          displayName: userData.displayName,
+          avatar: userData.avatar
+        },
+        points: mongoPoints,
+        level: mongoLevel,
+        badges: userData.badges || [],
+        focusHistory: userData.focusHistory || {},
+        dailyGoal: userData.settings?.dailyGoal || 120,
+        pomodoroBreakDuration: userData.settings?.breakTime || 5,
+        stats: {
+          totalFocusTime: mongoTotalTime,
+          sessionsCompleted: mongoSessions,
+          blockedCount: userData.stats?.sitesBlocked || 0
+        },
+        streak: {
+          current: userData.streak?.current || 0,
+          longest: userData.streak?.longest || 0,
+          lastSessionDate: userData.streak?.lastSessionDate || null
+        }
+      };
+      
+      console.log('[Sync] ✅ Loaded all data from MongoDB (authoritative source)');
+      
+      try {
         await chrome.storage.local.set(updateData);
+        return true;
+      } catch (storageError) {
+        console.error('[Sync] Failed to save MongoDB data to local storage:', storageError);
+        // Try to save critical fields only
+        try {
+          await chrome.storage.local.set({
+            stats: updateData.stats,
+            points: updateData.points,
+            level: updateData.level,
+            user: updateData.user
+          });
+          console.log('[Sync] ✅ Saved critical MongoDB data only');
+          return true;
+        } catch (criticalError) {
+          console.error('[Sync] FATAL: Cannot save MongoDB data at all:', criticalError);
+          return false;
+        }
       }
     }
+    return false;
   } catch (error) {
-    console.error('[Sync] Failed to sync from MongoDB:', error);
+    if (error.name === 'AbortError') {
+      console.warn('[Sync] ⚠️ MongoDB sync timeout - likely offline or slow connection');
+    } else {
+      console.error('[Sync] Failed to sync from MongoDB:', error);
+    }
+    return false;
   }
 }
 
 // Note: syncFromMongoDB() is now only called manually or on login
-// Not on startup to prevent overwriting accurate local data
+// MongoDB is the AUTHORITATIVE source of truth, not local storage
 
-// Setup periodic auto-save to MongoDB every 5 minutes
-chrome.alarms.create('auto-save-mongodb', { periodInMinutes: 5 });
+// REMOVED: Automatic sync from local → MongoDB (was causing data loss)
+// Instead: Pull from MongoDB periodically to keep local data fresh
+chrome.alarms.create('sync-from-mongodb', { periodInMinutes: 10 });
+
+// Monitor storage usage and warn if getting full
+async function checkStorageQuota() {
+  try {
+    const bytesInUse = await chrome.storage.local.getBytesInUse();
+    const QUOTA_BYTES = chrome.storage.local.QUOTA_BYTES || 10485760; // 10MB default
+    const usagePercent = (bytesInUse / QUOTA_BYTES) * 100;
+    
+    console.log('[Storage] Usage:', bytesInUse, 'bytes (', usagePercent.toFixed(1), '%)');
+    
+    if (usagePercent > 80) {
+      console.warn('[Storage] ⚠️ Storage usage is high:', usagePercent.toFixed(1), '%');
+      
+      // Clean up old data
+      const state = await chrome.storage.local.get(['focusHistory', 'sessionActivities']);
+      
+      // Remove old focus history (keep last 180 days only)
+      if (state.focusHistory) {
+        const cutoff = new Date();
+        cutoff.setDate(cutoff.getDate() - 180);
+        const cutoffString = cutoff.toISOString().substring(0, 10);
+        
+        const cleaned = {};
+        Object.keys(state.focusHistory).forEach(date => {
+          if (date >= cutoffString) {
+            cleaned[date] = state.focusHistory[date];
+          }
+        });
+        
+        await chrome.storage.local.set({ focusHistory: cleaned });
+        console.log('[Storage] Cleaned old focus history');
+      }
+      
+      // Clear old session activities
+      if (state.sessionActivities && state.sessionActivities.length > 100) {
+        await chrome.storage.local.set({ sessionActivities: [] });
+        console.log('[Storage] Cleared old session activities');
+      }
+      
+      // Notify user if still critical
+      const newBytesInUse = await chrome.storage.local.getBytesInUse();
+      const newUsagePercent = (newBytesInUse / QUOTA_BYTES) * 100;
+      
+      if (newUsagePercent > 90) {
+        chrome.notifications.create({
+          type: 'basic',
+          iconUrl: 'icons/icon48.png',
+          title: '⚠️ Storage Almost Full',
+          message: 'Extension storage is ' + newUsagePercent.toFixed(0) + '% full. Some data may be lost.',
+          priority: 2
+        }).catch(() => {});
+      }
+    }
+  } catch (error) {
+    console.error('[Storage] Failed to check quota:', error);
+  }
+}
+
+// Check storage quota periodically
+chrome.alarms.create('check-storage', { periodInMinutes: 30 });
 
 chrome.alarms.onAlarm.addListener(async (alarm) => {
-  if (alarm.name === 'auto-save-mongodb') {
-    console.log('[AutoSave] Running periodic save to MongoDB...');
-    await syncCurrentStateToMongoDB();
+  if (alarm.name === 'sync-from-mongodb') {
+    console.log('[AutoSync] Pulling fresh data from MongoDB (source of truth)...');
+    await syncFromMongoDB();
+  } else if (alarm.name === 'check-storage') {
+    await checkStorageQuota();
+  } else if (alarm.name === 'retry-sync') {
+    // Retry syncing if we have pending offline data
+    const state = await chrome.storage.local.get(['pendingSync', 'authToken']);
+    if (state.pendingSync && state.authToken) {
+      console.log('[RetrySync] Attempting to sync offline data...');
+      const success = await syncCurrentStateToMongoDB();
+      if (success) {
+        await chrome.storage.local.set({ pendingSync: false });
+        console.log('[RetrySync] ✅ Successfully synced offline data!');
+        await syncFromMongoDB(); // Pull back to verify
+      } else {
+        console.warn('[RetrySync] ⚠️ Still offline, will retry later');
+        // Retry again in 5 minutes
+        chrome.alarms.create('retry-sync', { delayInMinutes: 5 });
+      }
+    }
   }
 });
 
@@ -2203,8 +2460,10 @@ async function handleDeviceConflict(message) {
     requireInteraction: true
   });
 
-  // Clear all data
-  await chrome.storage.local.clear();
+  // Clear ONLY auth data, keep all progress data (stats, points, badges, etc.)
+  // This ensures user doesn't lose progress if they log back in
+  await chrome.storage.local.remove(['authToken', 'user', 'activity', 'friends', 'friendsData', 'allUsers']);
+  console.log('[DeviceConflict] ✅ Cleared auth data only, keeping progress data');
 
   // Redirect all extension pages to login
   const tabs = await chrome.tabs.query({});
