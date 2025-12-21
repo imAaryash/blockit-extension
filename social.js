@@ -1305,7 +1305,8 @@ async function viewProfile(username) {
           </div>
           <div id="badgesContainer" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; max-height: ${profile.badges.length > 6 ? '280px' : 'none'}; overflow: hidden; transition: max-height 0.3s ease;">
             ${profile.badges.slice(0, 6).map(badge => {
-              const badgeInfo = getBadgeInfo(badge);
+              const badgeId = typeof badge === 'string' ? badge : badge.id;
+              const badgeInfo = getBadgeInfo(badgeId);
               return `<div class="profile-badge" style="background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 12px; padding: 20px 12px; text-align: center; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer; position: relative;" title="${badgeInfo.description}" onmouseenter="this.style.borderColor='#3b82f6'; this.style.boxShadow='0 4px 16px rgba(59, 130, 246, 0.2)'; this.querySelector('.badge-icon-inner').style.transform='scale(1.15) rotate(5deg)';" onmouseleave="this.style.borderColor='#2a2a2a'; this.style.boxShadow='none'; this.querySelector('.badge-icon-inner').style.transform='scale(1)';">
                 <div class="badge-icon-inner" style="font-size: 32px; margin-bottom: 12px; color: #3b82f6; transition: all 0.3s ease;">${badgeInfo.icon}</div>
                 <div style="font-size: 13px; font-weight: 600; margin-bottom: 4px; color: #e5e5e5;">${badgeInfo.name}</div>
@@ -1317,7 +1318,8 @@ async function viewProfile(username) {
               <div id="hiddenBadges" style="display: none; grid-column: 1 / -1;">
                 <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; margin-top: 10px;">
                   ${profile.badges.slice(6).map(badge => {
-                    const badgeInfo = getBadgeInfo(badge);
+                    const badgeId = typeof badge === 'string' ? badge : badge.id;
+                    const badgeInfo = getBadgeInfo(badgeId);
                     return `<div class="profile-badge" style="background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 12px; padding: 20px 12px; text-align: center; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer; position: relative;" title="${badgeInfo.description}" onmouseenter="this.style.borderColor='#3b82f6'; this.style.boxShadow='0 4px 16px rgba(59, 130, 246, 0.2)'; this.querySelector('.badge-icon-inner').style.transform='scale(1.15) rotate(5deg)';" onmouseleave="this.style.borderColor='#2a2a2a'; this.style.boxShadow='none'; this.querySelector('.badge-icon-inner').style.transform='scale(1)';">
                       <div class="badge-icon-inner" style="font-size: 32px; margin-bottom: 12px; color: #3b82f6; transition: all 0.3s ease;">${badgeInfo.icon}</div>
                       <div style="font-size: 13px; font-weight: 600; margin-bottom: 4px; color: #e5e5e5;">${badgeInfo.name}</div>
@@ -2405,15 +2407,15 @@ async function loadShopItems(category) {
         ${isComingSoon ? '<div class="shop-item-status coming-soon">COMING SOON</div>' : (isEquipped ? '<div class="shop-item-status equipped">EQUIPPED</div>' : (isOwned ? '<div class="shop-item-status owned">OWNED</div>' : ''))}
         <div class="shop-item-image" style="${category === 'banner' ? 'aspect-ratio: 3/1; height: auto;' : ''} ${isComingSoon ? 'opacity: 0.4; filter: blur(2px);' : ''}">
           ${isAnimated ? 
-            `<video src="${imageUrl}" autoplay loop muted playsinline style="width: 100%; height: 100%; object-fit: ${category === 'banner' ? 'cover' : 'contain'};" onerror="console.error('Video load error:', this.src); this.style.display='none'; this.parentElement.innerHTML='<div style=\\'display:flex;align-items:center;justify-content:center;height:100%;color:#666;font-size:12px;\\'>Preview Unavailable</div>'" ${isComingSoon ? 'poster="data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\'%3E%3C/svg%3E"' : ''}></video>` :
-            `<img src="${imageUrl}" style="width: 100%; height: 100%; object-fit: ${category === 'banner' ? 'cover' : 'contain'};" onerror="this.style.display='none'; this.parentElement.innerHTML='<div style=\\'display:flex;align-items:center;justify-content:center;height:100%;color:#666;font-size:12px;\\'>Preview Unavailable</div>'" />`
+            `<video src="${imageUrl}" autoplay loop muted playsinline style="width: 100%; height: 100%; object-fit: ${category === 'banner' ? 'fill' : 'contain'};" onerror="console.error('Video load error:', this.src); this.style.display='none'; this.parentElement.innerHTML='<div style=\\'display:flex;align-items:center;justify-content:center;height:100%;color:#666;font-size:12px;\\'>Preview Unavailable</div>'" ${isComingSoon ? 'poster="data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\'%3E%3C/svg%3E"' : ''}></video>` :
+            `<img src="${imageUrl}" style="width: 100%; height: 100%; object-fit: ${category === 'banner' ? 'fill' : 'contain'};" onerror="this.style.display='none'; this.parentElement.innerHTML='<div style=\\'display:flex;align-items:center;justify-content:center;height:100%;color:#666;font-size:12px;\\'>Preview Unavailable</div>'" />`
           }
         </div>
         <div style="text-align: center; font-size: 13px; font-weight: 600; color: #ddd; margin-bottom: 4px;">${item.name}</div>
         ${isComingSoon ? 
           '<div style="padding: 8px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 6px; font-weight: 600; font-size: 11px; color: #fff; text-align: center;">UPDATE REQUIRED</div>' :
           (isEquipped ? 
-            '<div style="padding: 8px; background: #fbbf24; border-radius: 6px; font-weight: 600; font-size: 13px; color: #000; text-align: center;">EQUIPPED</div>' :
+            '<div style="display: flex; flex-direction: column; gap: 6px;"><div style="padding: 8px; background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%); border-radius: 8px; font-weight: 600; font-size: 11px; color: #000; text-align: center; box-shadow: 0 2px 8px rgba(251, 191, 36, 0.2); letter-spacing: 0.5px;">✓ EQUIPPED</div><button class="shop-item-unequip-btn" style="width: 100%; padding: 8px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 6px; font-weight: 500; font-size: 11px; color: #ef4444; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>Remove</button></div>' :
             (isOwned ? 
               '<button class="shop-item-equip-btn" style="width: 100%; padding: 10px; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 8px; font-weight: 500; font-size: 12px; color: #3b82f6; cursor: pointer; transition: all 0.2s; text-transform: uppercase; letter-spacing: 0.5px;">Equip</button>' :
               `<button class="shop-item-buy-btn" style="width: 100%; padding: 10px; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 8px; font-weight: 500; font-size: 12px; color: #10b981; cursor: pointer; transition: all 0.2s; text-transform: uppercase; letter-spacing: 0.5px;">${item.price} <span style="opacity: 0.7;">pts</span></button>`
@@ -2463,6 +2465,13 @@ async function loadShopItems(category) {
       if (e.target.classList.contains('shop-item-equip-btn')) {
         e.stopPropagation();
         await equipItem(itemId, category);
+        return;
+      }
+      
+      // Handle unequip button click
+      if (e.target.classList.contains('shop-item-unequip-btn')) {
+        e.stopPropagation();
+        await unequipItem(category);
         return;
       } 
       
@@ -2547,6 +2556,37 @@ async function equipItem(itemId, category) {
   }
 }
 
+async function unequipItem(category) {
+  try {
+    // Unequip by setting to null
+    if (category === 'avatar') {
+      await API.updateAvatarDecoration(null);
+    } else if (category === 'banner') {
+      await API.updateNameBanner(null);
+    } else if (category === 'profile') {
+      await API.updateProfileDecoration(null);
+    }
+    
+    // Update local storage
+    const userData = await chrome.storage.local.get(['user']);
+    if (category === 'avatar') userData.user.avatarDecoration = null;
+    else if (category === 'banner') userData.user.nameBanner = null;
+    else if (category === 'profile') userData.user.profileDecoration = null;
+    
+    await chrome.storage.local.set({ user: userData.user });
+    currentUserData = userData.user;
+    
+    // Refresh shop and preview
+    await loadShopItems(category);
+    updatePreview();
+    
+    alert('Item unequipped successfully!');
+  } catch (error) {
+    console.error('Unequip failed:', error);
+    alert('Failed to unequip item!');
+  }
+}
+
 function previewItem(itemId, category) {
   // Get item data
   const items = shopItems[category];
@@ -2594,7 +2634,7 @@ function previewItem(itemId, category) {
       video.muted = true;
       video.playsInline = true;
       video.className = 'preview-banner-video';
-      video.style.cssText = 'position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0;';
+      video.style.cssText = 'position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: fill; z-index: 0;';
       
       // Add error handler for video loading issues
       video.onerror = function() {
@@ -2712,7 +2752,7 @@ function updatePreview() {
       video.muted = true;
       video.playsInline = true;
       video.className = 'preview-banner-video';
-      video.style.cssText = 'position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0;';
+      video.style.cssText = 'position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: fill; z-index: 0;';
       
       // Add error handler
       video.onerror = function() {

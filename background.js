@@ -30,7 +30,8 @@ const DEFAULTS = {
   points: 0,
   level: 1,
   badges: [],
-  dailyGoal: 120, // minutes
+  dailyGoal: 120,
+  idleTimeAccumulated: 0, // minutes
   todayFocusTime: 0,
   todayDate: (() => { 
     // IST is UTC+5:30
@@ -369,6 +370,71 @@ async function updateUserActivity(tab) {
     });
   }
 }
+
+// Set idle detection threshold (60 seconds)
+chrome.idle.setDetectionInterval(60);
+
+// Idle state detection
+chrome.idle.onStateChanged.addListener(async (newState) => {
+  const state = await getState();
+  
+  if (!state.focusActive) return; // Only care about idle during focus sessions
+  
+  console.log('[Idle] State changed to:', newState);
+  
+  if (newState === 'idle' || newState === 'locked') {
+    // User went idle or locked screen - pause the timer
+    console.log('[Idle] ⚠️ User went idle during focus session, pausing timer');
+    
+    await chrome.storage.local.set({
+      idlePausedAt: Date.now(),
+      wasIdleDuringSession: true
+    });
+    
+    // Show notification
+    chrome.notifications.create({
+      type: 'basic',
+      iconUrl: 'icons/icon48.png',
+      title: '⏸️ Timer Paused',
+      message: 'Focus timer paused because you went idle. Resume when you return!',
+      priority: 1
+    });
+  } else if (newState === 'active') {
+    // User came back - resume timer
+    const idlePausedAt = state.idlePausedAt;
+    
+    if (idlePausedAt) {
+      const idleDuration = Date.now() - idlePausedAt;
+      const idleMinutes = Math.floor(idleDuration / 60000);
+      
+      console.log('[Idle] ✅ User returned, was idle for', idleMinutes, 'minutes');
+      
+      // Extend session end time by idle duration (don't count idle time)
+      const newSessionEnd = state.sessionEnd + idleDuration;
+      const totalIdleTime = (state.idleTimeAccumulated || 0) + idleDuration;
+      
+      await chrome.storage.local.set({
+        sessionEnd: newSessionEnd,
+        idlePausedAt: 0,
+        idleTimeAccumulated: totalIdleTime
+      });
+      
+      // Update alarm
+      chrome.alarms.create('focus-end', { when: newSessionEnd });
+      
+      console.log('[Idle] Extended session end time by', idleMinutes, 'minutes');
+      
+      // Show notification
+      chrome.notifications.create({
+        type: 'basic',
+        iconUrl: 'icons/icon48.png',
+        title: '▶️ Timer Resumed',
+        message: `Welcome back! Timer extended by ${idleMinutes} minutes (idle time doesn't count).`,
+        priority: 1
+      });
+    }
+  }
+});
 
 // Alarms to end session when time's up
 chrome.alarms.onAlarm.addListener(async (alarm) => {
@@ -910,11 +976,9 @@ async function updateSessionStats(durationMs) {
   
   if (syncSuccess) {
     console.log('[Sync] ✅ Stats and badges synced to MongoDB');
-    
-    // CRITICAL: Pull back from MongoDB to verify and get authoritative values
-    // This ensures local matches server (in case server rejected any decreases)
-    console.log('[Sync] Pulling fresh data from MongoDB to verify consistency...');
-    await syncFromMongoDB();
+    // DON'T pull from MongoDB here - it can cause race conditions and double-counting
+    // Our local data is correct since we just calculated it
+    // The periodic sync will keep things in sync
   } else {
     console.warn('[Sync] ⚠️ MongoDB sync failed (likely offline) - data saved locally and will sync when online');
     // Mark that we have pending sync
@@ -1062,7 +1126,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         sessionDuration: durationMin*60*1000,
         passcode: passcode || undefined,
         allowed: allowedSites,
-        sessionBlockedCount: 0 // Reset blocked count for new session
+        sessionBlockedCount: 0, // Reset blocked count for new session
+        idleTimeAccumulated: 0, // Reset idle time
+        idlePausedAt: 0,
+        wasIdleDuringSession: false
       });
       
       // Update activity to focusing
@@ -1563,94 +1630,135 @@ async function checkStreakOnLogin() {
 chrome.runtime.onStartup.addListener(async () => {
   console.log('[Startup] Browser started, syncing from MongoDB first...');
   await syncFromMongoDB(); // Pull fresh data from authoritative source
-  await handlePausedSession();
+  await handleBrowserClosedDuringSession(); // Handle sessions that were active when browser closed
 });
 
-// Handle paused sessions (browser closed during focus)
-async function handlePausedSession() {
+// Handle sessions where browser was closed
+// CRITICAL: Do NOT count time when browser was closed as focus time!
+async function handleBrowserClosedDuringSession() {
   try {
     const state = await getState();
     const now = Date.now();
     
-    // Check if there was an active focus session
-    if (state.focusActive && state.sessionPausedAt) {
-      const pauseDuration = now - state.sessionPausedAt;
-      const gracePeriod = 10 * 60 * 1000; // 10 minutes
+    // Check if there was an active focus session when browser was closed
+    if (state.focusActive && state.sessionStart) {
+      console.log('[BrowserClosed] Found active session from closed browser');
+      console.log('[BrowserClosed] Session started:', new Date(state.sessionStart).toISOString());
+      console.log('[BrowserClosed] Planned end:', new Date(state.sessionEnd).toISOString());
+      console.log('[BrowserClosed] Browser reopened:', new Date(now).toISOString());
       
-      console.log('[PausedSession] Found paused session, paused for:', Math.floor(pauseDuration / 60000), 'minutes');
+      // IMPORTANT: Complete the session with ACTUAL time focused before browser closed
+      // NOT the planned duration or time while browser was closed!
       
-      if (pauseDuration > gracePeriod) {
-        // Grace period exceeded - discard session
-        console.log('[PausedSession] ❌ Grace period exceeded, discarding session');
+      let actualFocusTime;
+      
+      if (state.sessionPausedAt) {
+        // Browser was closed at this specific time
+        actualFocusTime = state.sessionPausedAt - state.sessionStart;
+        console.log('[BrowserClosed] Browser closed at:', new Date(state.sessionPausedAt).toISOString());
+      } else if (state.sessionEnd <= now) {
+        // Timer already finished before/during browser close - use full planned duration
+        actualFocusTime = state.sessionEnd - state.sessionStart;
+        console.log('[BrowserClosed] Timer had finished, using planned duration');
+      } else {
+        // Timer was still running - can't know exactly when user closed browser
+        // Give them credit up to when timer would have ended (benefit of doubt)
+        actualFocusTime = Math.min(now - state.sessionStart, state.sessionEnd - state.sessionStart);
+        console.log('[BrowserClosed] Timer was running, using elapsed time');
+      }
+      
+      // Subtract any idle time that was accumulated
+      const idleTime = state.idleTimeAccumulated || 0;
+      actualFocusTime = Math.max(0, actualFocusTime - idleTime);
+      
+      const actualMinutes = Math.floor(actualFocusTime / 60000);
+      console.log('[BrowserClosed] Actual focus time:', actualMinutes, 'minutes (excluding', Math.floor(idleTime/60000), 'min idle)');
+      
+      // Only award points if they focused for at least 5 minutes
+      if (actualMinutes >= 5) {
+        console.log('[BrowserClosed] ✅ Awarding points for', actualMinutes, 'minutes');
         
-        await chrome.storage.local.set({
-          focusActive: false,
-          sessionEnd: 0,
-          sessionStart: 0,
-          sessionPausedAt: 0,
-          sessionPausedDuration: 0,
-          emergencyUsed: false,
-          sessionBlockedCount: 0
-        });
+        // Award points for actual time focused
+        await updateSessionStats(actualFocusTime);
         
         chrome.notifications.create({
           type: 'basic',
           iconUrl: 'icons/icon48.png',
-          title: '⏸️ Focus Session Discarded',
-          message: 'Your focus session was paused for too long and has been cancelled.',
+          title: '✅ Session Recovered',
+          message: `Credited ${actualMinutes} minutes of focus from your previous session!`,
           requireInteraction: false
         });
-        
-        // Update activity back to online
-        try {
-          const token = state.authToken;
-          if (token) {
-            await fetch(`${API_BASE_URL}/api/users/activity`, {
-              method: 'PUT',
-              headers: { 
-                'Content-Type': 'application/json', 
-                'Authorization': `Bearer ${token}` 
-              },
-              body: JSON.stringify({ 
-                activity: {
-                  status: 'online',
-                  focusActive: false
-                }
-              })
-            });
-          }
-        } catch (error) {
-          console.error('[PausedSession] Error updating activity:', error);
-        }
       } else {
-        // Within grace period - resume session
-        console.log('[PausedSession] ✅ Resuming session, adjusting end time');
-        
-        const newEndTime = state.sessionEnd + pauseDuration;
-        
-        await chrome.storage.local.set({
-          sessionEnd: newEndTime,
-          sessionPausedAt: 0,
-          sessionPausedDuration: (state.sessionPausedDuration || 0) + pauseDuration
-        });
-        
-        // Recreate alarm
-        chrome.alarms.create('focus-end', { when: newEndTime });
-        
-        // Schedule presence checks
-        schedulePresenceChecks();
+        console.log('[BrowserClosed] ❌ Session too short (${actualMinutes} min), no points awarded');
         
         chrome.notifications.create({
           type: 'basic',
           iconUrl: 'icons/icon48.png',
-          title: '▶️ Focus Session Resumed',
-          message: 'Your focus session has been resumed. Keep going!',
+          title: '⏸️ Session Too Short',
+          message: 'Previous session was less than 5 minutes and was not counted.',
           requireInteraction: false
         });
       }
+      
+      // Reset focus state
+      await chrome.storage.local.set({
+        focusActive: false,
+        sessionEnd: 0,
+        sessionStart: 0,
+        sessionPausedAt: 0,
+        emergencyUsed: false,
+        sessionBlockedCount: 0,
+        idleTimeAccumulated: 0,
+        idlePausedAt: 0
+      });
+      
+      // Clear any pending alarms
+      await chrome.alarms.clearAll();
+      
+      // Update activity status
+      try {
+        const token = state.authToken;
+        if (token) {
+          await chrome.storage.local.set({ 
+            activity: {
+              status: 'online',
+              focusActive: false,
+              currentUrl: null
+            }
+          });
+          
+          await fetch(`${API_BASE_URL}/api/users/activity`, {
+            method: 'PUT',
+            headers: { 
+              'Content-Type': 'application/json', 
+              'Authorization': `Bearer ${token}` 
+            },
+            body: JSON.stringify({ 
+              activity: {
+                status: 'online',
+                focusActive: false,
+                currentUrl: null
+              }
+            })
+          });
+        }
+      } catch (error) {
+        console.error('[BrowserClosed] Error updating activity:', error);
+      }
     }
   } catch (error) {
-    console.error('[PausedSession] Error:', error);
+    console.error('[BrowserClosed] Error:', error);
+    // Always reset to ensure user isn't stuck
+    await chrome.storage.local.set({
+      focusActive: false,
+      sessionEnd: 0,
+      sessionStart: 0,
+      sessionPausedAt: 0,
+      emergencyUsed: false,
+      sessionBlockedCount: 0,
+      idleTimeAccumulated: 0,
+      idlePausedAt: 0
+    });
   }
 }
 
@@ -1682,8 +1790,8 @@ chrome.runtime.onInstalled.addListener(async () => {
   const s = await chrome.storage.local.get();
   await chrome.storage.local.set(Object.assign({}, DEFAULTS, s));
   
-  // Check for stuck sessions on extension install/update
-  await handleStuckSession();
+  // Check for sessions from previous browser session
+  await handleBrowserClosedDuringSession();
   
   // Load data from MongoDB if user is logged in (includes streak check)
   try {
@@ -1736,134 +1844,6 @@ chrome.runtime.onInstalled.addListener(async () => {
     console.error('[Init] Failed to load data from MongoDB:', error);
   }
 });
-
-// Handle stuck focus sessions (browser closed during focus)
-async function handleStuckSession() {
-  try {
-    const state = await getState();
-    const now = Date.now();
-    
-    // Check if there was an active focus session
-    if (state.focusActive && state.sessionStart && state.sessionEnd) {
-      // Validate session times
-      if (state.sessionStart > now || state.sessionEnd > now + (24 * 60 * 60 * 1000)) {
-        console.error('[StuckSession] Invalid session times detected, resetting');
-        await chrome.storage.local.set({ focusActive: false, sessionStart: 0, sessionEnd: 0 });
-        return;
-      }
-      
-      if (state.sessionEnd < state.sessionStart) {
-        console.error('[StuckSession] End time before start time, resetting');
-        await chrome.storage.local.set({ focusActive: false, sessionStart: 0, sessionEnd: 0 });
-        return;
-      }
-      console.log('[StuckSession] Found active session from previous browser session');
-      console.log('[StuckSession] Session started:', new Date(state.sessionStart).toISOString());
-      console.log('[StuckSession] Session was supposed to end:', new Date(state.sessionEnd).toISOString());
-      
-      // Calculate how long the user actually focused before closing
-      const actualDuration = state.sessionEnd - state.sessionStart; // Original planned duration
-      const sessionDurationMin = Math.floor(actualDuration / 60000);
-      
-      console.log('[StuckSession] Session was:', sessionDurationMin, 'minutes');
-      
-      // If session was at least 5 minutes, award points
-      const minimumDuration = 5 * 60 * 1000; // 5 minutes
-      if (actualDuration >= minimumDuration) {
-        console.log('[StuckSession] Session met minimum duration, awarding points...');
-        
-        // Award points for the completed portion
-        await updateSessionStats(actualDuration);
-        
-        // Create session summary
-        const activities = state.sessionActivities || [];
-        await chrome.storage.local.set({
-          sessionSummary: {
-            duration: Math.floor(actualDuration / 1000),
-            activities: activities,
-            completedAt: now,
-            earnedPoints: true,
-            recovered: true // Flag to indicate this was a recovered session
-          }
-        });
-        
-        console.log('[StuckSession] Points awarded for recovered session');
-        
-        // Show notification about recovered session
-        chrome.notifications.create({
-          type: 'basic',
-          iconUrl: 'icons/icon48.png',
-          title: '🔄 Session Recovered!',
-          message: `We saved your ${sessionDurationMin} minute focus session and awarded your points!`,
-          requireInteraction: true
-        });
-      } else {
-        console.log('[StuckSession] Session was too short, no points awarded');
-      }
-      
-      // Reset focus state
-      await chrome.storage.local.set({
-        focusActive: false,
-        sessionEnd: 0,
-        sessionStart: 0,
-        emergencyUsed: false,
-        sessionBlockedCount: 0,
-        onBreak: false,
-        breakEnd: 0
-      });
-      
-      // Clear any pending alarms
-      await chrome.alarms.clearAll();
-      
-      // Update activity status back to online
-      try {
-        const token = state.authToken;
-        if (token) {
-          await chrome.storage.local.set({ 
-            activity: {
-              status: 'online',
-              focusActive: false,
-              currentUrl: null
-            }
-          });
-          
-          await fetch(`${API_BASE_URL}/api/users/activity`, {
-            method: 'PUT',
-            headers: { 
-              'Content-Type': 'application/json', 
-              'Authorization': `Bearer ${token}` 
-            },
-            body: JSON.stringify({ 
-              activity: {
-                status: 'online',
-                focusActive: false,
-                currentUrl: null
-              }
-            })
-          });
-        }
-      } catch (error) {
-        console.error('[StuckSession] Error updating activity:', error);
-      }
-      
-      console.log('[StuckSession] Focus state reset, user can now start new sessions');
-    } else {
-      console.log('[StuckSession] No stuck session found');
-    }
-  } catch (error) {
-    console.error('[StuckSession] Error handling stuck session:', error);
-    // Always reset to ensure user isn't stuck
-    await chrome.storage.local.set({
-      focusActive: false,
-      sessionEnd: 0,
-      sessionStart: 0,
-      emergencyUsed: false,
-      sessionBlockedCount: 0,
-      onBreak: false,
-      breakEnd: 0
-    });
-  }
-}
 
 // Sync data from MongoDB on startup
 async function syncFromMongoDB() {
