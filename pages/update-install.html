@@ -425,7 +425,7 @@
     // Load version info
     (async () => {
       const data = await chrome.storage.local.get(['latestVersion']);
-      const version = data.latestVersion || '2.4.0';
+      const version = data.latestVersion || '2.5.0';
       document.getElementById('versionBadge').textContent = `Version ${version}`;
       document.getElementById('filename').textContent = `focus-extension-v${version}.zip`;
     })();

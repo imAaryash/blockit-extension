@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Critical Update Required — Focus Mode</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0a0a0a;
+      color: #e5e7eb;
+      margin: 0;
+      padding: 60px 20px;
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 700px;
+      margin: 0 auto;
+    }
+
+    .alert-banner {
+      background: rgba(220, 38, 38, 0.1);
+      border: 1px solid rgba(220, 38, 38, 0.3);
+      border-left: 4px solid #dc2626;
+      padding: 20px 24px;
+      border-radius: 8px;
+      margin-bottom: 32px;
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+    }
+
+    .alert-icon {
+      color: #ef4444;
+      font-size: 24px;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .alert-content h1 {
+      font-size: 20px;
+      font-weight: 600;
+      color: #ef4444;
+      margin-bottom: 8px;
+    }
+
+    .alert-content p {
+      font-size: 14px;
+      color: #9ca3af;
+      line-height: 1.6;
+    }
+
+    .version-box {
+      background: #111111;
+      border: 1px solid #1f1f1f;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 32px;
+    }
+
+    .version-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 0;
+      border-bottom: 1px solid #1f1f1f;
+    }
+
+    .version-row:last-child {
+      border-bottom: none;
+    }
+
+    .version-label {
+      font-size: 14px;
+      color: #9ca3af;
+      font-weight: 500;
+    }
+
+    .version-value {
+      font-size: 14px;
+      font-weight: 600;
+      color: #e5e7eb;
+      font-family: 'Courier New', monospace;
+    }
+
+    .issue-box {
+      background: rgba(251, 191, 36, 0.1);
+      border: 1px solid rgba(251, 191, 36, 0.2);
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 32px;
+    }
+
+    .issue-box h2 {
+      font-size: 16px;
+      font-weight: 600;
+      color: #fbbf24;
+      margin-bottom: 12px;
+    }
+
+    .issue-box p {
+      font-size: 14px;
+      color: #d1d5db;
+      line-height: 1.6;
+    }
+
+    .steps {
+      margin-bottom: 32px;
+    }
+
+    .steps h2 {
+      font-size: 18px;
+      font-weight: 600;
+      color: #ffffff;
+      margin-bottom: 20px;
+    }
+
+    .step {
+      background: #111111;
+      border: 1px solid #1f1f1f;
+      padding: 16px 20px;
+      margin-bottom: 12px;
+      border-radius: 8px;
+      display: flex;
+      gap: 16px;
+    }
+
+    .step-number {
+      width: 28px;
+      height: 28px;
+      background: #dc2626;
+      color: #ffffff;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+
+    .step-content {
+      flex: 1;
+    }
+
+    .step-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: #ffffff;
+      margin-bottom: 4px;
+    }
+
+    .step-desc {
+      font-size: 13px;
+      color: #9ca3af;
+      line-height: 1.5;
+    }
+
+    .actions {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 32px;
+    }
+
+    .btn {
+      flex: 1;
+      padding: 12px 20px;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+      text-align: center;
+      transition: all 0.2s ease;
+    }
+
+    .btn-primary {
+      background: #dc2626;
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #b91c1c;
+    }
+
+    .btn-secondary {
+      background: #1f1f1f;
+      color: #e5e7eb;
+      border: 1px solid #2a2a2a;
+    }
+
+    .btn-secondary:hover {
+      background: #292929;
+    }
+
+    .footer {
+      text-align: center;
+      padding-top: 24px;
+      border-top: 1px solid #1f1f1f;
+      color: #6b7280;
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="alert-banner">
+      <div class="alert-icon">⚠️</div>
+      <div class="alert-content">
+        <h1>Critical Update Required</h1>
+        <p>This extension version has been disabled due to critical bugs. Please update immediately to continue using Focus Mode.</p>
+      </div>
+    </div>
+
+    <div class="version-box">
+      <div class="version-row">
+        <span class="version-label">Current Version</span>
+        <span class="version-value" id="currentVersion">Loading...</span>
+      </div>
+      <div class="version-row">
+        <span class="version-label">Required Version</span>
+        <span class="version-value" id="requiredVersion">Loading...</span>
+      </div>
+    </div>
+
+    <div class="issue-box">
+      <h2>What's Wrong?</h2>
+      <p id="blockReason">Loading issue details...</p>
+    </div>
+
+    <div class="steps">
+      <h2>How to Update</h2>
+      
+      <div class="step">
+        <div class="step-number">1</div>
+        <div class="step-content">
+          <div class="step-title">Download Latest Version</div>
+          <div class="step-desc">Check your email or download from the official source.</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-number">2</div>
+        <div class="step-content">
+          <div class="step-title">Open Extensions Page</div>
+          <div class="step-desc">Click the button below or go to chrome://extensions/</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-number">3</div>
+        <div class="step-content">
+          <div class="step-title">Remove Old Version</div>
+          <div class="step-desc">Find Focus Mode and click Remove.</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-number">4</div>
+        <div class="step-content">
+          <div class="step-title">Load New Version</div>
+          <div class="step-desc">Enable Developer mode, click "Load unpacked", and select the new folder.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="btn btn-primary" id="openExtensionsBtn">Open Extensions Page</button>
+      <button class="btn btn-secondary" id="openDownloadsBtn">Open Downloads</button>
+    </div>
+
+    <div class="footer">
+      <p>Focus Mode — Your data will be restored from the cloud after updating</p>
+    </div>
+  </div>
+
+  <script src="../js/critical-update.js"></script>
+</body>
+</html>

@@ -66,7 +66,7 @@ document.getElementById('registerForm').addEventListener('submit', async (e) => 
       
       // Redirect to main app
       setTimeout(() => {
-        window.location.href = 'popup.html';
+        window.location.href = '';
       }, 1000);
     } else {
       console.error('Invalid response structure:', response);
@@ -111,7 +111,7 @@ chrome.storage.local.get(['user', 'isRegistered', 'authToken'], async (data) => 
     // Verify token is still valid by fetching profile
     try {
       await API.getProfile();
-      window.location.href = 'popup.html';
+      window.location.href = '';
     } catch (error) {
       // Token invalid, clear and show registration
       await chrome.storage.local.remove(['authToken', 'user', 'isRegistered']);

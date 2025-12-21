@@ -49,7 +49,7 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
       
       // Redirect to main app
       setTimeout(() => {
-        window.location.href = 'popup.html';
+        window.location.href = '';
       }, 800);
     } else {
       console.error('Invalid response structure:', response);
@@ -94,7 +94,7 @@ chrome.storage.local.get(['user', 'isRegistered', 'authToken'], async (data) => 
     // Verify token is still valid
     try {
       await API.getProfile();
-      window.location.href = 'popup.html';
+      window.location.href = '';
     } catch (error) {
       // Token invalid, stay on login page
       console.log('Token invalid, user needs to login again');

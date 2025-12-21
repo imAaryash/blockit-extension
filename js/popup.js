@@ -101,6 +101,17 @@ chrome.storage.onChanged.addListener(async (changes, namespace) => {
 // Load real data
 async function loadPopupData() {
   try {
+    // ⚠️ CRITICAL: Check version status first before loading anything
+    const versionCheck = await chrome.runtime.sendMessage({ action: 'checkVersionStatus' });
+    
+    if (versionCheck && !versionCheck.allowed) {
+      console.error('[Version Block] Extension is blocked:', versionCheck.reason);
+      
+      // Redirect to critical update page immediately
+      window.location.href = '';
+      return;
+    }
+    
     const state = await chrome.storage.local.get([
       'level', 'streak', 'todayFocusTime', 'focusActive', 'sessionEnd',
       'friendsData', 'authToken', 'user', 'points', 'sessionStart', 'selectedDuration', 'todayDate',
@@ -109,7 +120,7 @@ async function loadPopupData() {
     
     // Check for login - Redirect to login if not authenticated
     if (!state.authToken || !state.user) {
-      window.location.href = 'login.html';
+      window.location.href = '';
       return;
     }
     
@@ -426,7 +437,7 @@ async function loadFriends(state) {
       item.addEventListener('click', () => {
         // Don't open social page if in focus mode
         if (!focusActive) {
-          chrome.tabs.create({ url: chrome.runtime.getURL('social.html') });
+          chrome.tabs.create({ url: chrome.runtime.getURL('pages/social.html') });
         }
       });
     });
@@ -510,11 +521,11 @@ function setupEventListeners() {
   
   // Quick action buttons
   document.getElementById('socialBtn1').addEventListener('click', () => {
-    chrome.tabs.create({ url: chrome.runtime.getURL('social.html') });
+    chrome.tabs.create({ url: chrome.runtime.getURL('pages/social.html') });
   });
   
   document.getElementById('dashboardBtn1').addEventListener('click', () => {
-    chrome.tabs.create({ url: chrome.runtime.getURL('dashboard.html') });
+    chrome.tabs.create({ url: chrome.runtime.getURL('pages/dashboard.html') });
   });
 }
 
@@ -577,6 +588,24 @@ async function startFocusSession() {
   document.getElementById('mainContent').style.display = 'block';
   
   try {
+    // ⚠️ CRITICAL: Check version status before starting session
+    const response = await chrome.runtime.sendMessage({ action: 'checkVersionStatus' });
+    
+    if (response && !response.allowed) {
+      console.error('[Version Block] Cannot start session - version blocked:', response.reason);
+      
+      // Redirect to critical update page immediately
+      chrome.tabs.create({ 
+        url: chrome.runtime.getURL('pages/critical-update.html'),
+        active: true
+      });
+      
+      // Show notification in popup before redirect
+      alert('⚠️ Critical Update Required\n\n' + (response.reason || 'Your extension version needs to be updated.'));
+      
+      return; // Stop session start
+    }
+    
     const durationMin = selectedDuration;
     const endTime = Date.now() + (durationMin * 60 * 1000);
     

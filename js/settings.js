@@ -49,12 +49,12 @@ async function handleLogout() {
     console.log('[Logout] Local storage cleared');
     
     // STEP 4: Redirect to login
-    window.location.href = 'login.html';
+    window.location.href = '';
   } catch (error) {
     console.error('Logout error:', error);
     // Clear storage and redirect anyway
     await chrome.storage.local.clear();
-    window.location.href = 'login.html';
+    window.location.href = '';
   }
 }
 

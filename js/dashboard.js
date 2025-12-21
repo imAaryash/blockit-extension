@@ -34,6 +34,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 });
 
 async function loadDashboard() {
+  // ⚠️ CRITICAL: Check version status first
+  try {
+    const versionCheck = await send({ action: 'checkVersionStatus' });
+    if (versionCheck && !versionCheck.allowed) {
+      console.error('[Version Block] Extension is blocked, redirecting to critical update page');
+      window.location.href = '';
+      return;
+    }
+  } catch (err) {
+    console.error('[Version Check] Failed:', err);
+  }
+  
   // CRITICAL: Try to sync from MongoDB first, but fallback to local if offline
   try {
     await send({action: 'syncFromMongoDB'});
