@@ -3,6 +3,10 @@
 // API Configuration
 const API_BASE_URL = 'https://focus-backend-g1zg.onrender.com';
 
+// Version control
+let extensionBlocked = false;
+let blockReason = '';
+
 // Import update checker
 importScripts('update-checker.js');
 
@@ -55,6 +59,75 @@ const DEFAULTS = {
   activity: {status: 'offline', currentUrl: null, focusActive: false, lastUpdated: null},
   allUsers: {} // Simple user registry (username -> userData)
 };
+
+// Check if extension version is blocked due to critical bugs
+async function checkVersionStatus() {
+  try {
+    const manifest = chrome.runtime.getManifest();
+    const currentVersion = manifest.version;
+    
+    const response = await fetch(`${API_BASE_URL}/api/version/check?version=${currentVersion}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      
+      if (!data.allowed) {
+        extensionBlocked = true;
+        blockReason = data.message;
+        
+        console.error('[Version] 🚨 EXTENSION BLOCKED:', data.message);
+        console.error('[Version] Current:', currentVersion, 'Minimum Required:', data.minimumVersion);
+        
+        // Show critical notification
+        chrome.notifications.create('critical-update-notification', {
+          type: 'basic',
+          iconUrl: 'icons/icon48.png',
+          title: '🚨 Critical Update Required',
+          message: data.message + ' Extension features are disabled.',
+          priority: 2,
+          requireInteraction: true,
+          buttons: [
+            { title: 'Update Now' }
+          ]
+        });
+        
+        // Handle notification click to open critical update page
+        chrome.notifications.onButtonClicked.addListener((notifId, btnIdx) => {
+          if (notifId === 'critical-update-notification' && btnIdx === 0) {
+            chrome.tabs.create({ url: chrome.runtime.getURL('pages/critical-update.html') });
+          }
+        });
+        
+        chrome.notifications.onClicked.addListener((notifId) => {
+          if (notifId === 'critical-update-notification') {
+            chrome.tabs.create({ url: chrome.runtime.getURL('pages/critical-update.html') });
+          }
+        });
+        
+        // Store blocked status
+        await chrome.storage.local.set({ 
+          extensionBlocked: true,
+          blockReason: data.message,
+          minimumVersion: data.minimumVersion
+        });
+        
+        return false;
+      } else {
+        extensionBlocked = false;
+        await chrome.storage.local.set({ extensionBlocked: false });
+        console.log('[Version] ✅ Version check passed:', currentVersion);
+        return true;
+      }
+    }
+  } catch (error) {
+    console.error('[Version] Failed to check version:', error);
+    // Don't block on network error
+    return true;
+  }
+}
 
 async function getState() {
   const s = await chrome.storage.local.get();
@@ -475,6 +548,12 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
   } else if (alarm.name === 'focus-end') {
     const state = await getState();
     
+    // CRITICAL: Check if session is still active to prevent double-processing
+    if (!state.focusActive) {
+      console.log('[SessionEnd] ⚠️ Session already ended, skipping duplicate alarm');
+      return;
+    }
+    
     // Calculate ACTUAL elapsed time (not planned duration)
     const sessionStart = state.sessionStart || Date.now();
     const sessionEnd = Date.now();
@@ -513,6 +592,7 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
       await updateSessionStats(actualDuration);
     }
     
+    // IMPORTANT: Set focusActive to false FIRST to prevent duplicate processing
     await chrome.storage.local.set({focusActive:false, sessionEnd: 0, emergencyUsed: false, sessionBlockedCount: 0});
     
     // Notify popup to update UI
@@ -605,6 +685,30 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
       title: '⏰ Break Over!',
       message: 'Break time ended. Ready for another focus session?'
     });
+  } else if (alarm.name === 'sync-from-mongodb') {
+    console.log('[AutoSync] Pulling fresh data from MongoDB (source of truth)...');
+    await syncFromMongoDB();
+  } else if (alarm.name === 'version-check') {
+    console.log('[VersionCheck] Performing periodic version check...');
+    await checkVersionStatus();
+  } else if (alarm.name === 'check-storage') {
+    await checkStorageQuota();
+  } else if (alarm.name === 'retry-sync') {
+    // Retry syncing if we have pending offline data
+    const state = await chrome.storage.local.get(['pendingSync', 'authToken']);
+    if (state.pendingSync && state.authToken) {
+      console.log('[RetrySync] Attempting to sync offline data...');
+      const success = await syncCurrentStateToMongoDB();
+      if (success) {
+        await chrome.storage.local.set({ pendingSync: false });
+        console.log('[RetrySync] ✅ Successfully synced offline data!');
+        await syncFromMongoDB(); // Pull back to verify
+      } else {
+        console.warn('[RetrySync] ⚠️ Still offline, will retry later');
+        // Retry again in 5 minutes
+        chrome.alarms.create('retry-sync', { delayInMinutes: 5 });
+      }
+    }
   }
 });
 
@@ -1102,7 +1206,40 @@ async function checkBadges(badges, totalTime, sessions, streak, level, silent = 
 // Messaging API for popup/options
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   (async () => {
+    // Version check handler - allows popup to check before showing UI
+    if (msg.action === 'checkVersionStatus') {
+      const allowed = await checkVersionStatus();
+      sendResponse({ 
+        allowed: allowed, 
+        reason: blockReason || 'Version check required',
+        extensionBlocked: extensionBlocked
+      });
+      return;
+    }
+    
     if (msg.action === 'startSession') {
+      console.log('[StartSession] Checking version status...');
+      console.log('[StartSession] Current blocked status:', extensionBlocked);
+      
+      // CRITICAL: Check if extension is blocked before starting session
+      const versionAllowed = await checkVersionStatus();
+      
+      console.log('[StartSession] Version check result:', versionAllowed);
+      console.log('[StartSession] Extension blocked:', extensionBlocked);
+      console.log('[StartSession] Block reason:', blockReason);
+      
+      if (!versionAllowed) {
+        console.error('[StartSession] ❌ BLOCKING SESSION - Version not allowed');
+        sendResponse({
+          ok: false, 
+          err: 'version-blocked',
+          message: blockReason || 'This version is blocked due to critical bugs. Please update the extension.'
+        });
+        return;
+      }
+      
+      console.log('[StartSession] ✅ Version check passed, starting session...');
+      
       const durationMin = Number(msg.durationMin) || 25;
       const passcode = msg.passcode || null;
       const preset = msg.preset || null;
@@ -1626,9 +1763,11 @@ async function checkStreakOnLogin() {
   }
 }
 
-// Handle browser startup/restart - sync from MongoDB first, then check sessions
+// Handle browser startup/restart - check version, sync from MongoDB, then check sessions
 chrome.runtime.onStartup.addListener(async () => {
-  console.log('[Startup] Browser started, syncing from MongoDB first...');
+  console.log('[Startup] Browser started, checking version...');
+  await checkVersionStatus(); // Check if version is blocked
+  console.log('[Startup] Syncing from MongoDB...');
   await syncFromMongoDB(); // Pull fresh data from authoritative source
   await handleBrowserClosedDuringSession(); // Handle sessions that were active when browser closed
 });
@@ -1789,6 +1928,10 @@ function schedulePresenceChecks() {
 chrome.runtime.onInstalled.addListener(async () => {
   const s = await chrome.storage.local.get();
   await chrome.storage.local.set(Object.assign({}, DEFAULTS, s));
+  
+  // Check version status immediately on install/update
+  console.log('[Install] Checking version status...');
+  await checkVersionStatus();
   
   // Check for sessions from previous browser session
   await handleBrowserClosedDuringSession();
@@ -1963,6 +2106,9 @@ async function syncFromMongoDB() {
 // Instead: Pull from MongoDB periodically to keep local data fresh
 chrome.alarms.create('sync-from-mongodb', { periodInMinutes: 10 });
 
+// Check version status every hour to catch critical updates
+chrome.alarms.create('version-check', { periodInMinutes: 60 });
+
 // Monitor storage usage and warn if getting full
 async function checkStorageQuota() {
   try {
@@ -2022,31 +2168,6 @@ async function checkStorageQuota() {
 
 // Check storage quota periodically
 chrome.alarms.create('check-storage', { periodInMinutes: 30 });
-
-chrome.alarms.onAlarm.addListener(async (alarm) => {
-  if (alarm.name === 'sync-from-mongodb') {
-    console.log('[AutoSync] Pulling fresh data from MongoDB (source of truth)...');
-    await syncFromMongoDB();
-  } else if (alarm.name === 'check-storage') {
-    await checkStorageQuota();
-  } else if (alarm.name === 'retry-sync') {
-    // Retry syncing if we have pending offline data
-    const state = await chrome.storage.local.get(['pendingSync', 'authToken']);
-    if (state.pendingSync && state.authToken) {
-      console.log('[RetrySync] Attempting to sync offline data...');
-      const success = await syncCurrentStateToMongoDB();
-      if (success) {
-        await chrome.storage.local.set({ pendingSync: false });
-        console.log('[RetrySync] ✅ Successfully synced offline data!');
-        await syncFromMongoDB(); // Pull back to verify
-      } else {
-        console.warn('[RetrySync] ⚠️ Still offline, will retry later');
-        // Retry again in 5 minutes
-        chrome.alarms.create('retry-sync', { delayInMinutes: 5 });
-      }
-    }
-  }
-});
 
 // Setup heartbeat alarm for activity updates
 chrome.alarms.create('activity-heartbeat', { periodInMinutes: 1 });
