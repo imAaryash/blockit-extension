@@ -1,5 +1,17 @@
 // Settings page functionality
-const API_BASE_URL = 'https://focus-backend-g1zg.onrender.com';
+
+// Check authentication before loading page
+(async () => {
+  const { authToken } = await chrome.storage.local.get(['authToken']);
+  if (!authToken) {
+    console.log('[Settings] No auth token found, redirecting to login...');
+    window.location.href = chrome.runtime.getURL('pages/login.html');
+    return;
+  }
+})();
+
+// Use environment-aware API_URL from config.js
+const API_BASE_URL = typeof API_URL !== 'undefined' ? API_URL.replace('/api', '') : 'https://focus-backend-g1zg.onrender.com';
 
 // Logout handler
 async function handleLogout() {
