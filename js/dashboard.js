@@ -39,7 +39,7 @@ async function loadDashboard() {
     const versionCheck = await send({ action: 'checkVersionStatus' });
     if (versionCheck && !versionCheck.allowed) {
       console.error('[Version Block] Extension is blocked, redirecting to critical update page');
-      window.location.href = '';
+      window.location.href = 'critical-update.html';
       return;
     }
   } catch (err) {
@@ -144,6 +144,13 @@ async function loadDashboard() {
   
   // Load blocked sites
   loadBlockedSites(state.blockedKeywords || []);
+  
+  // Initialize Season 2 features
+  if (window.seasonFeatures) {
+    await window.seasonFeatures.init();
+    // Load season leaderboard instead of all-time
+    await window.seasonFeatures.loadLeaderboard();
+  }
 }
 
 // Generate Focus Heatmap (GitHub style)
@@ -643,7 +650,7 @@ async function checkDeveloperMessage() {
     const state = await chrome.storage.local.get(['authToken', 'user']);
     if (!state.authToken || !state.user) return;
 
-    const response = await fetch('https://focus-backend-g1zg.onrender.com/api/users/developer-message', {
+    const response = await fetch(`${API_URL}/users/developer-message`, {
       headers: {
         'Authorization': `Bearer ${state.authToken}`,
         'Content-Type': 'application/json'
@@ -1043,7 +1050,7 @@ async function showDeveloperMessageModal(message) {
   const markAsRead = async () => {
     try {
       const state = await chrome.storage.local.get('authToken');
-      await fetch('https://focus-backend-g1zg.onrender.com/api/users/mark-message-read', {
+      await fetch(`${API_URL}/users/mark-message-read`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${state.authToken}`,
