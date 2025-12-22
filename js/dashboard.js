@@ -1,4 +1,15 @@
 // Dashboard JavaScript
+
+// Check authentication before loading page
+(async () => {
+  const { authToken } = await chrome.storage.local.get(['authToken']);
+  if (!authToken) {
+    console.log('[Dashboard] No auth token found, redirecting to login...');
+    window.location.href = chrome.runtime.getURL('pages/login.html');
+    return;
+  }
+})();
+
 async function send(msg) {
   return new Promise((res) => chrome.runtime.sendMessage(msg, res));
 }

@@ -1,5 +1,15 @@
 // Social.js - Friends and leaderboard logic with API integration
 
+// Check authentication before loading page
+(async () => {
+  const { authToken } = await chrome.storage.local.get(['authToken']);
+  if (!authToken) {
+    console.log('[Social] No auth token found, redirecting to login...');
+    window.location.href = chrome.runtime.getURL('pages/login.html');
+    return;
+  }
+})();
+
 // API Configuration
 // Use environment-aware API_URL from config.js (loaded before this script)
 const API_BASE_URL = typeof API_URL !== 'undefined' ? API_URL.replace('/api', '') : 'https://focus-backend-g1zg.onrender.com';
@@ -3532,6 +3542,21 @@ window.addEventListener('beforeunload', () => {
 
 // Snowfall animation for leaderboard
 function createSnowfall() {
+  // Check if Winter Arc has started (Dec 25, 2025)
+  const now = new Date();
+  const seasonStart = new Date('2025-12-25T00:00:00+05:30');
+  
+  if (now < seasonStart) {
+    // Hide season elements if not started
+    const seasonHeader = document.querySelector('.leaderboard-season-header');
+    if (seasonHeader) seasonHeader.style.display = 'none';
+    return;
+  }
+  
+  // Show season elements
+  const seasonHeader = document.querySelector('.leaderboard-season-header');
+  if (seasonHeader) seasonHeader.style.display = 'block';
+  
   const container = document.querySelector('.snowfall-container');
   if (!container) return;
   
