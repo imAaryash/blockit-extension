@@ -1,5 +1,6 @@
 // Popup with real data integration
-const API_BASE_URL = 'https://focus-backend-g1zg.onrender.com';
+// Use environment-aware API_URL from config.js (loaded before this script)
+const API_BASE_URL = typeof API_URL !== 'undefined' ? API_URL.replace('/api', '') : 'https://focus-backend-g1zg.onrender.com';
 
 // Privacy check: Only show exact titles for public URLs
 function isPublicURL(url) {
@@ -108,7 +109,7 @@ async function loadPopupData() {
       console.error('[Version Block] Extension is blocked:', versionCheck.reason);
       
       // Redirect to critical update page immediately
-      window.location.href = '';
+      window.location.href = 'critical-update.html';
       return;
     }
     
@@ -120,7 +121,7 @@ async function loadPopupData() {
     
     // Check for login - Redirect to login if not authenticated
     if (!state.authToken || !state.user) {
-      window.location.href = '';
+      window.location.href = 'login.html';
       return;
     }
     
