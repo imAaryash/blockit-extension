@@ -37,6 +37,12 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
       console.log('Login successful, saving user data...');
       
       // Save user data locally
+      // Save JWT token for authentication
+      if (response.token) {
+        await chrome.storage.local.set({ authToken: response.token });
+        console.log('✅ Auth token saved');
+      }
+      
       await chrome.storage.local.set({
         user: response.user,
         isRegistered: true
@@ -49,7 +55,7 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
       
       // Redirect to main app
       setTimeout(() => {
-        window.location.href = '';
+        window.location.href = 'popup.html';
       }, 800);
     } else {
       console.error('Invalid response structure:', response);
@@ -94,7 +100,7 @@ chrome.storage.local.get(['user', 'isRegistered', 'authToken'], async (data) => 
     // Verify token is still valid
     try {
       await API.getProfile();
-      window.location.href = '';
+      window.location.href = 'popup.html';
     } catch (error) {
       // Token invalid, stay on login page
       console.log('Token invalid, user needs to login again');
