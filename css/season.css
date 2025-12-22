@@ -1,0 +1,460 @@
+/* Season 2 - Winter Arc Styles */
+
+/* Daily Login Modal - Minimalistic Dark Design */
+.daily-login-modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.92);
+  backdrop-filter: blur(12px);
+  z-index: 10000;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.3s ease;
+}
+
+.daily-login-modal.show {
+  display: flex;
+}
+
+.daily-login-content {
+  background: #0a0a0a;
+  border: 1px solid #2a2a2a;
+  border-radius: 16px;
+  padding: 0;
+  max-width: 550px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+  position: relative;
+  animation: slideUp 0.4s ease;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(30px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.daily-login-ribbon {
+  background: #141414;
+  border-bottom: 1px solid #2a2a2a;
+  padding: 24px;
+  text-align: center;
+}
+
+.daily-login-ribbon h2 {
+  margin: 0;
+  color: #ffffff;
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.3px;
+}
+
+.daily-login-subtitle {
+  color: #9ca3af;
+  text-align: center;
+  padding: 16px 24px 8px;
+  font-size: 13px;
+  font-weight: 400;
+}
+
+.daily-reward-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  padding: 20px 24px;
+}
+
+.reward-day {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 16px 12px;
+  text-align: center;
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.reward-day.claimed {
+  background: rgba(58, 134, 255, 0.08);
+  border-color: rgba(58, 134, 255, 0.3);
+  opacity: 0.6;
+}
+
+.reward-day.active {
+  background: rgba(58, 134, 255, 0.08);
+  border-color: #3a86ff;
+}
+
+.reward-day.locked {
+  opacity: 0.35;
+}
+
+.reward-day.special {
+  grid-column: span 3;
+  background: rgba(58, 134, 255, 0.06);
+  border-color: rgba(58, 134, 255, 0.2);
+  padding: 20px;
+}
+
+.reward-day.special.active {
+  background: rgba(58, 134, 255, 0.1);
+  border-color: #3a86ff;
+}
+
+.day-label {
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 600;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+
+.day-sublabel {
+  color: #6b7280;
+  font-size: 9px;
+  font-weight: 500;
+  margin-bottom: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.day-icon {
+  font-size: 28px;
+  margin: 8px 0;
+  filter: grayscale(0.3);
+}
+
+.reward-day.active .day-icon {
+  filter: grayscale(0);
+}
+
+.day-icon.big {
+  font-size: 36px;
+}
+
+.day-reward {
+  color: #9ca3af;
+  font-size: 12px;
+  font-weight: 500;
+  margin-top: 8px;
+}
+
+.reward-day.active .day-reward {
+  color: #3a86ff;
+  font-weight: 600;
+}
+
+.checkmark {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(58, 134, 255, 0.2);
+  color: #3a86ff;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: bold;
+  border: 1px solid rgba(58, 134, 255, 0.3);
+}
+
+.lock-icon {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  font-size: 14px;
+  opacity: 0.4;
+}
+
+.streak-broken-notice {
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  color: #ef4444;
+  padding: 12px;
+  border-radius: 10px;
+  margin: 0 24px 16px 24px;
+  text-align: center;
+  font-weight: 500;
+  font-size: 13px;
+}
+
+.daily-login-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  padding: 16px 24px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  margin-top: 4px;
+}
+
+.stat-item {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  padding: 14px 10px;
+  text-align: center;
+}
+
+.stat-label {
+  color: #6b7280;
+  font-size: 10px;
+  margin-bottom: 6px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.stat-value {
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.stat-value.earned {
+  color: #3a86ff;
+}
+
+.close-login-modal {
+  background: linear-gradient(135deg, #3a86ff, #2a75e6);
+  color: white;
+  border: none;
+  padding: 14px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  width: calc(100% - 48px);
+  margin: 16px 24px 24px 24px;
+  transition: all 0.2s ease;
+  letter-spacing: 0.2px;
+}
+
+.close-login-modal:hover {
+  transform: translateY(-1px);
+  background: linear-gradient(135deg, #4a96ff, #3a86ff);
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.02); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Shop Coins Display */
+.shop-coins-display {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 215, 0, 0.1);
+  border: 1px solid rgba(255, 215, 0, 0.3);
+  border-radius: 20px;
+  padding: 6px 16px;
+  font-weight: 600;
+  color: #ffd700;
+  font-size: 14px;
+  margin-left: 15px;
+}
+
+.shop-coins-display .coin-icon {
+  font-size: 18px;
+}
+
+/* Season Badge */
+.season-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: linear-gradient(135deg, rgba(58, 134, 255, 0.2), rgba(138, 43, 226, 0.2));
+  border: 1px solid rgba(58, 134, 255, 0.4);
+  border-radius: 16px;
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #3a86ff;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Season Welcome Modal */
+.season-welcome-modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.9);
+  backdrop-filter: blur(15px);
+  z-index: 10001;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.4s ease;
+}
+
+.season-welcome-modal.show {
+  display: flex;
+}
+
+.season-welcome-content {
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  border: 2px solid #3a86ff;
+  border-radius: 20px;
+  padding: 50px;
+  max-width: 600px;
+  width: 90%;
+  position: relative;
+  animation: zoomIn 0.5s ease;
+  box-shadow: 0 25px 70px rgba(58, 134, 255, 0.4);
+  text-align: center;
+}
+
+@keyframes zoomIn {
+  from {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.season-welcome-title {
+  font-size: 42px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #3a86ff, #8a2be2);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin-bottom: 20px;
+}
+
+.season-welcome-subtitle {
+  font-size: 18px;
+  color: #a0a0a0;
+  margin-bottom: 30px;
+}
+
+.conversion-info {
+  background: rgba(58, 134, 255, 0.1);
+  border: 1px solid rgba(58, 134, 255, 0.3);
+  border-radius: 12px;
+  padding: 30px;
+  margin: 30px 0;
+}
+
+.conversion-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  font-size: 16px;
+}
+
+.conversion-label {
+  color: #a0a0a0;
+}
+
+.conversion-value {
+  color: #fff;
+  font-weight: 600;
+}
+
+.conversion-arrow {
+  color: #3a86ff;
+  font-size: 24px;
+}
+
+.conversion-result {
+  font-size: 32px;
+  font-weight: 700;
+  color: #ffd700;
+  margin-top: 20px;
+}
+
+.season-features {
+  text-align: left;
+  margin: 30px 0;
+}
+
+.feature-item {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 15px;
+  padding: 15px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+}
+
+.feature-icon {
+  font-size: 24px;
+  min-width: 30px;
+}
+
+.feature-text {
+  color: #fff;
+  font-size: 14px;
+}
+
+.start-season-btn {
+  background: linear-gradient(135deg, #3a86ff 0%, #8a2be2 100%);
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  padding: 15px 40px;
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin-top: 20px;
+}
+
+.start-season-btn:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 15px 40px rgba(58, 134, 255, 0.5);
+}
+
+/* Leaderboard Season Header */
+.leaderboard-season-header {
+  text-align: center;
+  margin-bottom: 20px;
+  padding: 15px;
+  background: rgba(58, 134, 255, 0.1);
+  border: 1px solid rgba(58, 134, 255, 0.3);
+  border-radius: 12px;
+}
+
+.leaderboard-season-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: #3a86ff;
+  margin-bottom: 5px;
+}
+
+.leaderboard-season-subtitle {
+  font-size: 14px;
+  color: #a0a0a0;
+}

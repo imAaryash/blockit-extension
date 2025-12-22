@@ -1,7 +1,8 @@
 // Social.js - Friends and leaderboard logic with API integration
 
 // API Configuration
-const API_BASE_URL = 'https://focus-backend-g1zg.onrender.com';
+// Use environment-aware API_URL from config.js (loaded before this script)
+const API_BASE_URL = typeof API_URL !== 'undefined' ? API_URL.replace('/api', '') : 'https://focus-backend-g1zg.onrender.com';
 
 async function send(msg) {
   return new Promise((res) => chrome.runtime.sendMessage(msg, res));
@@ -801,7 +802,7 @@ async function loadLeaderboard() {
           z-index: 100;
         ">
           <div style="font-size: 13px; color: #ffffff; line-height: 1.5;">
-            Points reset on <strong style="color: #ef4444;">January 1, 2026</strong>. Focus time and badges preserved.
+            Points reset on <strong style="color: #ef4444;">December 25, 2025</strong>. Focus time and badges preserved.
           </div>
         </div>
       </div>
@@ -2325,6 +2326,24 @@ async function initializeShop() {
     document.getElementById('shopUserLevel').textContent = currentUserData.level || 1;
     document.getElementById('shopUserPoints').textContent = currentUserData.points || 0;
     
+    // Fetch and display shop coins
+    try {
+      const seasonResponse = await fetch(`${API_URL}/season/status`, {
+        headers: {
+          'Authorization': `Bearer ${(await chrome.storage.local.get(['authToken'])).authToken}`
+        }
+      });
+      if (seasonResponse.ok) {
+        const seasonData = await seasonResponse.json();
+        if (seasonData.success && seasonData.season) {
+          document.getElementById('shopUserCoins').textContent = seasonData.season.shopCoins || 0;
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch shop coins:', error);
+      document.getElementById('shopUserCoins').textContent = '0';
+    }
+    
     // Load shop items
     await loadShopItems(currentShopCategory);
     
@@ -2398,7 +2417,10 @@ async function loadShopItems(category) {
     // Check if banner is animated using the helper function
     const isAnimated = category === 'banner' && isAnimatedBanner(item.id);
     
-    // Use appropriate extension for banners (.webm for animated, .png for static)
+    // Check if profile frame is animated APNG (frame 5, 9-15)
+    const isAnimatedProfile = category === 'profile' && (item.id === 'fr5' || (parseInt(item.id.replace('fr', '')) >= 9 && parseInt(item.id.replace('fr', '')) <= 15));
+    
+    // Use appropriate extension for banners (.webm for animated, .png for static and APNG)
     const extension = isAnimated ? '.webm' : '.png';
     const imageUrl = chrome.runtime.getURL(`${folderPath}/${item.id}${extension}`);
     
@@ -2408,7 +2430,7 @@ async function loadShopItems(category) {
         <div class="shop-item-image" style="${category === 'banner' ? 'aspect-ratio: 3/1; height: auto;' : ''} ${isComingSoon ? 'opacity: 0.4; filter: blur(2px);' : ''}">
           ${isAnimated ? 
             `<video src="${imageUrl}" autoplay loop muted playsinline style="width: 100%; height: 100%; object-fit: ${category === 'banner' ? 'fill' : 'contain'};" onerror="console.error('Video load error:', this.src); this.style.display='none'; this.parentElement.innerHTML='<div style=\\'display:flex;align-items:center;justify-content:center;height:100%;color:#666;font-size:12px;\\'>Preview Unavailable</div>'" ${isComingSoon ? 'poster="data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\'%3E%3C/svg%3E"' : ''}></video>` :
-            `<img src="${imageUrl}" style="width: 100%; height: 100%; object-fit: ${category === 'banner' ? 'fill' : 'contain'};" onerror="this.style.display='none'; this.parentElement.innerHTML='<div style=\\'display:flex;align-items:center;justify-content:center;height:100%;color:#666;font-size:12px;\\'>Preview Unavailable</div>'" />`
+            `<img src="${imageUrl}" class="${isAnimatedProfile ? 'apng-frame' : ''}" data-animated="${isAnimatedProfile}" style="width: 100%; height: 100%; object-fit: ${category === 'banner' ? 'fill' : 'contain'};" onerror="this.style.display='none'; this.parentElement.innerHTML='<div style=\\'display:flex;align-items:center;justify-content:center;height:100%;color:#666;font-size:12px;\\'>Preview Unavailable</div>'" />`
           }
         </div>
         <div style="text-align: center; font-size: 13px; font-weight: 600; color: #ddd; margin-bottom: 4px;">${item.name}</div>
@@ -2429,12 +2451,23 @@ async function loadShopItems(category) {
   // Add click listeners
   grid.querySelectorAll('.shop-item').forEach(itemEl => {
     const video = itemEl.querySelector('video');
+    const apngImg = itemEl.querySelector('img.apng-frame');
     
     // Restart video on hover
     if (video) {
       itemEl.addEventListener('mouseenter', () => {
         video.currentTime = 0;
         video.play().catch(err => console.error('Video play failed:', err));
+      });
+    }
+    
+    // Restart APNG animation on hover by replacing the element
+    if (apngImg) {
+      const originalSrc = apngImg.src.split('?')[0];
+      itemEl.addEventListener('mouseenter', () => {
+        const newImg = apngImg.cloneNode(true);
+        newImg.src = originalSrc + '?t=' + new Date().getTime();
+        apngImg.parentNode.replaceChild(newImg, apngImg);
       });
     }
     
@@ -3040,7 +3073,7 @@ function showNudgeNotification(nudge) {
     notification.style.animation = 'nudgeSlideOut 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)';
     setTimeout(() => {
       notification.remove();
-      window.location.href = '';
+      window.location.href = 'popup.html';
     }, 200);
   };
 
@@ -3496,3 +3529,54 @@ window.addEventListener('beforeunload', () => {
     chatSocket.disconnect();
   }
 });
+
+// Snowfall animation for leaderboard
+function createSnowfall() {
+  const container = document.querySelector('.snowfall-container');
+  if (!container) return;
+  
+  // Clear existing snowflakes
+  container.innerHTML = '';
+  
+  // Create 50 snowflakes
+  for (let i = 0; i < 50; i++) {
+    const snowflake = document.createElement('div');
+    snowflake.className = 'snowflake';
+    snowflake.innerHTML = '❄';
+    
+    // Random starting position
+    snowflake.style.left = Math.random() * 100 + '%';
+    snowflake.style.fontSize = (Math.random() * 10 + 10) + 'px';
+    snowflake.style.opacity = Math.random() * 0.6 + 0.3;
+    snowflake.style.animationDuration = (Math.random() * 3 + 2) + 's';
+    snowflake.style.animationDelay = Math.random() * 5 + 's';
+    
+    snowflake.style.position = 'absolute';
+    snowflake.style.top = '-20px';
+    snowflake.style.color = '#ffffff';
+    snowflake.style.animation = `fall ${snowflake.style.animationDuration} linear infinite`;
+    snowflake.style.animationDelay = snowflake.style.animationDelay;
+    
+    container.appendChild(snowflake);
+  }
+}
+
+// Add snowfall CSS animation
+const style = document.createElement('style');
+style.textContent = `
+  @keyframes fall {
+    0% { transform: translateY(-20px) rotate(0deg); }
+    100% { transform: translateY(100vh) rotate(360deg); }
+  }
+`;
+document.head.appendChild(style);
+
+// Initialize snowfall when leaderboard tab is opened
+document.querySelector('[data-tab="leaderboard"]')?.addEventListener('click', () => {
+  setTimeout(createSnowfall, 100);
+});
+
+// Create snowfall if leaderboard is the default tab
+if (document.querySelector('#leaderboardTab.active')) {
+  createSnowfall();
+}
