@@ -1382,6 +1382,25 @@
       </div>
     </div>
 
+    <!-- Permanent Block Manager (24/7 Blocking) -->
+    <div class="blocked-sites-section" style="border-color: #dc2626;">
+      <div class="section-header">
+        <div>
+          <div class="section-title">
+            <i class="fas fa-shield-alt"></i>
+            Always Blocked Sites
+          </div>
+          <div class="section-subtitle">Block sites 24/7, even outside of focus mode</div>
+        </div>
+        <div class="blocked-count-badge">
+          <span id="permanentBlockedCount">0 sites</span>
+          <button class="btn-view-blocked" id="viewPermanentBlockedBtn">
+            <i class="fas fa-eye"></i> View & Manage
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- Settings Link -->
     <div class="settings-section">
       <div class="section-title">
@@ -1436,6 +1455,74 @@
       <div class="blocked-sites-container" id="blockedSitesList">
         <div class="empty-state">
           <div class="empty-state-text">No custom sites added</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Permanent Block Popup (24/7 Blocking) -->
+  <div class="blocked-sites-popup" id="permanentBlockedPopup" style="display: none;">
+    <div class="popup-header">
+      <h3><i class="fas fa-shield-alt"></i> Always Blocked Sites</h3>
+      <button class="btn-close-popup" id="closePermanentPopupBtn">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    
+    <div style="background: rgba(220, 38, 38, 0.1); border: 1px solid #dc2626; border-radius: 8px; padding: 16px; margin: 20px;">
+      <div style="display: flex; align-items: start; gap: 12px;">
+        <i class="fas fa-exclamation-triangle" style="color: #dc2626; font-size: 20px; margin-top: 2px;"></i>
+        <div>
+          <div style="color: #fca5a5; font-weight: 500; margin-bottom: 4px;">24/7 Blocking Active</div>
+          <div style="color: #9ca3af; font-size: 13px;">These sites will be blocked all the time, not just during focus mode</div>
+        </div>
+      </div>
+    </div>
+    
+    <div style="margin: 20px;">
+      <div style="font-size: 13px; color: #9ca3af; margin-bottom: 12px; font-weight: 500;">Quick Add</div>
+      <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+        <button class="quick-add-btn" data-site="instagram.com" style="padding: 8px 16px; background: #1a1a1a; border: 1px solid #262626; border-radius: 6px; color: #e5e5e5; font-size: 13px; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 6px;">
+          <i class="fab fa-instagram"></i> Instagram
+        </button>
+        <button class="quick-add-btn" data-site="facebook.com" style="padding: 8px 16px; background: #1a1a1a; border: 1px solid #262626; border-radius: 6px; color: #e5e5e5; font-size: 13px; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 6px;">
+          <i class="fab fa-facebook"></i> Facebook
+        </button>
+        <button class="quick-add-btn" data-site="discord.com" style="padding: 8px 16px; background: #1a1a1a; border: 1px solid #262626; border-radius: 6px; color: #e5e5e5; font-size: 13px; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 6px;">
+          <i class="fab fa-discord"></i> Discord
+        </button>
+        <button class="quick-add-btn" data-site="x.com" style="padding: 8px 16px; background: #1a1a1a; border: 1px solid #262626; border-radius: 6px; color: #e5e5e5; font-size: 13px; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 6px;">
+          <i class="fab fa-x-twitter"></i> X.com
+        </button>
+        <button class="quick-add-btn" data-site="reddit.com" style="padding: 8px 16px; background: #1a1a1a; border: 1px solid #262626; border-radius: 6px; color: #e5e5e5; font-size: 13px; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 6px;">
+          <i class="fab fa-reddit"></i> Reddit
+        </button>
+        <button class="quick-add-btn" data-site="youtube.com" style="padding: 8px 16px; background: #1a1a1a; border: 1px solid #262626; border-radius: 6px; color: #e5e5e5; font-size: 13px; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 6px;">
+          <i class="fab fa-youtube"></i> YouTube
+        </button>
+      </div>
+    </div>
+    
+    <style>
+      .quick-add-btn:hover {
+        background: #262626 !important;
+        border-color: #dc2626 !important;
+        transform: translateY(-1px);
+      }
+    </style>
+    
+    <div class="popup-custom-sites">
+      <div class="add-site-card">
+        <input type="text" id="newPermanentSite" class="add-site-input" placeholder="Add site to block always (e.g., facebook.com)" />
+        <button class="btn-add-site" id="addPermanentSiteBtn" style="background: #dc2626;">
+          <i class="fas fa-ban"></i> Block Always
+        </button>
+      </div>
+      
+      <div class="custom-sites-label">Permanently Blocked Sites</div>
+      <div class="blocked-sites-container" id="permanentSitesList">
+        <div class="empty-state">
+          <div class="empty-state-text">No sites permanently blocked</div>
         </div>
       </div>
     </div>

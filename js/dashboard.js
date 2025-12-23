@@ -525,6 +525,15 @@ function loadBlockedSites(sites) {
   // Update count badge
   countBadge.textContent = `${totalSites} ${totalSites === 1 ? 'site' : 'sites'}`;
   
+  // Update permanent blocked count
+  chrome.storage.local.get(['permanentBlocked']).then(state => {
+    const permanentCount = (state.permanentBlocked || []).length;
+    const permanentCountBadge = document.getElementById('permanentBlockedCount');
+    if (permanentCountBadge) {
+      permanentCountBadge.textContent = `${permanentCount} ${permanentCount === 1 ? 'site' : 'sites'}`;
+    }
+  });
+  
   if (sites.length === 0) {
     container.innerHTML = `
       <div class="empty-state">
@@ -591,6 +600,124 @@ document.getElementById('addSiteBtn').addEventListener('click', async () => {
     loadDashboard();
   }
 });
+
+// Permanent Block popup handlers
+document.getElementById('viewPermanentBlockedBtn')?.addEventListener('click', () => {
+  // Create and show backdrop
+  const backdrop = document.createElement('div');
+  backdrop.className = 'popup-backdrop';
+  backdrop.id = 'permanentPopupBackdrop';
+  backdrop.addEventListener('click', closePermanentBlockedPopup);
+  document.body.appendChild(backdrop);
+  
+  // Show popup
+  document.getElementById('permanentBlockedPopup').style.display = 'flex';
+  loadPermanentBlockedSites();
+  
+  // Add quick-add button handlers
+  setTimeout(() => {
+    document.querySelectorAll('.quick-add-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const site = btn.dataset.site;
+        console.log('[PermanentBlock] Quick-adding site:', site);
+        
+        await send({action: 'addPermanentBlock', site});
+        await loadPermanentBlockedSites();
+        await loadDashboard();
+        
+        // Visual feedback
+        btn.style.background = '#16a34a';
+        btn.innerHTML = '<i class="fas fa-check"></i> Added';
+        setTimeout(() => {
+          btn.style.background = '#1a1a1a';
+          btn.innerHTML = btn.dataset.site.includes('instagram') ? '<i class="fab fa-instagram"></i> Instagram' :
+                          btn.dataset.site.includes('facebook') ? '<i class="fab fa-facebook"></i> Facebook' :
+                          btn.dataset.site.includes('discord') ? '<i class="fab fa-discord"></i> Discord' :
+                          btn.dataset.site.includes('x.com') ? '<i class="fab fa-x-twitter"></i> X.com' :
+                          btn.dataset.site.includes('reddit') ? '<i class="fab fa-reddit"></i> Reddit' :
+                          '<i class="fab fa-youtube"></i> YouTube';
+        }, 1500);
+      });
+    });
+  }, 100);
+});
+
+document.getElementById('closePermanentPopupBtn')?.addEventListener('click', closePermanentBlockedPopup);
+
+function closePermanentBlockedPopup() {
+  document.getElementById('permanentBlockedPopup').style.display = 'none';
+  const backdrop = document.getElementById('permanentPopupBackdrop');
+  if (backdrop) {
+    backdrop.remove();
+  }
+}
+
+// Add permanent block site button
+const addPermanentBtn = document.getElementById('addPermanentSiteBtn');
+if (addPermanentBtn) {
+  addPermanentBtn.addEventListener('click', async () => {
+    const input = document.getElementById('newPermanentSite');
+    const site = input?.value.trim();
+    
+    console.log('[PermanentBlock] Add button clicked, site:', site);
+    
+    if (site) {
+      console.log('[PermanentBlock] Sending addPermanentBlock message...');
+      const response = await send({action: 'addPermanentBlock', site});
+      console.log('[PermanentBlock] Response:', response);
+      
+      input.value = '';
+      await loadPermanentBlockedSites();
+      await loadDashboard();
+    } else {
+      console.warn('[PermanentBlock] No site entered');
+    }
+  });
+} else {
+  console.error('[PermanentBlock] addPermanentSiteBtn not found in DOM');
+}
+
+// Add Enter key support for permanent block input
+const permanentInput = document.getElementById('newPermanentSite');
+if (permanentInput) {
+  permanentInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+      document.getElementById('addPermanentSiteBtn')?.click();
+    }
+  });
+}
+
+// Load permanently blocked sites
+async function loadPermanentBlockedSites() {
+  const state = await chrome.storage.local.get(['permanentBlocked']);
+  const sites = state.permanentBlocked || [];
+  
+  const container = document.getElementById('permanentSitesList');
+  
+  if (sites.length === 0) {
+    container.innerHTML = '<div class="empty-state"><div class="empty-state-text">No sites permanently blocked</div></div>';
+    return;
+  }
+  
+  container.innerHTML = sites.map(site => `
+    <div class="site-item">
+      <span class="site-url">${site}</span>
+      <button class="btn-remove-site" data-site="${site}" data-type="permanent">
+        <i class="fas fa-trash"></i>
+      </button>
+    </div>
+  `).join('');
+  
+  // Add remove handlers
+  container.querySelectorAll('.btn-remove-site[data-type="permanent"]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const site = btn.dataset.site;
+      await send({action: 'removePermanentBlock', site});
+      loadPermanentBlockedSites();
+      loadDashboard();
+    });
+  });
+}
 
 // Check for updates button
 document.getElementById('checkUpdatesBtn')?.addEventListener('click', async () => {
