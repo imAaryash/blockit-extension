@@ -28,7 +28,7 @@
   max-width: 550px;
   width: 90%;
   max-height: 90vh;
-  overflow-y: auto;
+  overflow-y: hidden;
   position: relative;
   animation: slideUp 0.4s ease;
 }

@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>What's New - Focus Extension v2.6.0</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateX(-10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+
+    @keyframes glow {
+      0%, 100% {
+        box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
+      }
+      50% {
+        box-shadow: 0 0 30px rgba(59, 130, 246, 0.6);
+      }
+    }
+
+    @keyframes snowfall {
+      0% {
+        transform: translateY(-10vh) translateX(0) rotate(0deg);
+        opacity: 0;
+      }
+      10% {
+        opacity: 1;
+      }
+      90% {
+        opacity: 1;
+      }
+      100% {
+        transform: translateY(110vh) translateX(50px) rotate(360deg);
+        opacity: 0;
+      }
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0a0a0a;
+      color: #e5e5e5;
+      min-height: 100vh;
+      line-height: 1.5;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    .snowflake {
+      position: fixed;
+      top: -10px;
+      color: rgba(255, 255, 255, 0.6);
+      font-size: 14px;
+      pointer-events: none;
+      z-index: 1000;
+      user-select: none;
+      animation: snowfall linear infinite;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 48px 24px;
+      animation: fadeInUp 0.6s ease-out;
+    }
+
+    .header {
+      margin-bottom: 48px;
+      animation: fadeInUp 0.6s ease-out 0.1s both;
+      text-align: center;
+    }
+
+    .header h1 {
+      font-size: 42px;
+      font-weight: 300;
+      margin-bottom: 12px;
+      color: #ffffff;
+      letter-spacing: -1px;
+    }
+
+    .version-badge {
+      display: inline-block;
+      background: #1a1a1a;
+      border: 1px solid #3b82f6;
+      color: #3b82f6;
+      padding: 6px 16px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 500;
+      margin-top: 8px;
+    }
+
+    .subtitle {
+      color: #6b7280;
+      font-size: 16px;
+      margin-top: 16px;
+      font-weight: 400;
+    }
+
+    .launch-banner {
+      background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+      border-radius: 12px;
+      padding: 32px;
+      margin-bottom: 48px;
+      text-align: center;
+      animation: fadeInUp 0.6s ease-out 0.2s both, glow 2s ease-in-out infinite;
+      border: 1px solid rgba(59, 130, 246, 0.3);
+    }
+
+    .launch-banner h2 {
+      font-size: 28px;
+      font-weight: 300;
+      color: #ffffff;
+      margin-bottom: 12px;
+      letter-spacing: -0.5px;
+    }
+
+    .launch-banner p {
+      color: rgba(255, 255, 255, 0.9);
+      font-size: 15px;
+    }
+
+    .launch-date {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(255, 255, 255, 0.15);
+      padding: 10px 20px;
+      border-radius: 20px;
+      margin-top: 16px;
+      font-weight: 500;
+      color: #ffffff;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .content-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+      gap: 24px;
+      margin-bottom: 48px;
+    }
+
+    .section {
+      background: #1a1a1a;
+      border: 1px solid #262626;
+      border-radius: 12px;
+      padding: 32px;
+      animation: fadeInUp 0.6s ease-out 0.3s both;
+      transition: all 0.3s ease;
+    }
+
+    .section:hover {
+      border-color: #3b82f6;
+      transform: translateY(-2px);
+    }
+
+    .section h3 {
+      font-size: 20px;
+      font-weight: 500;
+      color: #ffffff;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      letter-spacing: -0.3px;
+    }
+
+    .section h3 i {
+      color: #3b82f6;
+      font-size: 18px;
+    }
+
+    .feature-list {
+      list-style: none;
+    }
+
+    .feature-item {
+      padding: 16px 0;
+      border-bottom: 1px solid #262626;
+      display: flex;
+      gap: 16px;
+      align-items: start;
+      animation: slideIn 0.4s ease-out both;
+    }
+
+    .feature-item:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+
+    .feature-item:nth-child(1) { animation-delay: 0.1s; }
+    .feature-item:nth-child(2) { animation-delay: 0.15s; }
+    .feature-item:nth-child(3) { animation-delay: 0.2s; }
+    .feature-item:nth-child(4) { animation-delay: 0.25s; }
+    .feature-item:nth-child(5) { animation-delay: 0.3s; }
+
+    .feature-icon {
+      width: 36px;
+      height: 36px;
+      background: #262626;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      color: #3b82f6;
+      font-size: 16px;
+      border: 1px solid #3b82f6;
+    }
+
+    .feature-content {
+      flex: 1;
+    }
+
+    .feature-title {
+      font-weight: 500;
+      color: #ffffff;
+      margin-bottom: 4px;
+      font-size: 15px;
+    }
+
+    .feature-desc {
+      color: #6b7280;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .cta-section {
+      text-align: center;
+      padding: 32px 0;
+      animation: fadeInUp 0.6s ease-out 0.4s both;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 28px;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+      transition: all 0.3s ease;
+      text-decoration: none;
+    }
+
+    .btn-primary {
+      background: #3b82f6;
+      color: #ffffff;
+    }
+
+    .btn-primary:hover {
+      background: #2563eb;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+    }
+
+    .btn-secondary {
+      background: #1a1a1a;
+      color: #e5e5e5;
+      border: 1px solid #262626;
+      margin-left: 12px;
+    }
+
+    .btn-secondary:hover {
+      border-color: #3b82f6;
+      color: #ffffff;
+    }
+
+    .step-number {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      background: #3b82f6;
+      color: #ffffff;
+      border-radius: 50%;
+      font-size: 13px;
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Winter Arc Update</h1>
+      <div class="version-badge">Version 2.6.0</div>
+      <p class="subtitle">Season 2 is coming with major improvements</p>
+    </div>
+
+    <div class="launch-banner">
+      <h2>Season 2 Launch</h2>
+      <p>Get ready for the biggest update yet with seasonal competitions and major improvements</p>
+      <div class="launch-date">
+        <i class="fas fa-calendar-alt"></i>
+        December 25, 2025
+      </div>
+    </div>
+
+    <div class="content-grid">
+      <div class="section">
+        <h3>
+          <i class="fas fa-star"></i>
+          New Features
+        </h3>
+        <ul class="feature-list">
+          <li class="feature-item">
+            <div class="feature-icon">
+              <i class="fas fa-trophy"></i>
+            </div>
+            <div class="feature-content">
+              <div class="feature-title">Winter Arc Season System</div>
+              <div class="feature-desc">Compete in time-limited seasons with exclusive rewards and seasonal leaderboards</div>
+            </div>
+          </li>
+          <li class="feature-item">
+            <div class="feature-icon">
+              <i class="fas fa-chart-line"></i>
+            </div>
+            <div class="feature-content">
+              <div class="feature-title">Season Leaderboards</div>
+              <div class="feature-desc">Fresh start for everyone with seasonal rankings and competitive focus tracking</div>
+            </div>
+          </li>
+          <li class="feature-item">
+            <div class="feature-icon">
+              <i class="fas fa-medal"></i>
+            </div>
+            <div class="feature-content">
+              <div class="feature-title">Seasonal Rewards</div>
+              <div class="feature-desc">Earn exclusive profile effects and achievements for top performers each season</div>
+            </div>
+          </li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <h3>
+          <i class="fas fa-wrench"></i>
+          Improvements
+        </h3>
+        <ul class="feature-list">
+          <li class="feature-item">
+            <div class="feature-icon">
+              <i class="fas fa-clock"></i>
+            </div>
+            <div class="feature-content">
+              <div class="feature-title">Timer Accuracy Fix</div>
+              <div class="feature-desc">Fixed critical timer issues - sessions now show exactly what you set</div>
+            </div>
+          </li>
+          <li class="feature-item">
+            <div class="feature-icon">
+              <i class="fas fa-bolt"></i>
+            </div>
+            <div class="feature-content">
+              <div class="feature-title">Performance Updates</div>
+              <div class="feature-desc">Faster popup loading, smoother animations, and better sync reliability</div>
+            </div>
+          </li>
+          <li class="feature-item">
+            <div class="feature-icon">
+              <i class="fas fa-palette"></i>
+            </div>
+            <div class="feature-content">
+              <div class="feature-title">UI Refinements</div>
+              <div class="feature-desc">Polished interface with improved animations and visual feedback</div>
+            </div>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="section">
+      <h3>
+        <i class="fas fa-info-circle"></i>
+        How It Works
+      </h3>
+      <ul class="feature-list">
+        <li class="feature-item">
+          <div class="step-number">1</div>
+          <div class="feature-content">
+            <div class="feature-title">Complete focus sessions</div>
+            <div class="feature-desc">Earn Focus Points and season points for every completed session</div>
+          </div>
+        </li>
+        <li class="feature-item">
+          <div class="step-number">2</div>
+          <div class="feature-content">
+            <div class="feature-title">Climb the leaderboard</div>
+            <div class="feature-desc">Season leaderboard tracks your season points - fresh start for everyone</div>
+          </div>
+        </li>
+        <li class="feature-item">
+          <div class="step-number">3</div>
+          <div class="feature-content">
+            <div class="feature-title">Earn seasonal rewards</div>
+            <div class="feature-desc">Top performers receive exclusive profile effects and achievements</div>
+          </div>
+        </li>
+        <li class="feature-item">
+          <div class="step-number">4</div>
+          <div class="feature-content">
+            <div class="feature-title">Compete with friends</div>
+            <div class="feature-desc">Add friends and see their progress on the seasonal leaderboard</div>
+          </div>
+        </li>
+      </ul>
+    </div>
+
+    <div class="cta-section">
+      <button class="btn btn-primary" onclick="openSocialPage()">
+        <i class="fas fa-users"></i>
+        Go to Social Page
+      </button>
+      <button class="btn btn-secondary" onclick="window.close()">
+        <i class="fas fa-times"></i>
+        Close
+      </button>
+    </div>
+  </div>
+
+  <script>
+    function openSocialPage() {
+      chrome.tabs.create({ url: chrome.runtime.getURL('pages/social.html') });
+      window.close();
+    }
+
+    // Create snowfall effect
+    function createSnowfall() {
+      const snowflakeChars = ['*', '·', '•', '+'];
+      const numberOfFlakes = 25;
+
+      for (let i = 0; i < numberOfFlakes; i++) {
+        const flake = document.createElement('div');
+        flake.className = 'snowflake';
+        flake.textContent = snowflakeChars[Math.floor(Math.random() * snowflakeChars.length)];
+        
+        // Random horizontal position
+        flake.style.left = Math.random() * 100 + '%';
+        
+        // Random animation duration (8-15 seconds)
+        const duration = Math.random() * 7 + 8;
+        flake.style.animationDuration = duration + 's';
+        
+        // Random delay to stagger the snowflakes
+        flake.style.animationDelay = Math.random() * 5 + 's';
+        
+        // Random size
+        const size = Math.random() * 10 + 10;
+        flake.style.fontSize = size + 'px';
+        
+        // Random opacity
+        flake.style.opacity = Math.random() * 0.4 + 0.3;
+        
+        document.body.appendChild(flake);
+      }
+    }
+
+    // Initialize snowfall when page loads
+    createSnowfall();
+  </script>
+</body>
+</html>

@@ -61,9 +61,17 @@ let focusActive = false;
 let remainingTime = 0;
 let timerInterval = null;
 let countdownInterval = null;
+let isLoading = true; // Track if popup is still loading
 
 document.addEventListener('DOMContentLoaded', async () => {
+  // Hide content during load to prevent flash
+  document.body.style.opacity = '0';
+  
   await loadPopupData();
+  
+  // Show content after data loaded
+  isLoading = false;
+  document.body.style.opacity = '1';
   
   // Refresh friends list every 10 seconds
   setInterval(async () => {
@@ -182,19 +190,25 @@ async function loadPopupData() {
       remainingTime = sessionEnd - Date.now();
       const totalDuration = sessionEnd - state.sessionStart;
       
+      // Calculate remaining and total in seconds
+      const remainingSeconds = Math.floor(remainingTime / 1000);
+      const totalSeconds = Math.floor(totalDuration / 1000);
+      
+      // Update timer display immediately
+      document.getElementById('timerDisplay1').textContent = formatTime(remainingSeconds);
       document.getElementById('statusDisplay1').textContent = 'Focusing';
       document.getElementById('startBtn1').style.display = 'none';
       document.getElementById('customTimerSection').classList.add('hidden');
       document.getElementById('quickActions1').classList.add('hidden');
       
-      // Set initial circle state
-      const remainingSeconds = Math.floor(remainingTime / 1000);
-      const totalSeconds = Math.floor(totalDuration / 1000);
-      updateProgressCircle(remainingSeconds, totalSeconds, false);
+      // Set initial circle state with animation
+      updateProgressCircle(remainingSeconds, totalSeconds, true);
       
       startTimerUpdate();
     } else {
-      const minutes = selectedDuration;
+      // Only set default duration if NOT coming from an active session
+      const minutes = state.lastSelectedDuration || selectedDuration;
+      selectedDuration = minutes;
       document.getElementById('timerDisplay1').textContent = formatTime(minutes * 60);
       document.getElementById('statusDisplay1').textContent = 'Ready';
       document.getElementById('customMinutes1').value = minutes;
