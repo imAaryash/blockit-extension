@@ -1,6 +1,10 @@
 // API Configuration
+// Note: config.js must be loaded before this file to get API_URL
 const API_CONFIG = {
-  baseURL: 'https://focus-backend-g1zg.onrender.com/api', // Change this to your deployed URL
+  get baseURL() {
+    // Use environment-aware API_URL from config.js if available
+    return typeof API_URL !== 'undefined' ? API_URL : 'https://focus-backend-g1zg.onrender.com/api';
+  },
   endpoints: {
     register: '/auth/register',
     login: '/auth/login',
@@ -79,7 +83,7 @@ class API {
     chrome.tabs.query({}, (tabs) => {
       tabs.forEach(tab => {
         if (tab.url && tab.url.includes('chrome-extension://')) {
-          chrome.tabs.update(tab.id, { url: 'login.html' });
+          chrome.tabs.update(tab.id, { url: chrome.runtime.getURL('pages/login.html') });
         }
       });
     });

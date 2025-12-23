@@ -5,10 +5,21 @@ const ENV_CONFIG = {
   // Detect environment
   isDevelopment: () => {
     // Only use development mode when explicitly testing with localhost backend
-    // Users who download from GitHub will use production mode
-    return window.location.hostname === 'localhost' || 
-           window.location.hostname === '127.0.0.1' ||
-           window.location.protocol === 'file:';
+    // Check if extension ID matches unpacked/development ID
+    // Production extensions have different IDs after being packed/published
+    const extensionId = chrome.runtime.id;
+    
+    // Your unpacked extension ID (update this with your actual dev ID)
+    const DEV_EXTENSION_IDS = [
+      // 'your-dev-extension-id-here', // Add your development extension ID here when testing
+    ];
+    
+    // Check if hostname is localhost (for web testing)
+    const isLocalhost = window.location.hostname === 'localhost' || 
+                       window.location.hostname === '127.0.0.1';
+    
+    // Return false by default (production mode) unless explicitly in dev list
+    return isLocalhost || DEV_EXTENSION_IDS.includes(extensionId);
   },
   
   // API URLs

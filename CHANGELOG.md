@@ -2,6 +2,40 @@
 
 All notable changes to BlockIt Focus Extension will be documented in this file.
 
+## [2.6.0] - 2025-12-22 - Winter Arc Season 🎄
+
+### ❄️ Season 2: Winter Arc
+- **New Season Launch**: Winter Arc season starts December 25, 2025
+- **Daily Login Rewards**: Earn shop coins for consecutive daily logins
+  - Days 1-2: 10 coins
+  - Days 3-6: 25 coins
+  - Days 7-13: 50 coins
+  - Days 14-29: 100 coins
+  - Days 30+: 200 coins
+- **Dual Currency System**: Shop Coins (from daily rewards) + Focus Points
+- **Smart Currency Deduction**: Shop automatically uses Shop Coins first, then Focus Points
+- **Season Leaderboards**: Fresh rankings for fair competition
+- **Winter Theme**: Beautiful snowfall animation in leaderboards
+
+### 🎨 UI/UX Improvements
+- **Redesigned Daily Login Modal**: Minimalistic dark theme matching app aesthetic
+  - Professional tier labels (Starter → Master)
+  - Clean #0a0a0a background
+  - Subtle blue accents (#3a86ff)
+  - Removed childish emojis and bright colors
+- **Enhanced Shop Display**: Shows both currencies prominently
+  - Focus Points (yellow) - main currency
+  - Shop Coins (green) - daily reward currency
+- **Leaderboard Header**: "❄️ Winter Arc ❄️" with season context
+
+### 🔧 Technical
+- Improved environment detection for dev/prod modes
+- Season point conversion on season end
+- Better currency management system
+- Production database separation
+
+---
+
 ## [2.4.0] - 2025-12-16
 
 ### 🆕 Social & UI Improvements

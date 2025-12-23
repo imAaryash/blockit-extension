@@ -1,14 +1,10 @@
 // background.js — service worker for Focus Mode
 
-// Environment Detection - Check if extension is unpacked (development mode)
+// Environment Detection - FORCE PRODUCTION MODE
 function isDevelopment() {
-  try {
-    const manifest = chrome.runtime.getManifest();
-    // Unpacked extensions don't have update_url (from Chrome Web Store)
-    return !manifest.update_url;
-  } catch (e) {
-    return false;
-  }
+  // Always return false to use production API
+  // To enable development mode, set this to true manually
+  return false;
 }
 
 // API Configuration - Environment aware
