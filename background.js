@@ -1,7 +1,26 @@
 // background.js — service worker for Focus Mode
 
-// API Configuration
-const API_BASE_URL = 'https://focus-backend-g1zg.onrender.com';
+// Environment Detection - Check if extension is unpacked (development mode)
+function isDevelopment() {
+  try {
+    const manifest = chrome.runtime.getManifest();
+    // Unpacked extensions don't have update_url (from Chrome Web Store)
+    return !manifest.update_url;
+  } catch (e) {
+    return false;
+  }
+}
+
+// API Configuration - Environment aware
+const API_URL = isDevelopment() 
+  ? 'http://localhost:3000/api' 
+  : 'https://focus-backend-g1zg.onrender.com/api';
+const API_BASE_URL = isDevelopment()
+  ? 'http://localhost:3000'
+  : 'https://focus-backend-g1zg.onrender.com';
+
+console.log('[Background Environment] Mode:', isDevelopment() ? 'DEVELOPMENT' : 'PRODUCTION');
+console.log('[Background Environment] API URL:', API_URL);
 
 // Version control
 let extensionBlocked = false;
@@ -9,6 +28,32 @@ let blockReason = '';
 
 // Import update checker
 importScripts('update-checker.js');
+
+// Show What's New page on December 25th, 2025
+chrome.runtime.onInstalled.addListener((details) => {
+  const now = new Date();
+  const launchDate = new Date('2025-12-25T00:00:00');
+  
+  // Only show on or after December 25th, 2025
+  if (now >= launchDate) {
+    if (details.reason === 'install') {
+      // First-time install - show what's new page
+      chrome.tabs.create({ url: chrome.runtime.getURL('pages/whats-new.html') });
+    } else if (details.reason === 'update') {
+      const manifest = chrome.runtime.getManifest();
+      const currentVersion = manifest.version;
+      
+      // Check if user has already seen this version's update page
+      chrome.storage.local.get(['lastSeenUpdateVersion'], (result) => {
+        if (result.lastSeenUpdateVersion !== currentVersion && currentVersion === '2.6.0') {
+          chrome.tabs.create({ url: chrome.runtime.getURL('pages/whats-new.html') });
+          // Mark this version as seen
+          chrome.storage.local.set({ lastSeenUpdateVersion: currentVersion });
+        }
+      });
+    }
+  }
+});
 
 // Core social media sites that are ALWAYS blocked during focus mode (cannot be removed)
 const PERMANENT_BLOCKED_SITES = [
@@ -138,6 +183,7 @@ function nowMs(){return Date.now();}
 
 async function enforceTab(tab) {
   if (!tab || !tab.url || tab.url.startsWith('chrome://') || tab.url.startsWith('about:')) return;
+  
   const state = await getState();
   const {focusActive, sessionEnd, onBreak} = state;
   const tNow = nowMs();
@@ -145,8 +191,31 @@ async function enforceTab(tab) {
   const url = tab.url.toLowerCase();
   const hostname = (new URL(tab.url)).hostname.toLowerCase();
 
-  // Only enforce restrictions when focus mode is active AND not on break
-  if (!focusActive || !sessionEnd || tNow > sessionEnd || onBreak) return;
+  console.log('[EnforceTab] Checking tab:', hostname);
+
+  // ALWAYS check permanently blocked sites first (24/7 blocking)
+  const permanentBlocked = state.permanentBlocked || [];
+  console.log('[EnforceTab] Permanent blocked list:', permanentBlocked);
+  
+  for (const site of permanentBlocked) {
+    const siteLower = site.toLowerCase();
+    console.log('[EnforceTab] Checking if', hostname, 'matches', siteLower);
+    
+    if (url.includes(siteLower) || hostname.includes(siteLower)) {
+      console.log('[PermanentBlock] ⛔ BLOCKING permanently blocked site:', hostname);
+      await chrome.tabs.update(tab.id, {url: chrome.runtime.getURL('pages/blocked.html')});
+      await incrementStat('blockedCount');
+      return;
+    }
+  }
+  
+  console.log('[EnforceTab] Not in permanent block list, continuing...');
+
+  // Only enforce focus mode restrictions when focus mode is active AND not on break
+  if (!focusActive || !sessionEnd || tNow > sessionEnd || onBreak) {
+    console.log('[EnforceTab] Focus mode not active, allowing site');
+    return;
+  }
 
   // Allowed check (simple substring match for now)
   for (const a of state.allowed || []) {
@@ -163,7 +232,7 @@ async function enforceTab(tab) {
   // Check permanent blocked sites first (always blocked during focus)
   for (const site of PERMANENT_BLOCKED_SITES) {
     if (url.includes(site) || hostname.includes(site)) {
-      await chrome.tabs.update(tab.id, {url: chrome.runtime.getURL('blocked.html')});
+      await chrome.tabs.update(tab.id, {url: chrome.runtime.getURL('pages/blocked.html')});
       await incrementStat('blockedCount');
       return;
     }
@@ -174,7 +243,7 @@ async function enforceTab(tab) {
     if (!kw) continue;
     if (url.includes(kw) || hostname.includes(kw)) {
       // redirect to local blocked page
-      await chrome.tabs.update(tab.id, {url: chrome.runtime.getURL('blocked.html')});
+      await chrome.tabs.update(tab.id, {url: chrome.runtime.getURL('pages/blocked.html')});
       await incrementStat('blockedCount');
       return;
     }
@@ -199,7 +268,7 @@ async function incrementStat(key) {
       const token = (await chrome.storage.local.get('authToken'))?.authToken;
       const state = await getState();
       if (token) {
-        await fetch('https://focus-backend-g1zg.onrender.com/api/users/stats', {
+        await fetch(`${API_URL}/users/stats`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -444,10 +513,10 @@ async function updateUserActivity(tab) {
   }
 }
 
-// Set idle detection threshold (60 seconds)
-chrome.idle.setDetectionInterval(60);
-
-// Idle state detection
+// Idle state detection DISABLED - Don't pause timer when user works in other browsers
+// If user switches to another browser to work, Chrome detects it as "idle" and extends the timer
+// This causes a 30min session to take 40+ minutes in real time
+/*
 chrome.idle.onStateChanged.addListener(async (newState) => {
   const state = await getState();
   
@@ -484,12 +553,18 @@ chrome.idle.onStateChanged.addListener(async (newState) => {
       
       // Extend session end time by idle duration (don't count idle time)
       const newSessionEnd = state.sessionEnd + idleDuration;
+      const newSessionDuration = (state.sessionDuration || 0) + idleDuration;
       const totalIdleTime = (state.idleTimeAccumulated || 0) + idleDuration;
+      
+      // IMPORTANT: Do NOT extend plannedDurationSeconds - it should remain the original value
+      // Only sessionEnd is extended to pause the timer, but final stats use original planned duration
       
       await chrome.storage.local.set({
         sessionEnd: newSessionEnd,
+        sessionDuration: newSessionDuration,
         idlePausedAt: 0,
         idleTimeAccumulated: totalIdleTime
+        // plannedDurationSeconds is NOT updated - keeps original value
       });
       
       // Update alarm
@@ -508,6 +583,7 @@ chrome.idle.onStateChanged.addListener(async (newState) => {
     }
   }
 });
+*/
 
 // Alarms to end session when time's up
 chrome.alarms.onAlarm.addListener(async (alarm) => {
@@ -554,21 +630,24 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
       return;
     }
     
-    // Calculate ACTUAL elapsed time (not planned duration)
-    const sessionStart = state.sessionStart || Date.now();
-    const sessionEnd = Date.now();
-    const actualDuration = sessionEnd - sessionStart; // Actual time elapsed in milliseconds
+    // ALWAYS use the exact planned duration that was stored at session start
+    // This is the ONLY reliable way - ignore all time calculations
+    const durationSeconds = state.plannedDurationSeconds || 60; // Default to 1 minute if not set
     
-    console.log('[SessionEnd] Session start:', new Date(sessionStart).toISOString());
-    console.log('[SessionEnd] Session end:', new Date(sessionEnd).toISOString());
-    console.log('[SessionEnd] Actual duration:', Math.floor(actualDuration / 60000), 'minutes');
+    console.log('[SessionEnd] ================================');
+    console.log('[SessionEnd] State plannedDurationSeconds:', state.plannedDurationSeconds);
+    console.log('[SessionEnd] State sessionStart:', new Date(state.sessionStart).toISOString());
+    console.log('[SessionEnd] State sessionEnd:', new Date(state.sessionEnd).toISOString());
+    console.log('[SessionEnd] State sessionDuration:', state.sessionDuration, 'ms');
+    console.log('[SessionEnd] State idleTimeAccumulated:', state.idleTimeAccumulated, 'ms');
+    console.log('[SessionEnd] Using EXACT planned duration:', durationSeconds, 'seconds (', Math.floor(durationSeconds / 60), 'minutes', durationSeconds % 60, 'seconds)');
+    console.log('[SessionEnd] ================================');
     
     // Get session activities
     const result = await chrome.storage.local.get(['sessionActivities']);
     const activities = result.sessionActivities || [];
     
-    // Save session summary for popup (use actual duration)
-    const durationSeconds = Math.floor(actualDuration / 1000);
+    // Save session summary with EXACT planned duration
     await chrome.storage.local.set({
       sessionSummary: {
         duration: durationSeconds,
@@ -579,6 +658,9 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
     
     // Clear session activities
     await chrome.storage.local.remove('sessionActivities');
+    
+    // Use milliseconds for stats calculation
+    const actualDuration = durationSeconds * 1000;
     
     // Check minimum session duration (15 minutes = 900000 ms)
     const minimumDuration = 15 * 60 * 1000; // 15 minutes minimum
@@ -594,6 +676,9 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
     
     // IMPORTANT: Set focusActive to false FIRST to prevent duplicate processing
     await chrome.storage.local.set({focusActive:false, sessionEnd: 0, emergencyUsed: false, sessionBlockedCount: 0});
+    
+    // Clear alarms
+    chrome.alarms.clear('focus-end');
     
     // Notify popup to update UI
     chrome.runtime.sendMessage({ action: 'sessionEnded' }).catch(() => {
@@ -645,7 +730,7 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
     // Open session summary popup AFTER stats are updated
     console.log('[SessionEnd] Opening session summary popup with', activities.length, 'activities');
     chrome.windows.create({
-      url: chrome.runtime.getURL('session-summary.html'),
+      url: chrome.runtime.getURL('pages/session-summary.html'),
       type: 'popup',
       width: 650,
       height: 700
@@ -736,7 +821,7 @@ async function syncCurrentStateToMongoDB() {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
     
-    const response = await fetch(`${API_BASE_URL}/api/users/stats`, {
+    const response = await fetch(`${API_URL}/users/stats`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -1256,11 +1341,14 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         }
       }
       
+      console.log('[StartSession] ⏱️ Setting timer for', durationMin, 'minutes =', durationMin * 60, 'seconds');
+      
       await chrome.storage.local.set({
         focusActive:true, 
         sessionEnd: end, 
         sessionStart: now,
         sessionDuration: durationMin*60*1000,
+        plannedDurationSeconds: durationMin * 60, // Store exact seconds for stats
         passcode: passcode || undefined,
         allowed: allowedSites,
         sessionBlockedCount: 0, // Reset blocked count for new session
@@ -1268,6 +1356,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         idlePausedAt: 0,
         wasIdleDuringSession: false
       });
+      
+      console.log('[StartSession] ✅ Stored plannedDurationSeconds:', durationMin * 60);
       
       // Update activity to focusing
       try {
@@ -1523,6 +1613,37 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       const s = await getState();
       const blocked = (s.blockedKeywords || []).filter(b => b !== msg.site);
       await chrome.storage.local.set({blockedKeywords: blocked});
+      sendResponse({ok:true});
+    } else if (msg.action === 'addPermanentBlock') {
+      const s = await getState();
+      const permanentBlocked = s.permanentBlocked || [];
+      const site = msg.site.toLowerCase().trim();
+      
+      if (!permanentBlocked.includes(site)) {
+        permanentBlocked.push(site);
+        await chrome.storage.local.set({permanentBlocked: permanentBlocked});
+        console.log('[PermanentBlock] Added site:', site, '- Total:', permanentBlocked.length);
+        
+        // Immediately check all open tabs and close any matching the blocked site
+        const allTabs = await chrome.tabs.query({});
+        for (const tab of allTabs) {
+          if (tab.url) {
+            const url = tab.url.toLowerCase();
+            const hostname = (new URL(tab.url)).hostname.toLowerCase();
+            
+            if (url.includes(site) || hostname.includes(site)) {
+              console.log('[PermanentBlock] Closing tab with blocked site:', hostname);
+              await chrome.tabs.update(tab.id, {url: chrome.runtime.getURL('pages/blocked.html')});
+            }
+          }
+        }
+      }
+      sendResponse({ok:true});
+    } else if (msg.action === 'removePermanentBlock') {
+      const s = await getState();
+      const permanentBlocked = (s.permanentBlocked || []).filter(b => b !== msg.site);
+      await chrome.storage.local.set({permanentBlocked: permanentBlocked});
+      console.log('[PermanentBlock] Removed site:', msg.site, '- Remaining:', permanentBlocked.length);
       sendResponse({ok:true});
     } else if (msg.action === 'registerUser') {
       const state = await getState();
@@ -1786,55 +1907,56 @@ async function handleBrowserClosedDuringSession() {
       console.log('[BrowserClosed] Planned end:', new Date(state.sessionEnd).toISOString());
       console.log('[BrowserClosed] Browser reopened:', new Date(now).toISOString());
       
-      // IMPORTANT: Complete the session with ACTUAL time focused before browser closed
-      // NOT the planned duration or time while browser was closed!
-      
-      let actualFocusTime;
-      
-      if (state.sessionPausedAt) {
-        // Browser was closed at this specific time
-        actualFocusTime = state.sessionPausedAt - state.sessionStart;
-        console.log('[BrowserClosed] Browser closed at:', new Date(state.sessionPausedAt).toISOString());
-      } else if (state.sessionEnd <= now) {
-        // Timer already finished before/during browser close - use full planned duration
-        actualFocusTime = state.sessionEnd - state.sessionStart;
-        console.log('[BrowserClosed] Timer had finished, using planned duration');
-      } else {
-        // Timer was still running - can't know exactly when user closed browser
-        // Give them credit up to when timer would have ended (benefit of doubt)
-        actualFocusTime = Math.min(now - state.sessionStart, state.sessionEnd - state.sessionStart);
-        console.log('[BrowserClosed] Timer was running, using elapsed time');
-      }
-      
-      // Subtract any idle time that was accumulated
-      const idleTime = state.idleTimeAccumulated || 0;
-      actualFocusTime = Math.max(0, actualFocusTime - idleTime);
-      
-      const actualMinutes = Math.floor(actualFocusTime / 60000);
-      console.log('[BrowserClosed] Actual focus time:', actualMinutes, 'minutes (excluding', Math.floor(idleTime/60000), 'min idle)');
-      
-      // Only award points if they focused for at least 5 minutes
-      if (actualMinutes >= 5) {
-        console.log('[BrowserClosed] ✅ Awarding points for', actualMinutes, 'minutes');
+      // Check if session should have ended by now (allow 5 second tolerance)
+      if (now >= state.sessionEnd - 5000) {
+        // Session timer finished while browser was closed
+        // Use EXACT planned duration (what user set)
+        const plannedSeconds = state.plannedDurationSeconds || Math.floor((state.sessionEnd - state.sessionStart) / 1000);
+        const plannedMinutes = Math.floor(plannedSeconds / 60);
         
-        // Award points for actual time focused
-        await updateSessionStats(actualFocusTime);
+        console.log('[BrowserClosed] ✅ Timer finished while browser closed. Using EXACT planned duration:', plannedMinutes, 'minutes');
         
+        // Save session summary with exact planned duration
+        await chrome.storage.local.set({
+          sessionSummary: {
+            duration: plannedSeconds,
+            activities: [],
+            completedAt: state.sessionEnd, // Use when it SHOULD have ended
+            earnedPoints: plannedSeconds >= 900, // 15 minutes minimum
+            minimumDuration: 15
+          }
+        });
+        
+        // Award stats for planned duration
+        if (plannedSeconds >= 900) { // 15 minutes
+          await updateSessionStats(plannedSeconds * 1000);
+        }
+        
+        // Show notification
         chrome.notifications.create({
           type: 'basic',
           iconUrl: 'icons/icon48.png',
           title: '✅ Session Recovered',
-          message: `Credited ${actualMinutes} minutes of focus from your previous session!`,
+          message: `Credited ${plannedMinutes} minutes from your session that finished while browser was closed!`,
           requireInteraction: false
         });
+        
+        // Open session summary
+        chrome.windows.create({
+          url: chrome.runtime.getURL('pages/session-summary.html'),
+          type: 'popup',
+          width: 650,
+          height: 700
+        });
       } else {
-        console.log('[BrowserClosed] ❌ Session too short (${actualMinutes} min), no points awarded');
+        // Session was interrupted (browser closed before timer ended)
+        console.log('[BrowserClosed] ⚠️ Session interrupted - timer had not finished yet');
         
         chrome.notifications.create({
           type: 'basic',
           iconUrl: 'icons/icon48.png',
-          title: '⏸️ Session Too Short',
-          message: 'Previous session was less than 5 minutes and was not counted.',
+          title: '⏸️ Session Interrupted',
+          message: 'Your previous session was interrupted and was not counted.',
           requireInteraction: false
         });
       }
@@ -2485,7 +2607,7 @@ async function sendActivityHeartbeat() {
     console.log('[Heartbeat] Sending to backend:', activityToSend);
     
     // Update backend with compatible fields only
-    const response = await fetch('https://focus-backend-g1zg.onrender.com/api/users/activity', {
+    const response = await fetch(`${API_URL}/users/activity`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -2570,7 +2692,7 @@ async function handleDeviceConflict(message) {
   const tabs = await chrome.tabs.query({});
   for (const tab of tabs) {
     if (tab.url && tab.url.includes('chrome-extension://')) {
-      chrome.tabs.update(tab.id, { url: 'login.html' });
+      chrome.tabs.update(tab.id, { url: chrome.runtime.getURL('pages/login.html') });
     }
   }
 }

@@ -59,19 +59,15 @@ function cleanVideoTitle(title) {
 let selectedDuration = 25;
 let focusActive = false;
 let remainingTime = 0;
+let totalSessionDuration = 0; // Store actual session duration from start/end times
 let timerInterval = null;
 let countdownInterval = null;
 let isLoading = true; // Track if popup is still loading
 
 document.addEventListener('DOMContentLoaded', async () => {
-  // Hide content during load to prevent flash
-  document.body.style.opacity = '0';
-  
   await loadPopupData();
   
-  // Show content after data loaded
   isLoading = false;
-  document.body.style.opacity = '1';
   
   // Refresh friends list every 10 seconds
   setInterval(async () => {
@@ -189,6 +185,7 @@ async function loadPopupData() {
     if (focusActive && sessionEnd > Date.now()) {
       remainingTime = sessionEnd - Date.now();
       const totalDuration = sessionEnd - state.sessionStart;
+      totalSessionDuration = totalDuration; // Store for timer updates
       
       // Calculate remaining and total in seconds
       const remainingSeconds = Math.floor(remainingTime / 1000);
@@ -201,8 +198,8 @@ async function loadPopupData() {
       document.getElementById('customTimerSection').classList.add('hidden');
       document.getElementById('quickActions1').classList.add('hidden');
       
-      // Set initial circle state with animation
-      updateProgressCircle(remainingSeconds, totalSeconds, true);
+      // Set initial circle state (focus mode = red, not break)
+      updateProgressCircle(remainingSeconds, totalSeconds, false);
       
       startTimerUpdate();
     } else {
@@ -636,6 +633,7 @@ async function startFocusSession() {
     
     focusActive = true;
     remainingTime = durationMin * 60 * 1000;
+    totalSessionDuration = durationMin * 60 * 1000; // Store total duration for timer updates
     
     document.getElementById('statusDisplay1').textContent = 'Focusing';
     document.getElementById('startBtn1').style.display = 'none';
@@ -660,10 +658,19 @@ async function startFocusSession() {
 function startTimerUpdate() {
   if (timerInterval) clearInterval(timerInterval);
   
-  const totalDuration = selectedDuration * 60 * 1000;
+  // Use the actual session duration stored from start/end times
+  const totalDuration = totalSessionDuration;
   
-  timerInterval = setInterval(() => {
-    remainingTime -= 1000;
+  timerInterval = setInterval(async () => {
+    // ALWAYS recalculate from storage to prevent drift
+    const state = await chrome.storage.local.get(['sessionEnd', 'focusActive']);
+    
+    if (!state.focusActive || !state.sessionEnd) {
+      endFocusSession();
+      return;
+    }
+    
+    remainingTime = state.sessionEnd - Date.now();
     
     if (remainingTime <= 0) {
       endFocusSession();

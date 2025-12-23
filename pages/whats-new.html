@@ -436,11 +436,11 @@
     </div>
 
     <div class="cta-section">
-      <button class="btn btn-primary" onclick="openSocialPage()">
+      <button class="btn btn-primary" id="goToSocialBtn">
         <i class="fas fa-users"></i>
         Go to Social Page
       </button>
-      <button class="btn btn-secondary" onclick="window.close()">
+      <button class="btn btn-secondary" id="closeBtn">
         <i class="fas fa-times"></i>
         Close
       </button>
@@ -448,6 +448,16 @@
   </div>
 
   <script>
+    // Button event listeners
+    document.getElementById('goToSocialBtn').addEventListener('click', () => {
+      chrome.tabs.create({ url: chrome.runtime.getURL('pages/social.html') });
+      window.close();
+    });
+
+    document.getElementById('closeBtn').addEventListener('click', () => {
+      window.close();
+    });
+
     function openSocialPage() {
       chrome.tabs.create({ url: chrome.runtime.getURL('pages/social.html') });
       window.close();
