@@ -120,7 +120,7 @@ async function downloadUpdate() {
             
             // Show installation guide
             chrome.tabs.create({
-              url: chrome.runtime.getURL('update-install.html')
+              url: chrome.runtime.getURL('pages/update-install.html')
             });
             
             resolve(true);

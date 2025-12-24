@@ -625,6 +625,7 @@ async function startFocusSession() {
       focusActive: true,
       sessionEnd: endTime,
       sessionStart: Date.now(),
+      plannedDurationSeconds: durationMin * 60, // Store planned duration in seconds
       emergencyUsed: false,
       sessionBlockedCount: 0
     });
