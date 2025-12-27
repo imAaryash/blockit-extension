@@ -627,8 +627,25 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
     }
     
     // ALWAYS use the exact planned duration that was stored at session start
-    // This is the ONLY reliable way - ignore all time calculations
-    const durationSeconds = state.plannedDurationSeconds || 60; // Default to 1 minute if not set
+    // Fallback: If plannedDurationSeconds is missing/invalid, calculate from session times
+    let durationSeconds = state.plannedDurationSeconds;
+    
+    if (!durationSeconds || durationSeconds <= 0) {
+      console.warn('[SessionEnd] ⚠️ plannedDurationSeconds missing or invalid:', durationSeconds);
+      console.warn('[SessionEnd] Calculating from sessionStart and sessionEnd...');
+      
+      // Calculate from actual session times (fallback)
+      const sessionStart = state.sessionStart || 0;
+      const sessionEnd = state.sessionEnd || Date.now();
+      const elapsedMs = sessionEnd - sessionStart;
+      const elapsedSeconds = Math.floor(elapsedMs / 1000);
+      
+      // Round to nearest 5-minute interval (300 seconds) since all timers are multiples of 5
+      const fiveMinutes = 5 * 60; // 300 seconds
+      durationSeconds = Math.round(elapsedSeconds / fiveMinutes) * fiveMinutes;
+      
+      console.warn('[SessionEnd] Calculated duration:', elapsedSeconds, 'seconds (raw) →', durationSeconds, 'seconds (rounded to 5-min interval)');
+    }
     
     console.log('[SessionEnd] ================================');
     console.log('[SessionEnd] State plannedDurationSeconds:', state.plannedDurationSeconds);
@@ -636,7 +653,7 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
     console.log('[SessionEnd] State sessionEnd:', new Date(state.sessionEnd).toISOString());
     console.log('[SessionEnd] State sessionDuration:', state.sessionDuration, 'ms');
     console.log('[SessionEnd] State idleTimeAccumulated:', state.idleTimeAccumulated, 'ms');
-    console.log('[SessionEnd] Using EXACT planned duration:', durationSeconds, 'seconds (', Math.floor(durationSeconds / 60), 'minutes', durationSeconds % 60, 'seconds)');
+    console.log('[SessionEnd] Using duration:', durationSeconds, 'seconds (', Math.floor(durationSeconds / 60), 'minutes', durationSeconds % 60, 'seconds)');
     console.log('[SessionEnd] ================================');
     
     // Get session activities
